@@ -7,7 +7,7 @@ chapterTitle: "Funciones"
 difficulty: "advanced"
 readingMinutes: 12
 appliesTo: ["js", "ts"]
-exercises: 4
+exercises: 5
 updatedAt: "2026-05-02"
 author: "Fernando Herrera"
 lede: "Un closure es una función que mantiene acceso a las variables de su ámbito léxico incluso después de que ese ámbito haya finalizado. Es el mecanismo detrás de callbacks, módulos, memoización y React hooks."
@@ -207,10 +207,11 @@ Los hooks de React son closures. `useEffect`, `useCallback` y `useMemo` capturan
 <Section id="ejercicios" title="Practica">
 <ExerciseGrid
   items={[
-    { num: "01", name: "Crea un generador de IDs únicos con closure", diff: "med", minutes: 5 },
-    { num: "02", name: "Implementa un stack con estado privado", diff: "med", minutes: 8 },
-    { num: "03", name: "Once — función que solo se ejecuta una vez", diff: "med", minutes: 6 },
-    { num: "04", name: "Memoización simple", diff: "hard", minutes: 10 },
+    { num: "01", name: "Crea un generador de IDs únicos con closure", diff: "med", minutes: 5, href: "/problems/typescript-generador-ids-closure" },
+    { num: "02", name: "Implementa un stack con estado privado", diff: "med", minutes: 8, href: "/problems/typescript-pila-estado-privado" },
+    { num: "03", name: "Once — función que solo se ejecuta una vez", diff: "med", minutes: 6, href: "/problems/typescript-once-closure" },
+    { num: "04", name: "Memoización simple", diff: "hard", minutes: 10, href: "/problems/typescript-memoizacion-closure" },
+    { num: "05", name: "Comprobador de rango con closure", diff: "med", minutes: 5, href: "/problems/typescript-rango-closure" },
   ]}
 />
 </Section>
