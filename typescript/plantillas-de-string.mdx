@@ -1,0 +1,150 @@
+---
+title: "Template literals: strings dinámicos con `backticks`"
+short: "Plantillas de string"
+chapter: "02"
+num: "05"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los template literals (plantillas de string) reemplazaron la concatenación con + para siempre. Interpolación, multilínea y tagged templates — todo en una sola sintaxis."
+pro: false
+---
+
+<Section id="basico" title="Sintaxis básica">
+
+Los template literals usan backtick `` ` `` (acento grave) en lugar de comillas. Permiten incrustar expresiones con `${...}`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const nombre = "Ana";
+const edad = 25;
+
+// Concatenación clásica (tedioso)
+const msg1 = "Hola, " + nombre + ". Tienes " + edad + " años.";
+
+// Template literal (limpio)
+const msg2 = \`Hola, \${nombre}. Tienes \${edad} años.\`;
+
+console.log(msg1); // Hola, Ana. Tienes 25 años.
+console.log(msg2); // Hola, Ana. Tienes 25 años.`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript verifica el tipo dentro de ${}
+const precio: number = 19.99;
+const impuesto: number = 0.21;
+
+const total: string = \`Precio: $\${(precio * (1 + impuesto)).toFixed(2)}\`;
+console.log(total); // Precio: $24.09`
+    }
+  ]}
+  output={`Hola, Ana. Tienes 25 años.\nPrecio: $24.09`}
+/>
+
+</Section>
+
+<Section id="expresiones" title="Expresiones dentro de ${}">
+
+Dentro de `${}` va **cualquier expresión** JavaScript:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Expresiones",
+      code: `const x = 10;
+const y = 5;
+
+console.log(\`Suma: \${x + y}\`);                 // 15
+console.log(\`Mayor: \${Math.max(x, y)}\`);        // 10
+console.log(\`Par: \${x % 2 === 0 ? "sí" : "no"}\`); // sí
+
+// Llamada a función
+const upper = (s) => s.toUpperCase();
+console.log(\`Nombre: \${upper("ana")}\`);          // ANA
+
+// Incluso templates anidados
+const items = ["a", "b", "c"];
+console.log(\`Items: \${items.map(i => \`[\${i}]\`).join("")}\`); // Items: [a][b][c]`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="multilinea" title="Strings multilínea">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Multilínea",
+      code: `// Con concatenación (feo)
+const html1 = "<div>\n" +
+  "  <p>Hola</p>\n" +
+  "</div>";
+
+// Con template literal (limpio)
+const html2 = \`
+<div>
+  <p>Hola</p>
+</div>
+\`.trim(); // .trim() elimina el salto de línea inicial
+
+console.log(html2);`
+    }
+  ]}
+  output={`<div>\n  <p>Hola</p>\n</div>`}
+/>
+
+</Section>
+
+<Section id="tagged" title="Tagged templates (avanzado)">
+
+Un tagged template es una función que recibe el template como partes separadas. Lo usan librerías como `styled-components`, `sql`, `gql`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Tagged template",
+      code: `// Ejemplo: escapar HTML automáticamente
+function safe(strings, ...values) {
+  return strings.reduce((acc, str, i) => {
+    const val = String(values[i - 1] || "")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    return acc + val + str;
+  });
+}
+
+const entrada = '<script>alert("xss")</script>';
+console.log(safe\`Entrada del usuario: \${entrada}\`);
+// Entrada del usuario: &lt;script&gt;alert("xss")&lt;/script&gt;`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="¿Cuándo usar tagged templates?">
+En el día a día no los escribirás, pero sí los **usarás** al trabajar con `styled-components` (CSS-in-JS), `graphql-tag` (consultas GraphQL) o ORMs como Prisma y Drizzle. Reconocerlos te ayuda a entender código de librerías.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte concatenaciones a template literals", diff: "easy", minutes: 3 },
+    { num: "02", name: "Genera un recibo multilínea", diff: "easy", minutes: 4 },
+    { num: "03", name: "Template con expresión condicional", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

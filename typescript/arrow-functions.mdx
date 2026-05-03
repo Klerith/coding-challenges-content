@@ -1,0 +1,203 @@
+---
+title: "Arrow functions: la sintaxis moderna de funciones"
+short: "Arrow functions"
+chapter: "04"
+num: "02"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Las arrow functions (ES6) son más cortas y tienen un comportamiento de 'this' diferente. Son la forma estándar de escribir funciones hoy — especialmente como callbacks."
+pro: false
+---
+
+<Section id="sintaxis" title="Sintaxis básica">
+
+Las arrow functions eliminan la palabra `function` y usan `=>`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Función tradicional
+const saludar1 = function(nombre) {
+  return \`Hola, \${nombre}\`;
+};
+
+// Arrow function equivalente
+const saludar2 = (nombre) => {
+  return \`Hola, \${nombre}\`;
+};
+
+// Con un solo parámetro, los paréntesis son opcionales
+const saludar3 = nombre => {
+  return \`Hola, \${nombre}\`;
+};
+
+// Con retorno de una sola expresión: return implícito
+const saludar4 = nombre => \`Hola, \${nombre}\`;
+
+console.log(saludar4("Ana")); // "Hola, Ana"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Con tipos
+const saludar = (nombre: string): string => \`Hola, \${nombre}\`;
+
+// Sin parámetros
+const ahora = (): Date => new Date();
+
+// Retorno de objeto — necesita paréntesis para evitar ambigüedad
+const crearUsuario = (nombre: string, edad: number) => ({
+  nombre,
+  edad,
+});
+
+console.log(crearUsuario("Ana", 25));
+// { nombre: "Ana", edad: 25 }`
+    }
+  ]}
+  output={`Hola, Ana`}
+/>
+
+</Section>
+
+<Section id="callbacks" title="Arrow functions como callbacks">
+
+Las arrow functions brillan como argumentos de `.map`, `.filter`, `.reduce`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Callbacks",
+      code: `const numeros = [1, 2, 3, 4, 5];
+
+// Comparación: función tradicional vs arrow
+const dobles1 = numeros.map(function(n) { return n * 2; });
+const dobles2 = numeros.map(n => n * 2);
+
+console.log(dobles2); // [2, 4, 6, 8, 10]
+
+// Encadenamiento limpio
+const resultado = numeros
+  .filter(n => n % 2 === 0)  // [2, 4]
+  .map(n => n ** 2)           // [4, 16]
+  .reduce((acc, n) => acc + n, 0); // 20
+
+console.log(resultado); // 20`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  nombre: string;
+  activo: boolean;
+  puntos: number;
+}
+
+const usuarios: Usuario[] = [
+  { nombre: "Ana", activo: true, puntos: 120 },
+  { nombre: "Luis", activo: false, puntos: 80 },
+  { nombre: "Eva", activo: true, puntos: 200 },
+];
+
+const nombresActivos = usuarios
+  .filter((u): u is Usuario => u.activo)
+  .map(u => u.nombre);
+
+console.log(nombresActivos); // ["Ana", "Eva"]`
+    }
+  ]}
+  output={`[2, 4, 6, 8, 10]\n20`}
+/>
+
+</Section>
+
+<Section id="this" title="La diferencia clave: this">
+
+La diferencia más importante entre arrow functions y funciones tradicionales es cómo tratan `this`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "this en arrows vs tradicional",
+      code: `const temporizador = {
+  nombre: "Mi timer",
+  iniciar() {
+    // 'this' aquí es temporizador ✅
+    console.log(\`Iniciando: \${this.nombre}\`);
+
+    // ❌ función tradicional pierde 'this'
+    // setTimeout(function() {
+    //   console.log(this.nombre); // undefined
+    // }, 100);
+
+    // ✅ arrow function hereda 'this' del contexto léxico
+    setTimeout(() => {
+      console.log(\`Corriendo: \${this.nombre}\`);
+    }, 100);
+  },
+};
+
+temporizador.iniciar();
+// Iniciando: Mi timer
+// Corriendo: Mi timer`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Regla de this">
+Las arrow functions no tienen su propio `this` — lo heredan del contexto donde fueron **definidas** (léxico). Las funciones tradicionales reciben `this` según cómo son **llamadas**.
+</Callout>
+
+</Section>
+
+<Section id="cuando-no-usar" title="Cuándo NO usar arrow functions">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Evitar arrows aquí",
+      code: `// ❌ Como método de objeto (this incorrecto)
+const contador = {
+  valor: 0,
+  incrementar: () => {
+    this.valor++; // this NO es contador — es el contexto externo
+  },
+};
+
+// ✅ Usar función tradicional para métodos
+const contador2 = {
+  valor: 0,
+  incrementar() {
+    this.valor++;
+  },
+};
+
+// ❌ Como constructor (arrows no pueden usarse con new)
+// const Persona = (nombre) => { this.nombre = nombre; };
+// new Persona("Ana"); // TypeError`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Reescribe funciones tradicionales como arrows", diff: "easy", minutes: 3 },
+    { num: "02", name: "Encadena map + filter + reduce", diff: "med", minutes: 5 },
+    { num: "03", name: "Arrow con retorno de objeto", diff: "easy", minutes: 3 },
+    { num: "04", name: "Identifica problemas con this", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

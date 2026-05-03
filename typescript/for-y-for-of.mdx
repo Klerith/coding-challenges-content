@@ -1,0 +1,201 @@
+---
+title: "for y for...of: iterar sobre colecciones"
+short: "for y for...of"
+chapter: "03"
+num: "04"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El bucle for clásico te da control total sobre el índice. for...of es la alternativa moderna para iterar valores directamente. Conoce cuándo usar cada uno."
+pro: false
+---
+
+<Section id="for-clasico" title="El bucle for clásico">
+
+El `for` clásico tiene tres partes: **inicialización**, **condición** y **actualización**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sintaxis: for (init; condición; actualización)
+for (let i = 0; i < 5; i++) {
+  console.log(i);
+}
+// 0 1 2 3 4
+
+// Iterar un array con índice
+const frutas = ["manzana", "pera", "uva"];
+for (let i = 0; i < frutas.length; i++) {
+  console.log(\`\${i}: \${frutas[i]}\`);
+}
+// 0: manzana
+// 1: pera
+// 2: uva`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const numeros: number[] = [10, 20, 30];
+
+for (let i = 0; i < numeros.length; i++) {
+  // TypeScript infiere: numeros[i] es number
+  console.log(numeros[i] * 2);
+}
+// 20 40 60`
+    }
+  ]}
+  output={`0\n1\n2\n3\n4`}
+/>
+
+</Section>
+
+<Section id="for-of" title="for...of: iterar valores directamente">
+
+`for...of` (ES6) itera sobre los **valores** de cualquier iterable (arrays, strings, Sets, Maps…). Es más limpio cuando no necesitas el índice.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const frutas = ["manzana", "pera", "uva"];
+
+// for...of — solo valores
+for (const fruta of frutas) {
+  console.log(fruta);
+}
+// manzana pera uva
+
+// También funciona con strings
+for (const letra of "hola") {
+  console.log(letra);
+}
+// h o l a
+
+// Con Set (valores únicos)
+const colores = new Set(["rojo", "azul", "rojo"]);
+for (const color of colores) {
+  console.log(color);
+}
+// rojo azul`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Producto {
+  nombre: string;
+  precio: number;
+}
+
+const productos: Producto[] = [
+  { nombre: "Camiseta", precio: 19.99 },
+  { nombre: "Pantalón", precio: 49.99 },
+];
+
+for (const p of productos) {
+  // TypeScript infiere: p es Producto
+  console.log(\`\${p.nombre}: €\${p.precio}\`);
+}
+// Camiseta: €19.99
+// Pantalón: €49.99`
+    }
+  ]}
+  output={`manzana\npera\nuva`}
+/>
+
+</Section>
+
+<Section id="entries" title="Índice + valor con entries()">
+
+Si necesitas el índice en un `for...of`, usa `.entries()`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "entries()",
+      code: `const nombres = ["Ana", "Luis", "Eva"];
+
+for (const [i, nombre] of nombres.entries()) {
+  console.log(\`\${i + 1}. \${nombre}\`);
+}
+// 1. Ana
+// 2. Luis
+// 3. Eva
+
+// Map también es iterable con entries
+const config = new Map([["host", "localhost"], ["port", "3000"]]);
+for (const [clave, valor] of config) {
+  console.log(\`\${clave} = \${valor}\`);
+}
+// host = localhost
+// port = 3000`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="break-continue" title="break y continue">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "break y continue",
+      code: `const numeros = [1, 2, 3, 4, 5, 6, 7, 8];
+
+// continue: salta la iteración actual
+for (const n of numeros) {
+  if (n % 2 !== 0) continue; // salta impares
+  console.log(n);
+}
+// 2 4 6 8
+
+// break: sale del bucle completamente
+for (const n of numeros) {
+  if (n > 4) break; // para cuando n > 4
+  console.log(n);
+}
+// 1 2 3 4`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="for-vs-forof" title="¿Cuándo usar cada uno?">
+
+<CompareTable
+  headers={["", "for clásico", "for...of"]}
+  rows={[
+    ["Cuándo usarlo", "Necesitas índice o control preciso de iteración", "Solo necesitas los valores"],
+    ["Legibilidad", { kind: "bad", value: "Más verboso" }, { kind: "good", value: "Conciso y claro" }],
+    ["Iterables", { kind: "bad", value: "Solo arrays/strings por índice" }, { kind: "good", value: "Cualquier iterable (Array, Set, Map, String)" }],
+    ["Saltar/parar", { kind: "good", value: "break y continue" }, { kind: "good", value: "break y continue" }],
+    ["Modificar array", { kind: "good", value: "Con arr[i] = valor" }, { kind: "bad", value: "La variable es copia del valor" }],
+  ]}
+/>
+
+<Callout variant="tip" title="Regla práctica">
+Usa `for...of` por defecto. Solo elige el `for` clásico cuando necesites el índice para modificar el array original o controlar el paso (`i += 2`).
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Suma todos los elementos de un array", diff: "easy", minutes: 3 },
+    { num: "02", name: "Cuenta vocales en un string con for...of", diff: "easy", minutes: 4 },
+    { num: "03", name: "Encuentra el primer número negativo", diff: "med", minutes: 4 },
+    { num: "04", name: "Itera sobre un Map de configuración", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,127 @@
+---
+title: "while y do...while: bucles con condición"
+short: "while y do...while"
+chapter: "03"
+num: "05"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "while repite mientras una condición sea verdadera — ideal cuando no sabes de antemano cuántas iteraciones necesitas. do...while garantiza al menos una ejecución."
+pro: false
+---
+
+<Section id="while" title="El bucle while">
+
+`while` evalúa la condición **antes** de cada iteración. Si la condición es falsa desde el inicio, el cuerpo nunca se ejecuta.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `let contador = 0;
+
+while (contador < 5) {
+  console.log(contador);
+  contador++;
+}
+// 0 1 2 3 4
+
+// Ejemplo práctico: procesar hasta vaciar una cola
+const cola = [1, 2, 3];
+while (cola.length > 0) {
+  const item = cola.shift(); // elimina el primero
+  console.log("Procesando:", item);
+}
+// Procesando: 1
+// Procesando: 2
+// Procesando: 3`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function buscarIndice(arr: number[], objetivo: number): number {
+  let i = 0;
+  while (i < arr.length) {
+    if (arr[i] === objetivo) return i;
+    i++;
+  }
+  return -1;
+}
+
+console.log(buscarIndice([10, 20, 30], 20)); // 1
+console.log(buscarIndice([10, 20, 30], 99)); // -1`
+    }
+  ]}
+  output={`0\n1\n2\n3\n4`}
+/>
+
+<Callout variant="warn" title="Bucle infinito">
+Si la condición nunca se vuelve `false`, el programa se cuelga. Asegúrate siempre de que el cuerpo del bucle acerque la condición a `false`.
+</Callout>
+
+</Section>
+
+<Section id="do-while" title="do...while: al menos una vez">
+
+`do...while` ejecuta el cuerpo **primero** y luego evalúa la condición. Garantiza al menos una ejecución.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "do...while",
+      code: `let intentos = 0;
+
+do {
+  intentos++;
+  console.log("Intento", intentos);
+} while (intentos < 3);
+// Intento 1
+// Intento 2
+// Intento 3
+
+// La condición empieza en false — pero se ejecuta una vez
+let n = 10;
+do {
+  console.log("Se ejecuta una vez:", n);
+  n++;
+} while (n < 5);
+// Se ejecuta una vez: 10`
+    }
+  ]}
+  output={`Intento 1\nIntento 2\nIntento 3`}
+/>
+
+</Section>
+
+<Section id="cuando-usar" title="while vs for — cuándo elegir cada uno">
+
+<CompareTable
+  headers={["", "for / for...of", "while"]}
+  rows={[
+    ["Cuándo usarlo", "Número de iteraciones conocido o iterable definido", "Número de iteraciones desconocido, depende de una condición"],
+    ["Ejemplos", "Recorrer un array, repetir N veces", "Leer hasta EOF, esperar conexión, reintentar operaciones"],
+    ["Riesgo de bucle infinito", { kind: "good", value: "Bajo (el límite está en la declaración)" }, { kind: "bad", value: "Alto si no se actualiza la condición" }],
+  ]}
+/>
+
+<Callout variant="tip" title="Cuándo usar do...while">
+Úsalo cuando necesites que el cuerpo se ejecute **al menos una vez** antes de verificar: menús de selección, validación inicial de input, reintentos con respuesta inmediata.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Cuenta regresiva con while", diff: "easy", minutes: 3 },
+    { num: "02", name: "Adivina el número (do...while)", diff: "med", minutes: 5 },
+    { num: "03", name: "Eliminar duplicados con while", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

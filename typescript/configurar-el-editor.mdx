@@ -1,0 +1,156 @@
+---
+title: "Configurar el editor y el entorno"
+short: "Configurar el editor"
+chapter: "01"
+num: "04"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 0
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Un buen entorno multiplica tu productividad. Esta lección te muestra cómo configurar VS Code, instalar Node.js y tener TypeScript funcionando en menos de 10 minutos."
+pro: false
+---
+
+<Section id="vscode" title="VS Code: el editor recomendado">
+
+**Visual Studio Code** (gratuito, de Microsoft) es el editor más usado para JavaScript y TypeScript. Incluye IntelliSense, depurador, terminal integrada y soporte nativo de TypeScript.
+
+**Descarga**: [code.visualstudio.com](https://code.visualstudio.com)
+
+**Extensiones recomendadas para instalar:**
+- **ESLint** — detecta errores y malas prácticas.
+- **Prettier** — formatea el código automáticamente al guardar.
+- **Error Lens** — muestra los errores de TypeScript inline en el código.
+- **JavaScript and TypeScript Nightly** — tipos más actualizados.
+
+<Callout title="¿Puedo usar otro editor?">
+Sí. WebStorm, Neovim, Zed y otros también tienen soporte excelente. Pero VS Code tiene el ecosistema más grande para TS/JS y es lo que verás en la mayoría de tutoriales.
+</Callout>
+
+</Section>
+
+<Section id="nodejs" title="Node.js: JavaScript en el servidor">
+
+Node.js es el runtime que permite ejecutar JavaScript fuera del navegador. Necesitas instalarlo para correr archivos `.js` y `.ts` desde la terminal.
+
+**Instalar la versión LTS desde**: [nodejs.org/en/download](https://nodejs.org/en/download) (descarga la versión LTS).
+
+Verifica la instalación:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "bash",
+      label: "Terminal",
+      code: `node --version   # v22.x.x
+npm --version    # 10.x.x`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="typescript-local" title="TypeScript en local">
+
+TypeScript no viene con Node.js. Se instala como paquete de npm:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "bash",
+      label: "Terminal",
+      code: `# Instalar TypeScript globalmente
+npm install -g typescript
+
+# Verificar
+tsc --version   # Version 5.x.x
+
+# Compilar un archivo .ts a .js
+tsc mi-archivo.ts
+
+# Ejecutar el resultado
+node mi-archivo.js`
+    }
+  ]}
+/>
+
+Para proyectos reales se usa `tsx` (ejecución directa sin compilar) o bundlers como Vite:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "bash",
+      label: "Terminal",
+      code: `# Instalar tsx
+npm install -g tsx
+
+# Ejecutar TypeScript directamente (sin compilar)
+tsx mi-archivo.ts`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="tsconfig" title="tsconfig.json: la configuración de TypeScript">
+
+Cada proyecto TypeScript tiene un archivo `tsconfig.json` que le dice al compilador qué hace y cómo. El mínimo recomendado:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "tsconfig.json",
+      code: `{
+  "compilerOptions": {
+    "target": "ES2022",       // versión de JS a generar
+    "module": "NodeNext",     // sistema de módulos
+    "strict": true,           // activa todas las comprobaciones estrictas
+    "outDir": "dist",         // carpeta de salida
+    "rootDir": "src"          // carpeta de entrada
+  },
+  "include": ["src/**/*"]
+}`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="strict: true es lo más importante">
+La opción `strict: true` activa `noImplicitAny`, `strictNullChecks` y otras comprobaciones que evitan la mayoría de bugs difíciles. Siempre úsala en proyectos nuevos.
+</Callout>
+
+</Section>
+
+<Section id="primer-proyecto" title="Tu primer proyecto TypeScript">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "bash",
+      label: "Terminal",
+      code: `# Crear carpeta
+mkdir mi-proyecto && cd mi-proyecto
+
+# Inicializar npm
+npm init -y
+
+# Instalar TypeScript
+npm install -D typescript tsx
+
+# Crear tsconfig
+npx tsc --init
+
+# Crear archivo
+echo 'console.log("¡Hola desde TypeScript!")' > index.ts
+
+# Ejecutar
+npx tsx index.ts`
+    }
+  ]}
+  output={`¡Hola desde TypeScript!`}
+/>
+
+</Section>

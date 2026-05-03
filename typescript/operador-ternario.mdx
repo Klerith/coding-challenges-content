@@ -1,0 +1,131 @@
+---
+title: "Operador ternario: condiciones en una sola línea"
+short: "Operador ternario"
+chapter: "03"
+num: "03"
+chapterTitle: "Control de flujo"
+difficulty: "intermediate"
+readingMinutes: 5
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El operador ternario es un if/else compacto para expresiones. Bien usado hace el código más limpio; mal usado lo hace ilegible. Aprende la diferencia."
+pro: false
+---
+
+<Section id="sintaxis" title="Sintaxis">
+
+```
+condición ? valorSiTrue : valorSiFalse
+```
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const edad = 20;
+
+// if/else equivalente
+let estado;
+if (edad >= 18) {
+  estado = "adulto";
+} else {
+  estado = "menor";
+}
+
+// Ternario (una línea, más limpio)
+const estado2 = edad >= 18 ? "adulto" : "menor";
+console.log(estado2); // "adulto"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const activo: boolean = true;
+
+// TypeScript infiere el tipo del resultado
+const etiqueta = activo ? "Activo" : "Inactivo";
+// tipo inferido: string
+
+// Con tipos diferentes (union type)
+const valor = activo ? 1 : "desconocido";
+// tipo inferido: number | string`
+    }
+  ]}
+  output={`adulto`}
+/>
+
+</Section>
+
+<Section id="usos" title="Usos comunes">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Casos de uso",
+      code: `// 1. Valores por defecto
+const nombre = usuario?.nombre ?? "Invitado";
+
+// 2. Clases CSS condicionales (React/JSX)
+const clase = esActivo ? "btn-activo" : "btn-inactivo";
+
+// 3. Mensajes condicionales
+const msg = items.length > 0
+  ? \`Tienes \${items.length} artículos\`
+  : "Carrito vacío";
+
+// 4. Dentro de JSX
+// return <span>{esAdmin ? "Admin" : "Usuario"}</span>;`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="anidado" title="Ternarios anidados — cuándo evitarlos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Evitar vs preferir",
+      code: `// ❌ Ternario anidado — ilegible
+const clasificacion = nota >= 90 ? "A"
+  : nota >= 80 ? "B"
+  : nota >= 70 ? "C"
+  : nota >= 60 ? "D"
+  : "F";
+
+// ✅ Mejor con if/else if
+let clasificacion2;
+if (nota >= 90) clasificacion2 = "A";
+else if (nota >= 80) clasificacion2 = "B";
+else if (nota >= 70) clasificacion2 = "C";
+else if (nota >= 60) clasificacion2 = "D";
+else clasificacion2 = "F";
+
+// ✅ O con un objeto de mapeo
+const tabla = { 90: "A", 80: "B", 70: "C", 60: "D" };
+const clasificacion3 = Object.entries(tabla)
+  .find(([min]) => nota >= Number(min))?.[1] ?? "F";`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="La regla de oro del ternario">
+Usa el ternario cuando el resultado es un valor simple de dos opciones. Si necesitas más de dos opciones o ejecutar efectos secundarios, usa `if/else` o `switch`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Par o impar con ternario", diff: "easy", minutes: 2 },
+    { num: "02", name: "Mensajes plurales (1 item / N items)", diff: "easy", minutes: 3 },
+    { num: "03", name: "Refactoriza un if/else a ternario", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,241 @@
+---
+title: "Tipos primitivos: string, number, boolean, null, undefined"
+short: "Tipos primitivos"
+chapter: "02"
+num: "02"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "JavaScript tiene 7 tipos primitivos. Conocerlos bien evita bugs de comparación, conversiones inesperadas y el infame 'undefined is not a function'."
+pro: false
+---
+
+<Section id="primitivos" title="¿Qué es un tipo primitivo?">
+
+Los valores primitivos son **inmutables** y se comparan por valor. Son la materia prima de todo programa JavaScript.
+
+| Tipo | Ejemplo | Descripción |
+|---|---|---|
+| `string` | `"hola"` | Texto |
+| `number` | `42`, `3.14` | Enteros y decimales |
+| `boolean` | `true`, `false` | Verdadero o falso |
+| `null` | `null` | Ausencia intencional de valor |
+| `undefined` | `undefined` | Variable no asignada |
+| `bigint` | `9007199254740992n` | Enteros muy grandes |
+| `symbol` | `Symbol("id")` | Identificador único |
+
+En el día a día usarás los primeros cinco. `bigint` y `symbol` aparecen en casos específicos.
+
+</Section>
+
+<Section id="string" title="string: texto">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const nombre = "Fernando";      // comillas dobles
+const ciudad = 'Madrid';         // comillas simples
+const saludo = \`Hola, \${nombre}!\`; // template literal
+
+// Métodos útiles
+console.log(nombre.length);       // 8
+console.log(nombre.toUpperCase()); // "FERNANDO"
+console.log(nombre.includes("and")); // true
+console.log("  hola  ".trim());    // "hola"
+console.log("a,b,c".split(","));   // ["a", "b", "c"]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const nombre: string = "Fernando";
+
+// TypeScript conoce todos los métodos disponibles
+nombre.toUpperCase();   // ✅ IntelliSense sugiere métodos
+nombre.inexistente();   // ❌ Property 'inexistente' does not exist on type 'string'`
+    }
+  ]}
+  output={`8\nFERNANDO\ntrue\nhola\n["a", "b", "c"]`}
+/>
+
+</Section>
+
+<Section id="number" title="number: números">
+
+JavaScript usa un solo tipo para enteros y decimales (IEEE 754 de 64 bits).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const entero = 42;
+const decimal = 3.14;
+const negativo = -100;
+const grande = 1_000_000; // separador visual (ES2021)
+
+// Operaciones
+console.log(0.1 + 0.2); // 0.30000000000000004 ← punto flotante!
+
+// Métodos útiles
+console.log(Math.round(3.7));   // 4
+console.log(Math.max(1, 5, 3)); // 5
+console.log(Number.isInteger(42));    // true
+console.log(Number.isFinite(1 / 0)); // false
+console.log(parseInt("42px"));        // 42
+console.log(parseFloat("3.14em"));    // 3.14`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const precio: number = 19.99;
+const cantidad: number = 5;
+
+function calcularTotal(p: number, q: number): number {
+  return p * q;
+}
+
+calcularTotal(precio, cantidad); // 99.95
+calcularTotal("19.99", 5);       // ❌ Error de tipo`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="El problema de 0.1 + 0.2">
+En JavaScript `0.1 + 0.2 === 0.3` es **false**. Para dinero y cálculos de precisión, usa `Math.round(valor * 100) / 100` o una librería como `decimal.js`.
+</Callout>
+
+</Section>
+
+<Section id="boolean" title="boolean: verdadero o falso">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const activo = true;
+const desactivado = false;
+
+// Valores "falsy" — se comportan como false en condiciones
+console.log(Boolean(0));         // false
+console.log(Boolean(""));        // false
+console.log(Boolean(null));      // false
+console.log(Boolean(undefined)); // false
+console.log(Boolean(NaN));       // false
+
+// Todo lo demás es "truthy"
+console.log(Boolean("0"));       // true  ← ojo!
+console.log(Boolean([]));        // true
+console.log(Boolean({}));        // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const activo: boolean = true;
+
+function mostrarEstado(estado: boolean): string {
+  return estado ? "✅ Activo" : "❌ Inactivo";
+}
+
+mostrarEstado(activo);   // "✅ Activo"
+mostrarEstado(1);        // ❌ Argument of type 'number' is not assignable to parameter of type 'boolean'`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="null-undefined" title="null vs undefined">
+
+Ambos representan la ausencia de valor, pero con una semántica distinta.
+
+<CompareTable
+  headers={["", "null", "undefined"]}
+  rows={[
+    ["Significado", "Vacío intencional (\"no hay valor\")", "No asignado o no declarado"],
+    ["Quién lo asigna", "El programador explícitamente", "JavaScript automáticamente"],
+    ["typeof", { kind: "bad", value: "\"object\" (bug histórico)" }, "\"undefined\""],
+    ["Uso típico", "Limpiar una referencia, respuesta de API sin datos", "Parámetro opcional no pasado, variable sin inicializar"],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Diferencia práctica",
+      code: `let usuario = null;    // "no hay usuario aún" (intencional)
+let nombre;            // undefined (no asignado)
+
+console.log(usuario);  // null
+console.log(nombre);   // undefined
+
+// Comparación
+console.log(null == undefined);  // true  (igualdad débil)
+console.log(null === undefined); // false (igualdad estricta)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Con strict: true, debes manejar null y undefined explícitamente
+function saludar(nombre: string | null): string {
+  if (nombre === null) return "Hola, invitado";
+  return \`Hola, \${nombre}\`;
+}
+
+// Optional chaining para null/undefined
+const usuario: { nombre?: string } = {};
+console.log(usuario.nombre?.toUpperCase()); // undefined (no error)`
+    }
+  ]}
+/>
+
+<Callout title="Nullish coalescing ??">
+El operador `??` devuelve el operando derecho solo si el izquierdo es `null` o `undefined` (a diferencia de `||` que también reacciona a `0`, `""`, `false`):
+`const valor = resultado ?? "default";`
+</Callout>
+
+</Section>
+
+<Section id="typeof" title="Detectar tipos con typeof">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "typeof",
+      code: `typeof "hola"       // "string"
+typeof 42           // "number"
+typeof true         // "boolean"
+typeof undefined    // "undefined"
+typeof null         // "object"  ← bug histórico de JS
+typeof {}           // "object"
+typeof []           // "object"  ← arrays también son "object"
+typeof function(){} // "function"
+
+// Para distinguir array de objeto:
+Array.isArray([])   // true
+Array.isArray({})   // false`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="4 ejercicios para afianzar el manejo de tipos primitivos."
+  items={[
+    { num: "01", name: "Conversión de tipos implícita", diff: "easy", minutes: 3 },
+    { num: "02", name: "Valores falsy y truthy", diff: "easy", minutes: 3 },
+    { num: "03", name: "null vs undefined en práctica", diff: "med", minutes: 4 },
+    { num: "04", name: "typeof en condicionales", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,221 @@
+---
+title: "Operadores: aritméticos, de comparación y lógicos"
+short: "Operadores"
+chapter: "02"
+num: "03"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 9
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los operadores son los verbos del lenguaje: hacen cosas con los valores. Desde sumar números hasta comparar objetos — esta lección cubre todo lo que necesitas saber para escribir lógica real."
+pro: false
+---
+
+<Section id="aritmeticos" title="Operadores aritméticos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `console.log(5 + 3);   // 8   — suma
+console.log(10 - 4);  // 6   — resta
+console.log(3 * 4);   // 12  — multiplicación
+console.log(15 / 4);  // 3.75 — división
+console.log(15 % 4);  // 3   — módulo (resto)
+console.log(2 ** 8);  // 256 — potencia
+
+// Incremento / decremento
+let n = 5;
+n++;           // n = 6 (post-incremento)
+++n;           // n = 7 (pre-incremento)
+n--;           // n = 6
+--n;           // n = 5
+
+// Asignación compuesta
+n += 10;       // n = 15
+n -= 5;        // n = 10
+n *= 2;        // n = 20
+n /= 4;        // n = 5
+n **= 2;       // n = 25`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="comparacion" title="Operadores de comparación">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Igualdad estricta (recomendada)
+console.log(5 === 5);       // true
+console.log(5 === "5");     // false — tipos diferentes
+
+// Igualdad débil (evitar)
+console.log(5 == "5");      // true  — coerciona el tipo!
+console.log(null == undefined); // true
+
+// Desigualdad
+console.log(5 !== 3);       // true
+console.log(5 != "5");      // false (débil)
+
+// Mayor / menor
+console.log(5 > 3);         // true
+console.log(5 >= 5);        // true
+console.log(3 < 5);         // true
+console.log(3 <= 2);        // false`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript impide comparaciones sin sentido
+const num: number = 5;
+const str: string = "5";
+
+console.log(num === str); // ❌ This comparison appears to be unintentional
+                          // porque 'number' y 'string' no se solapan
+
+// Con tipos correctos funciona:
+const a: number = 5;
+const b: number = 5;
+console.log(a === b); // ✅ true`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Siempre usa === en lugar de ==">
+La igualdad débil `==` hace coerción de tipos y produce resultados sorprendentes: `"" == false` es `true`, `0 == false` es `true`. Usa `===` siempre.
+</Callout>
+
+</Section>
+
+<Section id="logicos" title="Operadores lógicos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// AND: true solo si ambos son true
+console.log(true && true);    // true
+console.log(true && false);   // false
+
+// OR: true si al menos uno es true
+console.log(false || true);   // true
+console.log(false || false);  // false
+
+// NOT: invierte el valor
+console.log(!true);           // false
+console.log(!false);          // true
+
+// Short-circuit evaluation
+const usuario = null;
+const nombre = usuario && usuario.nombre; // null (no evalúa .nombre)
+const config = null;
+const host = config || "localhost";        // "localhost"
+
+// Nullish coalescing (solo reacciona a null/undefined)
+const valor = 0;
+console.log(valor || "default");   // "default" (malo: 0 es falsy)
+console.log(valor ?? "default");   // 0 (correcto: 0 no es null/undefined)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Logical assignment (ES2021 + TS)
+let a: number | null = null;
+a ??= 42;          // si a es null o undefined, asigna 42
+console.log(a);    // 42
+
+let b = 10;
+b ||= 0;           // si b es falsy, asigna 0 (no cambia porque 10 es truthy)
+console.log(b);    // 10
+
+let c = 0;
+c &&= 5;           // si c es truthy, asigna 5 (no cambia porque 0 es falsy)
+console.log(c);    // 0`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ternario" title="Operador ternario">
+
+El operador `? :` es una forma compacta de `if/else` para **expresiones**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const edad = 20;
+
+// if/else equivalente
+let acceso;
+if (edad >= 18) {
+  acceso = "permitido";
+} else {
+  acceso = "denegado";
+}
+
+// Con ternario (una línea)
+const acceso2 = edad >= 18 ? "permitido" : "denegado";
+
+console.log(acceso2); // "permitido"`
+    }
+  ]}
+  output={`permitido`}
+/>
+
+<Callout variant="tip" title="Cuándo usar ternario">
+Úsalo para asignaciones simples de dos valores. Si la lógica es más compleja, usa `if/else` — el código legible siempre gana sobre el código compacto.
+</Callout>
+
+</Section>
+
+<Section id="string-ops" title="Operadores con strings">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Concatenación",
+      code: `// Concatenación con +
+const nombre = "Ana";
+const apellido = "López";
+const completo = nombre + " " + apellido;
+console.log(completo); // "Ana López"
+
+// Template literals (preferido)
+console.log(\`\${nombre} \${apellido}\`); // "Ana López"
+
+// Repetición
+console.log("ha".repeat(3));  // "hahaha"
+
+// Spread en string
+console.log([..."hola"]);     // ["h", "o", "l", "a"]`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="4 ejercicios para dominar los operadores."
+  items={[
+    { num: "01", name: "Calculadora básica", diff: "easy", minutes: 3 },
+    { num: "02", name: "Comparaciones con tipos mixtos", diff: "easy", minutes: 3 },
+    { num: "03", name: "Short-circuit en práctica", diff: "med", minutes: 4 },
+    { num: "04", name: "Nullish coalescing vs OR", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

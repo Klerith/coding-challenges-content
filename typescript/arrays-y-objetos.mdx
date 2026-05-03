@@ -1,0 +1,267 @@
+---
+title: "Arrays y objetos: colecciones de datos"
+short: "Arrays y objetos"
+chapter: "02"
+num: "06"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 9
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los arrays y objetos son las estructuras de datos más usadas en JavaScript. Dominarlos es fundamental para trabajar con APIs, listas de elementos y cualquier dato del mundo real."
+pro: false
+---
+
+<Section id="arrays" title="Arrays: listas ordenadas">
+
+Un array guarda múltiples valores en una sola variable, en orden.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const frutas = ["manzana", "pera", "uva"];
+
+// Acceder por índice (empieza en 0)
+console.log(frutas[0]); // "manzana"
+console.log(frutas[2]); // "uva"
+console.log(frutas.length); // 3
+
+// Modificar
+frutas[1] = "kiwi";
+console.log(frutas); // ["manzana", "kiwi", "uva"]
+
+// Métodos destructivos (modifican el original)
+frutas.push("mango");      // añade al final
+frutas.pop();              // elimina el último
+frutas.unshift("limón");   // añade al inicio
+frutas.shift();            // elimina el primero
+frutas.splice(1, 1);       // elimina 1 elemento desde índice 1`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Array de strings
+const frutas: string[] = ["manzana", "pera", "uva"];
+
+// O con Array<T>
+const numeros: Array<number> = [1, 2, 3];
+
+// Array mixto (evitar — mejor usar tipos específicos)
+const mixto: (string | number)[] = ["Ana", 25];
+
+// Array readonly
+const constantes: readonly number[] = [1, 2, 3];
+constantes.push(4); // ❌ Property 'push' does not exist on type 'readonly number[]'`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="array-metodos" title="Métodos funcionales de Array">
+
+Los métodos funcionales **no modifican** el array original — devuelven uno nuevo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "map, filter, reduce",
+      code: `const nums = [1, 2, 3, 4, 5];
+
+// map: transforma cada elemento
+const dobles = nums.map(n => n * 2);
+console.log(dobles); // [2, 4, 6, 8, 10]
+
+// filter: filtra por condición
+const pares = nums.filter(n => n % 2 === 0);
+console.log(pares); // [2, 4]
+
+// reduce: acumula a un solo valor
+const suma = nums.reduce((acc, n) => acc + n, 0);
+console.log(suma); // 15
+
+// find: primer elemento que cumple la condición
+const primerPar = nums.find(n => n % 2 === 0);
+console.log(primerPar); // 2
+
+// some / every
+console.log(nums.some(n => n > 4));  // true
+console.log(nums.every(n => n > 0)); // true
+
+// flat, flatMap
+const anidado = [[1, 2], [3, 4]];
+console.log(anidado.flat()); // [1, 2, 3, 4]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript con tipos",
+      code: `interface Producto {
+  nombre: string;
+  precio: number;
+  activo: boolean;
+}
+
+const productos: Producto[] = [
+  { nombre: "Camiseta", precio: 19.99, activo: true },
+  { nombre: "Pantalón", precio: 49.99, activo: false },
+  { nombre: "Zapatos", precio: 89.99, activo: true },
+];
+
+const activos = productos
+  .filter(p => p.activo)
+  .map(p => p.nombre);
+
+console.log(activos); // ["Camiseta", "Zapatos"]`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="objetos" title="Objetos: pares clave-valor">
+
+Los objetos agrupan datos relacionados bajo un mismo nombre.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const usuario = {
+  nombre: "Ana",
+  edad: 25,
+  activo: true,
+};
+
+// Acceder
+console.log(usuario.nombre);      // "Ana"
+console.log(usuario["edad"]);     // 25
+
+// Modificar
+usuario.edad = 26;
+usuario.email = "ana@mail.com";   // añadir propiedad
+
+// Eliminar
+delete usuario.activo;
+
+// Verificar existencia
+console.log("nombre" in usuario); // true
+console.log(Object.keys(usuario));   // ["nombre", "edad", "email"]
+console.log(Object.values(usuario)); // ["Ana", 26, "ana@mail.com"]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  nombre: string;
+  edad: number;
+  email?: string;   // propiedad opcional
+  readonly id: number; // solo lectura
+}
+
+const usuario: Usuario = {
+  id: 1,
+  nombre: "Ana",
+  edad: 25,
+};
+
+usuario.nombre = "María"; // ✅
+usuario.id = 2;           // ❌ Cannot assign to 'id' because it is a read-only property`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="desestructuracion" title="Desestructuración">
+
+La desestructuración extrae valores de arrays y objetos en variables en una sola línea.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Desestructuración",
+      code: `// Objetos
+const { nombre, edad, pais = "España" } = usuario; // valor por defecto
+console.log(nombre, edad, pais); // "Ana" 25 "España"
+
+// Renombrar
+const { nombre: nombreCompleto } = usuario;
+console.log(nombreCompleto); // "Ana"
+
+// Arrays
+const [primero, segundo, ...resto] = [1, 2, 3, 4, 5];
+console.log(primero, segundo, resto); // 1 2 [3, 4, 5]
+
+// Intercambiar variables
+let a = 1, b = 2;
+[a, b] = [b, a];
+console.log(a, b); // 2 1
+
+// En parámetros de función
+function mostrar({ nombre, edad }) {
+  console.log(\`\${nombre}, \${edad} años\`);
+}
+mostrar(usuario); // "Ana, 25 años"`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="spread" title="Spread y Object.assign">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Spread operator",
+      code: `// Copiar y fusionar arrays
+const a = [1, 2, 3];
+const b = [4, 5, 6];
+const c = [...a, ...b]; // [1, 2, 3, 4, 5, 6]
+
+// Copiar y fusionar objetos
+const base = { nombre: "Ana", edad: 25 };
+const actualizado = { ...base, edad: 26, email: "ana@mail.com" };
+console.log(actualizado);
+// { nombre: "Ana", edad: 26, email: "ana@mail.com" }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript con spread",
+      code: `interface Config {
+  host: string;
+  port: number;
+  debug?: boolean;
+}
+
+const defaults: Config = { host: "localhost", port: 3000 };
+const production: Config = { ...defaults, host: "prod.server.com", port: 443 };
+
+console.log(production);
+// { host: "prod.server.com", port: 443 }`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="5 ejercicios para dominar arrays y objetos."
+  items={[
+    { num: "01", name: "Filtra un array de números pares", diff: "easy", minutes: 3 },
+    { num: "02", name: "Transforma un array de objetos con map", diff: "easy", minutes: 4 },
+    { num: "03", name: "Desestructura un objeto anidado", diff: "med", minutes: 5 },
+    { num: "04", name: "Fusiona dos objetos con spread", diff: "med", minutes: 4 },
+    { num: "05", name: "reduce para calcular un total", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

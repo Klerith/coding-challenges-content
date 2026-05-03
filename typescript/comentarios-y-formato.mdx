@@ -1,0 +1,143 @@
+---
+title: "Comentarios, formato y convenciones de estilo"
+short: "Comentarios y formato"
+chapter: "02"
+num: "04"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 4
+appliesTo: ["js", "ts"]
+exercises: 2
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El código se lee más veces de las que se escribe. Seguir convenciones de estilo hace que cualquier persona — incluyendo tu yo del futuro — entienda el código a primera vista."
+pro: false
+---
+
+<Section id="comentarios" title="Tipos de comentarios">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript / TypeScript",
+      code: `// Comentario de una sola línea
+
+/*
+  Comentario
+  de varias líneas
+*/
+
+/**
+ * JSDoc: documenta funciones para el editor
+ * @param nombre - El nombre de la persona
+ * @returns El saludo personalizado
+ */
+function saludar(nombre: string): string {
+  return \`Hola, \${nombre}!\`;
+}`
+    }
+  ]}
+/>
+
+<Callout title="¿Cuándo comentar?">
+Comenta el **porqué**, no el qué. El código ya explica qué hace; el comentario debe explicar por qué es necesario o qué problema resuelve. `// incrementa contador` sobre `i++` es ruido — `// usamos i++ porque el índice es 1-based en esta API` es valioso.
+</Callout>
+
+</Section>
+
+<Section id="nomenclatura" title="Convenciones de nombres">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Convenciones",
+      code: `// Variables y funciones: camelCase
+const nombreUsuario = "Ana";
+const calcularPrecio = () => {};
+
+// Clases: PascalCase
+class GestorDeProductos {}
+
+// Constantes globales: UPPER_SNAKE_CASE
+const MAX_REINTENTOS = 3;
+const API_URL = "https://api.ejemplo.com";
+
+// Privados (convención no oficial en JS): _prefijo
+class Servicio {
+  _conexionInterna = null;
+}
+
+// TypeScript: tipos e interfaces también PascalCase
+type EstadoPedido = "pendiente" | "enviado" | "entregado";
+interface Usuario {
+  nombre: string;
+  edad: number;
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="prettier" title="Formato automático con Prettier">
+
+Prettier es un formateador de código que convierte esto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Antes de Prettier",
+      code: `const  obj={nombre:"Ana",edad:25,activo:true}
+function   saludar(   n ){return "Hola "+n}
+const arr=[1,2,  3,4,5]`
+    }
+  ]}
+/>
+
+en esto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Después de Prettier",
+      code: `const obj = { nombre: "Ana", edad: 25, activo: true };
+function saludar(n) {
+  return "Hola " + n;
+}
+const arr = [1, 2, 3, 4, 5];`
+    }
+  ]}
+/>
+
+Configura Prettier con `.prettierrc`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: ".prettierrc",
+      code: `{
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "printWidth": 100,
+  "tabWidth": 2
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Renombra variables al estilo correcto", diff: "easy", minutes: 3 },
+    { num: "02", name: "Añade JSDoc a una función existente", diff: "easy", minutes: 4 },
+  ]}
+/>
+</Section>

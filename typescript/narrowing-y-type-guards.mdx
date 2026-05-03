@@ -1,0 +1,213 @@
+---
+title: "Narrowing y type guards"
+short: "Narrowing y type guards"
+chapter: "05"
+num: "05"
+chapterTitle: "TypeScript"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Narrowing es cómo TypeScript estrecha un tipo amplio a uno más específico dentro de un bloque. Los type guards son las herramientas para hacerlo — desde typeof hasta predicados personalizados."
+pro: false
+---
+
+<Section id="que-es" title="¿Qué es el narrowing?">
+
+Cuando tienes una variable de tipo amplio (como `string | number`), TypeScript no sabe qué métodos están disponibles. El narrowing le permite deducir el tipo exacto en cada rama:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Narrowing básico",
+      code: `function procesar(val: string | number): string {
+  // Aquí val es string | number — no puedes llamar .toUpperCase() ni .toFixed()
+
+  if (typeof val === "string") {
+    // Aquí TypeScript sabe que val es string
+    return val.toUpperCase();
+  }
+
+  // Aquí TypeScript sabe que val es number (el único caso restante)
+  return val.toFixed(2);
+}
+
+console.log(procesar("hola"));  // "HOLA"
+console.log(procesar(3.14159)); // "3.14"`
+    }
+  ]}
+  output={`HOLA\n3.14`}
+/>
+
+</Section>
+
+<Section id="typeof" title="typeof — narrowing de primitivos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "typeof",
+      code: `function describir(val: unknown): string {
+  if (typeof val === "string") return \`string: "\${val}"\`;
+  if (typeof val === "number") return \`number: \${val}\`;
+  if (typeof val === "boolean") return \`boolean: \${val}\`;
+  if (typeof val === "undefined") return "undefined";
+  if (typeof val === "object" && val !== null) return "objeto";
+  return "tipo desconocido";
+}
+
+// typeof null === "object" — el bug histórico de JS
+// Por eso siempre verifica val !== null al narrowear object
+
+console.log(describir("hola"));   // string: "hola"
+console.log(describir(42));       // number: 42
+console.log(describir(null));     // objeto ← cuidado con null`
+    }
+  ]}
+  output={`string: "hola"\nnumber: 42`}
+/>
+
+</Section>
+
+<Section id="instanceof" title="instanceof — narrowing de clases">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "instanceof",
+      code: `class Perro {
+  ladrar() { return "¡Guau!"; }
+}
+
+class Gato {
+  maullar() { return "¡Miau!"; }
+}
+
+function hacerRuido(animal: Perro | Gato): string {
+  if (animal instanceof Perro) {
+    return animal.ladrar(); // TypeScript sabe que es Perro
+  }
+  return animal.maullar();  // TypeScript sabe que es Gato
+}
+
+// instanceof también funciona con errores
+try {
+  JSON.parse("invalid");
+} catch (e) {
+  if (e instanceof SyntaxError) {
+    console.log("Error de JSON:", e.message);
+  }
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="in" title="in — narrowing de propiedades">
+
+El operador `in` verifica si una propiedad existe en un objeto. Muy útil para discriminated unions:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Operador in",
+      code: `interface Pájaro {
+  tipo: "pajaro";
+  volar(): string;
+}
+
+interface Pez {
+  tipo: "pez";
+  nadar(): string;
+}
+
+type Animal = Pájaro | Pez;
+
+function mover(animal: Animal): string {
+  if ("volar" in animal) {
+    return animal.volar(); // TypeScript infiere: Pájaro
+  }
+  return animal.nadar();   // TypeScript infiere: Pez
+}
+
+// O con la propiedad discriminante
+function mover2(animal: Animal): string {
+  if (animal.tipo === "pajaro") {
+    return animal.volar();
+  }
+  return animal.nadar();
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="type-predicates" title="Type predicates — guards personalizados">
+
+Cuando la lógica de verificación es compleja, crea una función con un **predicado de tipo** (`arg is Type`):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Type predicates",
+      code: `interface Gato {
+  nombre: string;
+  maullar(): void;
+}
+
+interface Perro {
+  nombre: string;
+  ladrar(): void;
+}
+
+// Predicado: retorna boolean, pero TypeScript entiende la implicación de tipo
+function esGato(animal: Gato | Perro): animal is Gato {
+  return "maullar" in animal;
+}
+
+function saludar(animal: Gato | Perro): void {
+  if (esGato(animal)) {
+    animal.maullar(); // ✅ TypeScript sabe que es Gato
+  } else {
+    animal.ladrar();  // ✅ TypeScript sabe que es Perro
+  }
+}
+
+// Ejemplo real: verificar que un valor no es null/undefined
+function isDefined<T>(val: T | null | undefined): val is T {
+  return val !== null && val !== undefined;
+}
+
+const lista = [1, null, 2, undefined, 3];
+const soloNumeros = lista.filter(isDefined); // number[]
+console.log(soloNumeros); // [1, 2, 3]`
+    }
+  ]}
+  output={`[1, 2, 3]`}
+/>
+
+<Callout variant="tip" title="Assertion functions">
+En TypeScript 3.7+ también puedes usar funciones de aserción (`asserts x is Type`). Si la función no lanza, TypeScript asume que el tipo es correcto para el resto del scope — útil para validaciones de entrada.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Narrowing con typeof en 4 casos", diff: "easy", minutes: 5 },
+    { num: "02", name: "Type guard para una union discriminada", diff: "med", minutes: 7 },
+    { num: "03", name: "isDefined genérico para filtrar nulls", diff: "med", minutes: 6 },
+    { num: "04", name: "Validador de respuesta de API con type predicates", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

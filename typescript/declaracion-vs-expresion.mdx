@@ -1,0 +1,161 @@
+---
+title: "Funciones: declaración vs expresión"
+short: "Declaración vs expresión"
+chapter: "04"
+num: "01"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Hay dos formas principales de definir funciones en JavaScript — y no son intercambiables. El hoisting cambia todo. Entiende la diferencia antes de elegir cuál usar."
+pro: false
+---
+
+<Section id="declaracion" title="Declaración de función (function declaration)">
+
+Una declaración de función usa la palabra clave `function` al inicio. El nombre es **obligatorio**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Declaración de función
+function saludar(nombre) {
+  return \`Hola, \${nombre}!\`;
+}
+
+console.log(saludar("Ana")); // "Hola, Ana!"
+
+// Acepta múltiples parámetros
+function sumar(a, b) {
+  return a + b;
+}
+
+console.log(sumar(3, 4)); // 7`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function saludar(nombre: string): string {
+  return \`Hola, \${nombre}!\`;
+}
+
+function sumar(a: number, b: number): number {
+  return a + b;
+}
+
+// TypeScript valida tipos en tiempo de compilación
+console.log(saludar("Ana")); // "Hola, Ana!"
+console.log(sumar(3, 4));    // 7
+// console.log(sumar("3", 4)); // ❌ Error de tipos`
+    }
+  ]}
+  output={`Hola, Ana!\n7`}
+/>
+
+</Section>
+
+<Section id="hoisting" title="Hoisting: por qué puedes llamarlas antes de definirlas">
+
+Las declaraciones de función son **elevadas** (hoisted) al tope de su ámbito. Puedes llamarlas antes de la línea donde aparecen.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Hoisting",
+      code: `// ✅ Funciona — la declaración es hoisted
+console.log(doble(5)); // 10
+
+function doble(n) {
+  return n * 2;
+}
+
+// ❌ No funciona con expresión — TypeError
+// console.log(triple(5));
+// const triple = function(n) { return n * 3; };`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Hoisting puede sorprenderte">
+Aunque el hoisting funciona, llamar una función antes de definirla dificulta la lectura. Por convención, define las funciones antes de usarlas.
+</Callout>
+
+</Section>
+
+<Section id="expresion" title="Expresión de función (function expression)">
+
+Una expresión asigna una función a una variable. No hay hoisting — debes definirla antes de llamarla.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Expresión de función (anónima)
+const saludar = function(nombre) {
+  return \`Hola, \${nombre}!\`;
+};
+
+// Expresión de función con nombre (útil para recursión y stack traces)
+const factorial = function fact(n) {
+  return n <= 1 ? 1 : n * fact(n - 1);
+};
+
+console.log(saludar("Luis"));  // "Hola, Luis!"
+console.log(factorial(5));     // 120`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript infiere el tipo de la expresión
+const saludar = function(nombre: string): string {
+  return \`Hola, \${nombre}!\`;
+};
+
+// O con anotación explícita en la variable
+const multiplicar: (a: number, b: number) => number = function(a, b) {
+  return a * b;
+};
+
+console.log(saludar("Luis"));      // "Hola, Luis!"
+console.log(multiplicar(3, 4));    // 12`
+    }
+  ]}
+  output={`Hola, Luis!\n120`}
+/>
+
+</Section>
+
+<Section id="comparacion" title="¿Cuándo usar cada una?">
+
+<CompareTable
+  headers={["", "Declaración", "Expresión"]}
+  rows={[
+    ["Hoisting", { kind: "good", value: "Sí — disponible en todo el ámbito" }, { kind: "bad", value: "No — solo tras la asignación" }],
+    ["Nombre obligatorio", { kind: "bad", value: "Sí" }, { kind: "good", value: "No (puede ser anónima)" }],
+    ["Asignable a variable", { kind: "bad", value: "No directamente" }, { kind: "good", value: "Sí — pasa como argumento, retorna de función" }],
+    ["Cuándo usarla", "Funciones utilitarias, helpers de módulo", "Callbacks, métodos de objeto, funciones condicionales"],
+  ]}
+/>
+
+<Callout variant="tip" title="Convención moderna">
+En código moderno, las arrow functions (`=>`) sustituyen casi siempre a las expresiones de función. La declaración `function` queda para funciones de alto nivel con nombre propio.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte expresiones a declaraciones y viceversa", diff: "easy", minutes: 3 },
+    { num: "02", name: "Función que retorna otra función", diff: "med", minutes: 5 },
+    { num: "03", name: "Identifica cuáles son hoisted", diff: "med", minutes: 4 },
+  ]}
+/>
+</Section>

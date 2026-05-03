@@ -1,0 +1,123 @@
+---
+title: "switch: múltiples ramas sin anidamiento"
+short: "switch"
+chapter: "03"
+num: "02"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "switch es la alternativa legible a una cadena larga de else if cuando comparas un solo valor contra múltiples opciones fijas."
+pro: false
+---
+
+<Section id="basico" title="Sintaxis básica">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const dia = "lunes";
+
+switch (dia) {
+  case "lunes":
+    console.log("Inicio de semana");
+    break;
+  case "viernes":
+    console.log("¡Por fin viernes!");
+    break;
+  case "sábado":
+  case "domingo":
+    console.log("Fin de semana");
+    break;
+  default:
+    console.log("Entre semana");
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Dia = "lunes" | "martes" | "miércoles" | "jueves" | "viernes" | "sábado" | "domingo";
+
+function describeDia(dia: Dia): string {
+  switch (dia) {
+    case "sábado":
+    case "domingo":
+      return "Fin de semana";
+    case "viernes":
+      return "¡Por fin viernes!";
+    default:
+      return "Entre semana";
+  }
+}`
+    }
+  ]}
+  output={`Inicio de semana`}
+/>
+
+<Callout variant="warn" title="El break es obligatorio">
+Sin `break`, el código continúa ejecutando los casos siguientes (fall-through). Esto es un bug en el 99% de los casos. Siempre añade `break` o usa `return` dentro de una función.
+</Callout>
+
+</Section>
+
+<Section id="switch-vs-if" title="switch vs if / else if">
+
+<CompareTable
+  headers={["", "switch", "if / else if"]}
+  rows={[
+    ["Cuándo usarlo", "Valor exacto contra lista fija de opciones", "Condiciones complejas, rangos, múltiples variables"],
+    ["Legibilidad", { kind: "good", value: "Muy limpio con muchas opciones" }, { kind: "bad", value: "Se anida con muchas ramas" }],
+    ["Expresividad", { kind: "bad", value: "Solo igualdad estricta" }, { kind: "good", value: "Cualquier expresión" }],
+    ["TypeScript exhaustivo", { kind: "good", value: "Puede detectar casos no manejados" }, { kind: "bad", value: "Más difícil de hacer exhaustivo" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="exhaustivo" title="Switch exhaustivo en TypeScript">
+
+TypeScript puede garantizar que hayas manejado todos los casos de un tipo union usando `never`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Exhaustive switch",
+      code: `type Forma = "círculo" | "rectángulo" | "triángulo";
+
+function calcularArea(forma: Forma, ...args: number[]): number {
+  switch (forma) {
+    case "círculo":
+      return Math.PI * args[0] ** 2;
+    case "rectángulo":
+      return args[0] * args[1];
+    case "triángulo":
+      return (args[0] * args[1]) / 2;
+    default: {
+      const _exhaustive: never = forma;
+      // Si añades un nuevo tipo a Forma sin manejar aquí,
+      // TypeScript muestra un error en _exhaustive
+      throw new Error(\`Forma no manejada: \${_exhaustive}\`);
+    }
+  }
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Calculadora con switch", diff: "easy", minutes: 4 },
+    { num: "02", name: "Traductor de días de la semana", diff: "easy", minutes: 3 },
+    { num: "03", name: "Switch exhaustivo con TypeScript", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

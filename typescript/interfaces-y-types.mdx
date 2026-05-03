@@ -1,0 +1,214 @@
+---
+title: "Interfaces y type aliases"
+short: "Interfaces y types"
+chapter: "05"
+num: "02"
+chapterTitle: "TypeScript"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "interface y type son las dos formas de nombrar estructuras de datos en TypeScript. Son más parecidos que diferentes — pero hay situaciones donde uno es claramente mejor que el otro."
+pro: false
+---
+
+<Section id="interface" title="interface">
+
+Una `interface` describe la forma de un objeto: qué propiedades tiene y de qué tipo son.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Definir y usar interfaces",
+      code: `interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+  edad?: number;       // opcional
+  readonly creado: Date; // solo lectura — no se puede reasignar
+}
+
+// Cualquier objeto que cumpla la forma es válido
+const ana: Usuario = {
+  id: 1,
+  nombre: "Ana",
+  email: "ana@mail.com",
+  creado: new Date(),
+};
+
+// ✅ edad es opcional — funciona sin ella
+const luis: Usuario = {
+  id: 2,
+  nombre: "Luis",
+  email: "luis@mail.com",
+  creado: new Date(),
+};
+
+// ❌ Error: falta email
+// const mal: Usuario = { id: 3, nombre: "Eva", creado: new Date() };`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="type" title="type alias">
+
+`type` puede nombrar cualquier tipo — no solo objetos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "type alias — varios usos",
+      code: `// Objeto (igual que interface)
+type Punto = {
+  x: number;
+  y: number;
+};
+
+// Union
+type Resultado = "ok" | "error" | "pendiente";
+
+// Intersección
+type AdminUsuario = Usuario & {
+  permisos: string[];
+};
+
+// Alias de primitivo
+type Email = string;
+type Timestamp = number;
+
+// Función
+type Comparador<T> = (a: T, b: T) => number;
+
+const ordenarNombres: Comparador<string> = (a, b) => a.localeCompare(b);`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="extends" title="Extender interfaces">
+
+Las interfaces pueden extender otras — útil para crear jerarquías de tipos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Herencia de interfaces",
+      code: `interface Entidad {
+  id: number;
+  creado: Date;
+  actualizado: Date;
+}
+
+interface Producto extends Entidad {
+  nombre: string;
+  precio: number;
+  stock: number;
+}
+
+interface ProductoConDescuento extends Producto {
+  descuento: number; // porcentaje 0-100
+  precioFinal: () => number;
+}
+
+const producto: ProductoConDescuento = {
+  id: 1,
+  nombre: "Camiseta",
+  precio: 29.99,
+  stock: 50,
+  descuento: 20,
+  creado: new Date(),
+  actualizado: new Date(),
+  precioFinal() {
+    return this.precio * (1 - this.descuento / 100);
+  },
+};
+
+console.log(producto.precioFinal().toFixed(2)); // "23.99"`
+    }
+  ]}
+  output={`23.99`}
+/>
+
+</Section>
+
+<Section id="diferencias" title="interface vs type: diferencias clave">
+
+<CompareTable
+  headers={["", "interface", "type"]}
+  rows={[
+    ["Objetos", { kind: "good", value: "Sí — su uso principal" }, { kind: "good", value: "Sí" }],
+    ["Primitivos, unions, tuples", { kind: "bad", value: "No" }, { kind: "good", value: "Sí" }],
+    ["Extender/heredar", { kind: "good", value: "extends — sintaxis clara" }, { kind: "good", value: "& (intersección)" }],
+    ["Declaration merging", { kind: "good", value: "Sí — misma interface declarada dos veces se fusiona" }, { kind: "bad", value: "No" }],
+    ["Cuándo preferir", "Objetos que representan entidades del dominio", "Unions, tipos utilitarios, aliases de primitivos"],
+  ]}
+/>
+
+<Callout variant="tip" title="Guía práctica">
+Usa `interface` para describir objetos / clases. Usa `type` para unions, intersecciones, tuplas y aliases de primitivos. Si tienes dudas con un objeto, `interface` es el default más semántico.
+</Callout>
+
+</Section>
+
+<Section id="utility-types" title="Utility types más usados">
+
+TypeScript incluye tipos genéricos de utilidad que evitan repetir código:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Utility types",
+      code: `interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+  password: string;
+}
+
+// Partial<T> — todas las propiedades opcionales
+type UsuarioParcial = Partial<Usuario>;
+// { id?: number; nombre?: string; email?: string; password?: string }
+
+// Required<T> — todas las propiedades obligatorias
+type UsuarioCompleto = Required<UsuarioParcial>;
+
+// Pick<T, K> — seleccionar algunas propiedades
+type UsuarioPúblico = Pick<Usuario, "id" | "nombre" | "email">;
+
+// Omit<T, K> — excluir algunas propiedades
+type UsuarioSinPassword = Omit<Usuario, "password">;
+
+// Readonly<T> — todas readonly
+type UsuarioFijo = Readonly<Usuario>;
+
+// Record<K, V> — objeto con claves y valores tipados
+type PorId = Record<number, Usuario>;
+
+// ReturnType<T> — infiere el tipo de retorno de una función
+function getUser(): Usuario { /* ... */ return {} as Usuario; }
+type TipoRetorno = ReturnType<typeof getUser>; // Usuario`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Modela una API de productos con interfaces", diff: "easy", minutes: 5 },
+    { num: "02", name: "Crea una jerarquía: Entidad → Producto → ProductoFísico", diff: "med", minutes: 7 },
+    { num: "03", name: "Usa Pick y Omit para crear vistas de un tipo", diff: "med", minutes: 6 },
+    { num: "04", name: "Compara interface vs type en un caso real", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

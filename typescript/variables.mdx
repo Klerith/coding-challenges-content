@@ -1,0 +1,243 @@
+---
+title: "Variables: <em>let</em>, <em>const</em> y por qué <em>var</em> ya no se usa"
+short: "Variables: let, const, var"
+chapter: "02"
+num: "01"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Tres palabras clave para guardar valores en memoria. Aprende cuándo usar cada una, qué significa alcance de bloque, y cómo TypeScript te ayuda a no romper cosas que no debías tocar."
+pro: false
+---
+
+<Section id="que-es" title="¿Qué es una variable?">
+
+Una **variable** es un nombre que apunta a un valor en memoria. En lugar de repetir el dato cada vez, lo guardas una vez y lo reutilizas con su nombre.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sin variable: repites el valor
+console.log("Hola, Fernando");
+console.log("Hola, Fernando");
+
+// Con variable: lo guardas una vez
+const nombre = "Fernando";
+console.log(\`Hola, \${nombre}\`);
+console.log(\`Adiós, \${nombre}\`);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript infiere el tipo automáticamente
+const nombre: string = "Fernando";
+const edad: number = 38;
+const activo: boolean = true;
+
+console.log(\`\${nombre}, \${edad} años\`);`
+    }
+  ]}
+  output={`Hola, Fernando\nAdiós, Fernando`}
+/>
+
+</Section>
+
+<Section id="let" title="let — cuando el valor va a cambiar">
+
+Usa `let` para variables cuyo valor **cambia con el tiempo**: contadores, banderas, acumuladores, lo que se actualiza dentro de un bucle.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `let contador = 0;
+
+for (let i = 0; i < 5; i++) {
+  contador += i;
+}
+
+console.log(contador); // 10
+
+// Reasignar: válido
+contador = 100;`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `let contador: number = 0;
+
+for (let i = 0; i < 5; i++) {
+  contador += i;
+}
+
+console.log(contador); // 10
+
+// Cambiar a otro tipo: error de compilación
+contador = "diez"; // ❌ Type 'string' is not assignable to type 'number'`
+    }
+  ]}
+  output={`10`}
+/>
+
+<Callout variant="tip" title="Pista">
+Si después de escribir el código **nunca reasignas** la variable, cámbiala a `const`. Es la regla más simple para escribir código predecible.
+</Callout>
+
+</Section>
+
+<Section id="const" title="const — la opción por defecto">
+
+`const` declara una **referencia inmutable**: la variable no puede apuntar a otro valor. Pero ojo: si el valor es un objeto o array, su *contenido* sí puede cambiar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const PI = 3.14159;
+PI = 3; // ❌ TypeError: Assignment to constant variable
+
+// Pero con objetos y arrays:
+const usuario = { nombre: "Ana", edad: 25 };
+usuario.edad = 26; // ✅ El objeto muta, la referencia no cambia
+usuario = {};      // ❌ Error: no puedes apuntar a otro objeto
+
+const nums = [1, 2, 3];
+nums.push(4);     // ✅ El array muta
+nums = [5];       // ❌ Error`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const PI = 3.14159;  // tipo: 3.14159 (literal exacto con const)
+
+const usuario = { nombre: "Ana", edad: 25 };
+// tipo inferido: { nombre: string; edad: number }
+
+usuario.edad = 26; // ✅
+usuario.activo = true; // ❌ Property 'activo' does not exist on type...
+
+// Para hacer un objeto realmente inmutable:
+const CONFIG = { host: "localhost", port: 3000 } as const;
+CONFIG.port = 8080; // ❌ Cannot assign to 'port' because it is a read-only property`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="var" title="var — por qué ya no se usa">
+
+`var` existía antes de ES6 (2015). Tiene dos problemas graves que `let` y `const` resuelven:
+
+<CompareTable
+  headers={["Característica", "var", "let / const"]}
+  rows={[
+    ["Alcance", { kind: "bad", value: "Función completa" }, { kind: "good", value: "Bloque { }" }],
+    ["Hoisting", { kind: "bad", value: "Se eleva como undefined" }, { kind: "good", value: "TDZ — error si accedes antes" }],
+    ["Re-declarar", { kind: "bad", value: "Permitido (bug silencioso)" }, { kind: "good", value: "Error de sintaxis" }],
+  ]}
+/>
+
+<Callout variant="warn" title="Cuidado">
+Si ves `var` en código antiguo, refactoriza con cuidado — puede haber bugs silenciosos ocultos en el comportamiento del hoisting. No uses `var` en código nuevo.
+</Callout>
+
+</Section>
+
+<Section id="scope" title="Alcance de bloque">
+
+`let` y `const` viven dentro del bloque `{}` donde fueron declaradas. Fuera de ese bloque, no existen.
+
+<Diagram>
+  <DiagramBlock label="función" variant="outer">
+    <DiagramVar name="let externo = 10" variant="let" />
+    <DiagramBlock label="bloque if { }" variant="inner">
+      <DiagramVar name="let interno = 20" variant="let" />
+      <DiagramArrow>✅ externo e interno disponibles aquí</DiagramArrow>
+    </DiagramBlock>
+    <DiagramArrow out>❌ interno no existe fuera del bloque</DiagramArrow>
+  </DiagramBlock>
+</Diagram>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Alcance con let/const",
+      code: `let x = 10;
+
+if (true) {
+  let y = 20;
+  console.log(x); // ✅ 10
+  console.log(y); // ✅ 20
+}
+
+console.log(x); // ✅ 10
+console.log(y); // ❌ ReferenceError: y is not defined`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="typescript" title="TypeScript: tipos en variables">
+
+En TypeScript puedes (y normalmente *no debes*) anotar el tipo. La regla: deja que TypeScript infiera, anota solo cuando quieras forzar un tipo más amplio o más estrecho.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Inferencia vs anotación",
+      code: `// 1. Inferencia: TS deduce el tipo del valor inicial
+let ciudad = "Madrid";         // inferido: string
+let intentos = 0;              // inferido: number
+const activos = ["Ana", "Luis"]; // inferido: string[]
+
+// 2. Anotación explícita: cuando importa
+let usuario: string | null = null;
+const max: number = 100;
+
+// 3. const + literal = tipo literal exacto
+const rol = "admin";        // tipo: "admin" (literal)
+let rol2 = "admin";         // tipo: string (más amplio)`
+    }
+  ]}
+/>
+
+<Callout title="Por qué importa">
+Una variable `const rol = "admin"` en TypeScript tiene el tipo `"admin"`, no `string`. Esto es la base de los *discriminated unions* que verás más adelante.
+</Callout>
+
+</Section>
+
+<Section id="buenas-practicas" title="Reglas de oro">
+<Rules>
+  <Rule><b>Usa <code>const</code> por defecto.</b> Es la opción más segura: el lector sabe que el nombre nunca cambia.</Rule>
+  <Rule><b>Cambia a <code>let</code> solo si reasignas.</b> Contadores, acumuladores, banderas que cambian dentro de un bloque.</Rule>
+  <Rule><b>Nunca uses <code>var</code>.</b> En código nuevo no hay razón. Si lo ves en código viejo, refactoriza con cuidado a <code>let</code>.</Rule>
+  <Rule><b>Nombres en <code>camelCase</code>.</b> <code>nombreUsuario</code>, no <code>nombre_usuario</code> ni <code>NombreUsuario</code>.</Rule>
+  <Rule><b>Constantes globales en <code>UPPER_SNAKE</code>.</b> <code>MAX_REINTENTOS</code>, <code>API_URL</code>.</Rule>
+</Rules>
+</Section>
+
+<Section id="ejercicios" title="Practica lo que acabas de leer">
+<ExerciseGrid
+  intro="5 ejercicios cortos en el editor. La mayoría se resuelven en menos de 5 minutos."
+  items={[
+    { num: "01", name: "Convierte un <code>var</code> a <code>const</code>", diff: "easy", minutes: 2 },
+    { num: "02", name: "Arregla el bug del setTimeout", diff: "easy", minutes: 3 },
+    { num: "03", name: "Variable que cambia tipo", diff: "easy", minutes: 4 },
+    { num: "04", name: "Inferencia vs anotación", diff: "med", minutes: 5 },
+    { num: "05", name: "Inmutabilidad con <code>as const</code>", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

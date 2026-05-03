@@ -1,0 +1,97 @@
+---
+title: "JavaScript vs TypeScript: ¿cuál aprendo primero?"
+short: "JavaScript vs TypeScript"
+chapter: "01"
+num: "02"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 0
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "La pregunta que todo el mundo hace al empezar. La respuesta corta: JavaScript primero, TypeScript después — pero ambos conviven en esta ruta desde el principio."
+pro: false
+---
+
+<Section id="diferencia" title="¿Cuál es la diferencia?">
+
+**JavaScript** es el lenguaje base. Dinámico, flexible, sin tipos obligatorios.
+
+**TypeScript** es un *superset* de JavaScript creado por Microsoft. Agrega un sistema de tipos estático que desaparece en tiempo de ejecución — el navegador y Node.js solo ven JavaScript.
+
+<CompareTable
+  headers={["Característica", "JavaScript", "TypeScript"]}
+  rows={[
+    ["Tipos", { kind: "bad", value: "Opcionales (dinámico)" }, { kind: "good", value: "Estáticos en compilación" }],
+    ["Errores en desarrollo", { kind: "bad", value: "En runtime (tarde)" }, { kind: "good", value: "En el editor (inmediato)" }],
+    ["Curva de aprendizaje", { kind: "good", value: "Más simple al inicio" }, { kind: "bad", value: "Un poco más lenta" }],
+    ["Compatibilidad", { kind: "good", value: "Corre directo en browsers" }, { kind: "bad", value: "Necesita compilación" }],
+    ["Proyectos grandes", { kind: "bad", value: "Más riesgo de bugs" }, { kind: "good", value: "Mucho más mantenible" }],
+  ]}
+/>
+
+<Callout title="La relación clave">
+Todo código JavaScript válido **es** código TypeScript válido. TypeScript solo añade sintaxis encima. Si ya sabes JS, aprender TS es cuestión de semanas.
+</Callout>
+
+</Section>
+
+<Section id="cual-primero" title="¿Cuál aprendo primero?">
+
+**Aprende JavaScript primero.** Las razones son simples:
+
+- TypeScript compila a JavaScript — necesitas entender el destino.
+- Los conceptos fundamentales (variables, funciones, promesas) son iguales en ambos.
+- En esta ruta verás **los dos en paralelo**: cada ejemplo de código tiene su tab JS y su tab TS, para que veas cómo se relacionan desde el principio.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// JavaScript: sin tipos, más conciso
+function sumar(a, b) {
+  return a + b;
+}
+
+console.log(sumar(3, 4)); // 7
+console.log(sumar("3", 4)); // "34" — bug silencioso`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript: los tipos detectan el bug antes de correr
+function sumar(a: number, b: number): number {
+  return a + b;
+}
+
+console.log(sumar(3, 4)); // 7
+console.log(sumar("3", 4)); // ❌ Error: Argument of type 'string' is not assignable to parameter of type 'number'`
+    }
+  ]}
+  output={`7\n"34"   ← JS permite esto; TS lo bloquea en el editor`}
+/>
+
+</Section>
+
+<Section id="typescript-hoy" title="¿Cuándo usar TypeScript?">
+
+En proyectos reales, TypeScript es la elección por defecto. Lo usan Angular (obliga a usarlo), React (casi todos los proyectos nuevos), Vue 3, Node.js con Express/NestJS, y prácticamente todo framework moderno.
+
+**Usa TypeScript cuando:**
+- El proyecto tiene más de un colaborador.
+- El código base crece más allá de ~500 líneas.
+- Usas un framework como React, Angular o NestJS.
+- Quieres autocompletado y refactorización segura en el editor.
+
+**JavaScript plano sigue siendo válido para:**
+- Scripts cortos de automatización.
+- Prototipado rápido.
+- Proyectos donde la configuración del build debe ser mínima.
+
+<Callout variant="tip" title="En esta ruta">
+Cada lección muestra el código en JavaScript y TypeScript lado a lado. Empieza leyendo el tab de JS y luego mira cómo TypeScript lo mejora.
+</Callout>
+
+</Section>

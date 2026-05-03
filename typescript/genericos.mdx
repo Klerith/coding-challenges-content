@@ -1,0 +1,205 @@
+---
+title: "Genéricos: tipos parametrizables"
+short: "Genéricos"
+chapter: "05"
+num: "04"
+chapterTitle: "TypeScript"
+difficulty: "advanced"
+readingMinutes: 14
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los genéricos permiten escribir funciones, interfaces y clases que funcionan con cualquier tipo — sin perder la seguridad de tipos. Es la herramienta clave para escribir código reutilizable en TypeScript."
+pro: true
+---
+
+<Section id="problema" title="El problema que resuelven">
+
+Sin genéricos, tendrías que duplicar código para cada tipo o perder la seguridad con `any`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "El problema",
+      code: `// ❌ Una función por tipo — duplicación
+function primerString(arr: string[]): string {
+  return arr[0];
+}
+function primerNumber(arr: number[]): number {
+  return arr[0];
+}
+
+// ❌ Con any — pierde la seguridad de tipos
+function primero(arr: any[]): any {
+  return arr[0];
+}
+const x = primero([1, 2, 3]);
+x.toUpperCase(); // Sin error en compilación, pero falla en runtime
+
+// ✅ Con genérico — reutilizable Y seguro
+function primerElemento<T>(arr: T[]): T {
+  return arr[0];
+}
+
+const num = primerElemento([1, 2, 3]);   // TypeScript infiere: number
+const str = primerElemento(["a", "b"]);  // TypeScript infiere: string
+
+// num.toUpperCase(); // ❌ Error en compilación — correcto
+num.toFixed(2);  // ✅`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="sintaxis" title="Sintaxis básica">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Genéricos básicos",
+      code: `// Función genérica — T es el "parámetro de tipo"
+function identidad<T>(valor: T): T {
+  return valor;
+}
+
+// TypeScript infiere T del argumento
+identidad(42);       // T = number
+identidad("hola");   // T = string
+identidad([1, 2, 3]); // T = number[]
+
+// También puedes pasarlo explícitamente
+identidad<boolean>(true);
+
+// Múltiples parámetros de tipo
+function par<A, B>(a: A, b: B): [A, B] {
+  return [a, b];
+}
+
+const resultado = par("nombre", 25); // [string, number]
+console.log(resultado); // ["nombre", 25]`
+    }
+  ]}
+  output={`["nombre", 25]`}
+/>
+
+</Section>
+
+<Section id="constraints" title="Restricciones (constraints)">
+
+Puedes restringir qué tipos acepta un genérico con `extends`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Constraints",
+      code: `// T debe tener la propiedad length
+function masCortoPrimero<T extends { length: number }>(a: T, b: T): T {
+  return a.length <= b.length ? a : b;
+}
+
+console.log(masCortoPrimero("hola", "mundo"));      // "hola"
+console.log(masCortoPrimero([1, 2], [1, 2, 3, 4])); // [1, 2]
+// masCortoPrimero(1, 2); // ❌ Error: number no tiene length
+
+// K debe ser una clave de T
+function obtenerProp<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+const usuario = { nombre: "Ana", edad: 25 };
+const nombre = obtenerProp(usuario, "nombre"); // string
+const edad   = obtenerProp(usuario, "edad");   // number
+// obtenerProp(usuario, "email"); // ❌ "email" no existe en el tipo
+
+// Default type parameter
+function crearCaja<T = string>(valor?: T): { contenido: T | undefined } {
+  return { contenido: valor };
+}
+const cajaString = crearCaja();        // T = string (default)
+const cajaNumber = crearCaja(42);      // T = number (inferido)`
+    }
+  ]}
+  output={`hola\n[1, 2]`}
+/>
+
+</Section>
+
+<Section id="interfaces-genericas" title="Interfaces y tipos genéricos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Interfaces genéricas",
+      code: `// Respuesta de API genérica
+interface ApiResponse<T> {
+  data: T;
+  status: number;
+  mensaje?: string;
+}
+
+interface Usuario {
+  id: number;
+  nombre: string;
+}
+
+// Respuesta tipada — data es Usuario
+const respuestaUsuario: ApiResponse<Usuario> = {
+  data: { id: 1, nombre: "Ana" },
+  status: 200,
+};
+
+// Respuesta tipada — data es array de productos
+const respuestaLista: ApiResponse<Usuario[]> = {
+  data: [{ id: 1, nombre: "Ana" }, { id: 2, nombre: "Luis" }],
+  status: 200,
+};
+
+// Stack genérico
+class Stack<T> {
+  private items: T[] = [];
+
+  push(item: T): void {
+    this.items.push(item);
+  }
+
+  pop(): T | undefined {
+    return this.items.pop();
+  }
+
+  peek(): T | undefined {
+    return this.items[this.items.length - 1];
+  }
+
+  get size(): number {
+    return this.items.length;
+  }
+}
+
+const stack = new Stack<number>();
+stack.push(1);
+stack.push(2);
+console.log(stack.pop()); // 2
+console.log(stack.size);  // 1`
+    }
+  ]}
+  output={`2\n1`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa una función genérica filter<T>", diff: "med", minutes: 7 },
+    { num: "02", name: "Crea un tipo ApiResponse<T> y úsalo con 3 entidades", diff: "med", minutes: 8 },
+    { num: "03", name: "Implementa un Stack<T> genérico", diff: "hard", minutes: 12 },
+    { num: "04", name: "Usa keyof y genéricos para deepGet seguro", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

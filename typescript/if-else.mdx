@@ -1,0 +1,182 @@
+---
+title: "if / else / else if: tomar decisiones en el código"
+short: "if / else / else if"
+chapter: "03"
+num: "01"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El control de flujo es cómo el programa decide qué hacer. if/else es la estructura más fundamental y la más usada — conócela bien."
+pro: false
+---
+
+<Section id="if" title="La instrucción if">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const edad = 20;
+
+if (edad >= 18) {
+  console.log("Acceso permitido");
+}
+// Si la condición es false, el bloque se salta`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const edad: number = 20;
+
+if (edad >= 18) {
+  console.log("Acceso permitido");
+}`
+    }
+  ]}
+  output={`Acceso permitido`}
+/>
+
+</Section>
+
+<Section id="if-else" title="if / else">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const hora = 14;
+
+if (hora < 12) {
+  console.log("Buenos días");
+} else {
+  console.log("Buenas tardes o noches");
+}`
+    }
+  ]}
+  output={`Buenas tardes o noches`}
+/>
+
+</Section>
+
+<Section id="else-if" title="else if: múltiples ramas">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const nota = 75;
+
+if (nota >= 90) {
+  console.log("Sobresaliente");
+} else if (nota >= 70) {
+  console.log("Notable");
+} else if (nota >= 50) {
+  console.log("Aprobado");
+} else {
+  console.log("Suspenso");
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript con narrowing",
+      code: `type Estado = "activo" | "inactivo" | "suspendido";
+
+function describir(estado: Estado): string {
+  if (estado === "activo") {
+    return "El usuario puede iniciar sesión";
+  } else if (estado === "inactivo") {
+    return "El usuario debe reactivar la cuenta";
+  } else {
+    // TypeScript sabe que aquí estado === "suspendido"
+    return "El usuario está suspendido";
+  }
+}`
+    }
+  ]}
+  output={`Notable`}
+/>
+
+</Section>
+
+<Section id="truthy-falsy" title="Condiciones con valores no booleanos">
+
+Cualquier valor puede usarse en una condición. JavaScript lo convierte automáticamente a boolean.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Truthy / falsy",
+      code: `const nombre = "";      // falsy: string vacío
+
+if (nombre) {
+  console.log(\`Hola, \${nombre}\`);
+} else {
+  console.log("Nombre vacío");
+}
+// → "Nombre vacío"
+
+// Patrón común: verificar existencia
+const usuario = null;
+if (usuario) {
+  console.log(usuario.nombre);
+}
+// No ejecuta nada, evita el error`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript con narrowing",
+      code: `function saludar(nombre: string | null): void {
+  if (nombre) {
+    // TypeScript sabe que aquí nombre es string (no null)
+    console.log(nombre.toUpperCase()); // ✅
+  }
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="condicional-corto" title="Condicionales en una línea">
+
+Para ejecutar **una sola instrucción** puedes omitir las llaves. Sin embargo, es una mala práctica — siempre usa llaves para evitar bugs:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Evitar vs recomendado",
+      code: `// ❌ Evitar: sin llaves
+if (activo) console.log("activo");
+
+// ✅ Siempre con llaves
+if (activo) {
+  console.log("activo");
+}
+
+// ✅ O usa el operador &&  para "ejecutar si es truthy"
+activo && console.log("activo");`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Clasificador de temperatura", diff: "easy", minutes: 3 },
+    { num: "02", name: "Semáforo con if/else if/else", diff: "easy", minutes: 3 },
+    { num: "03", name: "Verificar rango de edades", diff: "med", minutes: 4 },
+    { num: "04", name: "Narrowing con TypeScript", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

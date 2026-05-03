@@ -1,0 +1,197 @@
+---
+title: "Closures: funciones que recuerdan su entorno"
+short: "Closures"
+chapter: "04"
+num: "05"
+chapterTitle: "Funciones"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Un closure es una función que mantiene acceso a las variables de su ámbito léxico incluso después de que ese ámbito haya finalizado. Es el mecanismo detrás de callbacks, módulos, memoización y React hooks."
+pro: true
+---
+
+<Section id="que-es" title="¿Qué es un closure?">
+
+Una función en JavaScript **recuerda** el entorno donde fue creada. Cuando retorna otra función desde adentro, la función interna tiene acceso a las variables de la externa — incluso después de que la función externa haya terminado.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Primer closure",
+      code: `function crearContador() {
+  let cuenta = 0; // variable en el ámbito de crearContador
+
+  return function() {
+    cuenta++;
+    return cuenta;
+  };
+}
+
+const contador = crearContador();
+// crearContador() ya terminó, pero 'cuenta' sigue viva
+console.log(contador()); // 1
+console.log(contador()); // 2
+console.log(contador()); // 3
+
+// Cada llamada a crearContador() crea un closure NUEVO
+const contador2 = crearContador();
+console.log(contador2()); // 1 — independiente del primero`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function crearContador(): () => number {
+  let cuenta = 0;
+
+  return () => {
+    cuenta++;
+    return cuenta;
+  };
+}
+
+const contador = crearContador();
+console.log(contador()); // 1
+console.log(contador()); // 2`
+    }
+  ]}
+  output={`1\n2\n3`}
+/>
+
+</Section>
+
+<Section id="casos-uso" title="Casos de uso comunes">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Casos de uso",
+      code: `// 1. Encapsulación (estado privado)
+function crearCuenta(saldoInicial) {
+  let saldo = saldoInicial; // privado — no accesible desde fuera
+
+  return {
+    depositar: (monto) => { saldo += monto; },
+    retirar:   (monto) => { saldo -= monto; },
+    consultar: () => saldo,
+  };
+}
+
+const cuenta = crearCuenta(100);
+cuenta.depositar(50);
+cuenta.retirar(30);
+console.log(cuenta.consultar()); // 120
+// console.log(cuenta.saldo);    // undefined — privado
+
+// 2. Factory functions (creadores)
+function multiplicador(factor) {
+  return (numero) => numero * factor;
+}
+
+const doble  = multiplicador(2);
+const triple = multiplicador(3);
+
+console.log(doble(5));  // 10
+console.log(triple(5)); // 15
+
+// 3. Memoización
+function memoizar(fn) {
+  const cache = new Map();
+  return function(...args) {
+    const clave = JSON.stringify(args);
+    if (cache.has(clave)) return cache.get(clave);
+    const resultado = fn(...args);
+    cache.set(clave, resultado);
+    return resultado;
+  };
+}
+
+const fibMemo = memoizar(function fib(n) {
+  if (n <= 1) return n;
+  return fibMemo(n - 1) + fibMemo(n - 2);
+});
+
+console.log(fibMemo(40)); // 102334155 (rápido)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Factory tipada
+function crearLogger(prefijo: string): (msg: string) => void {
+  return (msg: string) => console.log(\`[\${prefijo}] \${msg}\`);
+}
+
+const errorLog = crearLogger("ERROR");
+const infoLog  = crearLogger("INFO");
+
+errorLog("Conexión fallida");   // [ERROR] Conexión fallida
+infoLog("Servidor listo");      // [INFO] Servidor listo
+
+// useState de React — internamente usa un closure
+// const [count, setCount] = useState(0);
+// setCount es una función que "recuerda" la referencia al estado interno`
+    }
+  ]}
+  output={`120\n10\n15`}
+/>
+
+</Section>
+
+<Section id="scope" title="Ámbito léxico y la cadena de scope">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Cadena de scope",
+      code: `const global = "global";
+
+function externa() {
+  const extVar = "externa";
+
+  function interna() {
+    const intVar = "interna";
+    // Accede a su propio scope, al de externa, y al global
+    console.log(intVar, extVar, global);
+  }
+
+  interna();
+}
+
+externa();
+// "interna" "externa" "global"
+
+// Problema clásico con var en loops (antes de ES6)
+// ❌ var comparte la misma variable en todos los closures
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0); // 3 3 3 (no 0 1 2)
+}
+
+// ✅ let crea un nuevo binding por iteración
+for (let j = 0; j < 3; j++) {
+  setTimeout(() => console.log(j), 0); // 0 1 2`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="React hooks y closures">
+Los hooks de React son closures. `useEffect`, `useCallback` y `useMemo` capturan variables del componente. Por eso el array de dependencias existe — le dice a React qué variables del closure podrían cambiar.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea un generador de IDs únicos con closure", diff: "med", minutes: 5 },
+    { num: "02", name: "Implementa un stack con estado privado", diff: "med", minutes: 8 },
+    { num: "03", name: "Once — función que solo se ejecuta una vez", diff: "med", minutes: 6 },
+    { num: "04", name: "Memoización simple", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

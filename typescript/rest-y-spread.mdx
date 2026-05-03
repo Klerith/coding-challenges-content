@@ -1,0 +1,210 @@
+---
+title: "Rest y spread: el operador ..."
+short: "Rest y spread"
+chapter: "04"
+num: "04"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los tres puntos '...' hacen cosas opuestas según el contexto: spread expande una colección, rest la agrupa. Dominarlos hace tu código mucho más flexible."
+pro: false
+---
+
+<Section id="spread-arrays" title="Spread en arrays">
+
+El operador `...` antes de un array lo **expande** en elementos individuales:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Spread en arrays",
+      code: `const a = [1, 2, 3];
+const b = [4, 5, 6];
+
+// Combinar arrays
+const c = [...a, ...b];
+console.log(c); // [1, 2, 3, 4, 5, 6]
+
+// Copiar un array (copia superficial)
+const copia = [...a];
+copia.push(99);
+console.log(a);    // [1, 2, 3] — original no cambia
+console.log(copia); // [1, 2, 3, 99]
+
+// Pasar array como argumentos separados
+function sumar(x, y, z) {
+  return x + y + z;
+}
+const nums = [1, 2, 3];
+console.log(sumar(...nums)); // 6
+
+// Encontrar máximo
+console.log(Math.max(...a)); // 3`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const primos: number[] = [2, 3, 5];
+const moreNums: number[] = [7, 11, 13];
+
+const todos: number[] = [...primos, ...moreNums];
+console.log(todos); // [2, 3, 5, 7, 11, 13]
+
+// Spread en parámetros
+function max(...nums: number[]): number {
+  return Math.max(...nums);
+}
+console.log(max(1, 5, 3, 9, 2)); // 9`
+    }
+  ]}
+  output={`[1, 2, 3, 4, 5, 6]\n6`}
+/>
+
+</Section>
+
+<Section id="spread-objetos" title="Spread en objetos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Spread en objetos",
+      code: `const base = { nombre: "Ana", activo: true };
+const extra = { edad: 25, ciudad: "Madrid" };
+
+// Fusionar objetos
+const usuario = { ...base, ...extra };
+console.log(usuario);
+// { nombre: "Ana", activo: true, edad: 25, ciudad: "Madrid" }
+
+// Las propiedades posteriores sobreescriben las anteriores
+const actualizado = { ...base, activo: false, email: "ana@mail.com" };
+console.log(actualizado);
+// { nombre: "Ana", activo: false, email: "ana@mail.com" }
+
+// Patrón común: actualizar un objeto inmutablemente
+const state = { count: 0, loading: false };
+const newState = { ...state, count: state.count + 1 };
+console.log(newState); // { count: 1, loading: false }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Config {
+  host: string;
+  port: number;
+  debug?: boolean;
+}
+
+const defaults: Config = { host: "localhost", port: 3000 };
+const prod: Config = { ...defaults, host: "prod.example.com", port: 443 };
+
+console.log(prod);
+// { host: "prod.example.com", port: 443 }`
+    }
+  ]}
+  output={`{ nombre: "Ana", activo: false, email: "ana@mail.com" }`}
+/>
+
+</Section>
+
+<Section id="rest-params" title="Rest en parámetros">
+
+`...rest` al final de la firma agrupa los argumentos restantes en un array:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Rest params",
+      code: `// Acepta cualquier cantidad de argumentos
+function sumarTodo(...numeros) {
+  return numeros.reduce((acc, n) => acc + n, 0);
+}
+
+console.log(sumarTodo(1, 2, 3));          // 6
+console.log(sumarTodo(1, 2, 3, 4, 5));   // 15
+console.log(sumarTodo());                 // 0
+
+// Combinar parámetro normal + rest
+function log(nivel, ...mensajes) {
+  console.log(\`[\${nivel}]\`, ...mensajes);
+}
+
+log("INFO", "Servidor", "iniciado", "en", "3000");
+// [INFO] Servidor iniciado en 3000`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function sumarTodo(...numeros: number[]): number {
+  return numeros.reduce((acc, n) => acc + n, 0);
+}
+
+// Función variadic con tipos mixtos
+function crear(nombre: string, ...tags: string[]): object {
+  return { nombre, tags };
+}
+
+console.log(crear("artículo", "js", "ts", "web"));
+// { nombre: "artículo", tags: ["js", "ts", "web"] }`
+    }
+  ]}
+  output={`6\n15`}
+/>
+
+<Callout variant="warn" title="Rest siempre al final">
+El parámetro rest debe ser el **último** de la lista. No puede haber parámetros después de él.
+</Callout>
+
+</Section>
+
+<Section id="rest-desestructuracion" title="Rest en desestructuración">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Rest destructuring",
+      code: `// En arrays
+const [primero, segundo, ...resto] = [1, 2, 3, 4, 5];
+console.log(primero);  // 1
+console.log(segundo);  // 2
+console.log(resto);    // [3, 4, 5]
+
+// En objetos: extrae algunas propiedades, agrupa el resto
+const { nombre, edad, ...otros } = {
+  nombre: "Ana",
+  edad: 25,
+  ciudad: "Madrid",
+  activo: true,
+};
+
+console.log(nombre);  // "Ana"
+console.log(edad);    // 25
+console.log(otros);   // { ciudad: "Madrid", activo: true }
+
+// Patrón útil: omitir una propiedad al copiar
+const { password, ...sinPassword } = usuario;
+// sinPassword no tiene la propiedad password`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Función que acepta N números y retorna su suma", diff: "easy", minutes: 3 },
+    { num: "02", name: "Combina dos arrays sin duplicados", diff: "med", minutes: 5 },
+    { num: "03", name: "Omite propiedades de un objeto con rest", diff: "med", minutes: 4 },
+    { num: "04", name: "Deep merge de objetos con spread", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

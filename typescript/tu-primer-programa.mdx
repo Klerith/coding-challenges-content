@@ -1,0 +1,146 @@
+---
+title: "Tu primer programa: \"Hola, mundo\""
+short: "Tu primer programa"
+chapter: "01"
+num: "03"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "La tradición de todo programador: tu primer programa imprime \"Hola, mundo\". Pero aquí vamos más allá — entenderás qué hace cada parte del código."
+pro: false
+---
+
+<Section id="hola-mundo" title="El clásico &quot;Hola, mundo&quot;">
+
+`console.log()` es la función más usada en JavaScript para depurar y mostrar información. Imprime en la consola del navegador o en la terminal de Node.js.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `console.log("¡Hola, mundo!");`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `console.log("¡Hola, mundo!");
+// TypeScript es idéntico aquí — ninguna anotación necesaria`
+    }
+  ]}
+  output={`¡Hola, mundo!`}
+/>
+
+<Callout variant="tip" title="¿console.log acepta cualquier cosa?">
+Sí. Puede recibir strings, números, arrays, objetos, booleanos o mezclas: `console.log("edad:", 38, { activo: true })`.
+</Callout>
+
+</Section>
+
+<Section id="comentarios" title="Comentarios en el código">
+
+Los comentarios son texto que el motor ignora. Sirven para explicar el código o desactivar líneas temporalmente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Tipos de comentarios",
+      code: `// Comentario de una línea
+
+/*
+  Comentario
+  de varias líneas
+*/
+
+console.log("El código funciona"); // comentario al final de una línea`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="valores" title="Tipos de valores">
+
+JavaScript maneja distintos tipos de datos. Aquí los más básicos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Texto
+console.log("Hola");        // string con comillas dobles
+console.log('Mundo');       // string con comillas simples
+console.log(\`Template\`);   // template literal con backticks
+
+// Números
+console.log(42);            // entero
+console.log(3.14);          // decimal
+
+// Booleanos
+console.log(true);
+console.log(false);
+
+// Ausencia de valor
+console.log(null);          // vacío intencional
+console.log(undefined);     // no asignado`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript infiere los tipos automáticamente
+const texto: string = "Hola";
+const numero: number = 42;
+const activo: boolean = true;
+const vacio: null = null;
+const sinAsignar: undefined = undefined;
+
+// O sin anotación (TypeScript lo infiere igual)
+const texto2 = "Hola";     // tipo: string
+const numero2 = 42;        // tipo: number`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="operaciones" title="Operaciones básicas">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Aritmética
+console.log(5 + 3);   // 8
+console.log(10 - 4);  // 6
+console.log(3 * 4);   // 12
+console.log(15 / 4);  // 3.75
+console.log(15 % 4);  // 3 — módulo (resto de la división)
+console.log(2 ** 8);  // 256 — potencia
+
+// Concatenar strings
+console.log("Hola" + ", " + "mundo");
+console.log(\`Resultado: \${5 + 3}\`);  // usando template literals`
+    }
+  ]}
+  output={`8\n6\n12\n3.75\n3\n256\nHola, mundo\nResultado: 8`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Tres ejercicios para consolidar los primeros pasos."
+  items={[
+    { num: "01", name: "Imprime tu nombre y edad", diff: "easy", minutes: 2 },
+    { num: "02", name: "Suma dos números con console.log", diff: "easy", minutes: 2 },
+    { num: "03", name: "Imprime el resultado de una expresión", diff: "easy", minutes: 3 },
+  ]}
+/>
+</Section>

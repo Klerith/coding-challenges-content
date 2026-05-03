@@ -1,0 +1,204 @@
+---
+title: "Unions e intersecciones: componer tipos"
+short: "Unions e intersecciones"
+chapter: "05"
+num: "03"
+chapterTitle: "TypeScript"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los tipos union (|) e intersección (&) son las operaciones fundamentales para componer tipos en TypeScript. Con ellos puedes modelar relaciones complejas sin duplicar código."
+pro: false
+---
+
+<Section id="union" title="Tipos union (|)">
+
+Un tipo union significa "puede ser **uno u otro**". El valor puede ser de cualquiera de los tipos listados.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Union types",
+      code: `// Un parámetro que acepta número o string
+function mostrarId(id: number | string): void {
+  console.log("ID:", id);
+}
+
+mostrarId(42);       // "ID: 42"
+mostrarId("abc-99"); // "ID: abc-99"
+
+// Union de literales — solo esos valores exactos
+type Direccion = "norte" | "sur" | "este" | "oeste";
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+type EstadoSemaforo = "rojo" | "amarillo" | "verde";
+
+let dir: Direccion = "norte";
+// dir = "arriba"; // ❌ Error
+
+// Union con null/undefined (nullable)
+type MaybeString = string | null;
+type OptionalNumber = number | undefined;
+
+function buscar(id: number): Usuario | null {
+  return encontrarEnBD(id) ?? null;
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="narrowing-union" title="Narrowing en unions">
+
+Cuando tienes una union, TypeScript requiere que **estreches** (narrow) el tipo antes de usar métodos específicos de uno de los tipos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Narrowing básico",
+      code: `function formatear(valor: number | string): string {
+  // ❌ No puedes asumir que es string o number sin verificar
+  // return valor.toUpperCase(); // Error: number no tiene toUpperCase
+
+  if (typeof valor === "string") {
+    return valor.toUpperCase(); // ✅ Aquí TypeScript sabe que es string
+  }
+  return valor.toFixed(2); // ✅ Aquí sabe que es number
+}
+
+console.log(formatear("hola"));  // "HOLA"
+console.log(formatear(3.14159)); // "3.14"
+
+// Narrowing con instanceof
+function procesar(val: Date | string): string {
+  if (val instanceof Date) {
+    return val.toISOString();   // ✅ es Date
+  }
+  return new Date(val).toISOString(); // ✅ es string
+}`
+    }
+  ]}
+  output={`HOLA\n3.14`}
+/>
+
+</Section>
+
+<Section id="discriminated" title="Unions discriminadas">
+
+El patrón más potente: agrega una propiedad literal (`kind`, `type`, `status`) para distinguir variantes:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Discriminated unions",
+      code: `type Círculo = {
+  kind: "circle";
+  radio: number;
+};
+
+type Rectángulo = {
+  kind: "rect";
+  ancho: number;
+  alto: number;
+};
+
+type Triángulo = {
+  kind: "triangle";
+  base: number;
+  altura: number;
+};
+
+type Forma = Círculo | Rectángulo | Triángulo;
+
+function área(forma: Forma): number {
+  switch (forma.kind) {
+    case "circle":
+      return Math.PI * forma.radio ** 2;
+    case "rect":
+      return forma.ancho * forma.alto;
+    case "triangle":
+      return (forma.base * forma.altura) / 2;
+    default: {
+      const _: never = forma; // exhaustive check
+      throw new Error("Forma desconocida");
+    }
+  }
+}
+
+console.log(área({ kind: "circle", radio: 5 }).toFixed(2));      // "78.54"
+console.log(área({ kind: "rect", ancho: 4, alto: 6 }));          // 24
+console.log(área({ kind: "triangle", base: 3, altura: 8 }));     // 12`
+    }
+  ]}
+  output={`78.54\n24\n12`}
+/>
+
+</Section>
+
+<Section id="interseccion" title="Tipos intersección (&)">
+
+Un tipo intersección significa "debe ser **ambos a la vez**". Combina todas las propiedades:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Intersection types",
+      code: `interface Persona {
+  nombre: string;
+  edad: number;
+}
+
+interface Empleado {
+  empresa: string;
+  cargo: string;
+}
+
+type EmpleadoPersona = Persona & Empleado;
+
+const trabajador: EmpleadoPersona = {
+  nombre: "Ana",
+  edad: 30,
+  empresa: "TechCorp",
+  cargo: "Desarrolladora",
+};
+
+// Útil para mixins / composición
+type ConTimestamp = {
+  creado: Date;
+  actualizado: Date;
+};
+
+type UsuarioCompleto = Persona & EmpleadoPersona & ConTimestamp;`
+    }
+  ]}
+/>
+
+<CompareTable
+  headers={["", "Union (|)", "Intersección (&)"]}
+  rows={[
+    ["Significado", '"uno u otro"', '"ambos a la vez"'],
+    ["Propiedades disponibles", "Solo las comunes a todos los tipos", "Todas las propiedades de todos los tipos"],
+    ["Cuándo usar", "Valor puede ser de tipos distintos", "Combinar múltiples tipos en uno"],
+    ["Ejemplo", "string | number", "Persona & Empleado"],
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Modelo de API: éxito | error con union discriminada", diff: "med", minutes: 6 },
+    { num: "02", name: "Sistema de formas con área exhaustiva", diff: "med", minutes: 8 },
+    { num: "03", name: "Combina roles de usuario con intersecciones", diff: "med", minutes: 7 },
+    { num: "04", name: "Narrowing con predicados de tipo (is)", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,106 @@
+---
+title: "Introducción a JavaScript"
+short: "Introducción a JavaScript"
+chapter: "01"
+num: "01"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["js"]
+exercises: 2
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "JavaScript es el lenguaje de la web. Corre en todos los navegadores, en el servidor con Node.js, y en apps de escritorio y móvil. Esta lección te da el contexto que necesitas antes de escribir tu primera línea."
+pro: false
+---
+
+<Section id="que-es" title="¿Qué es JavaScript?">
+
+JavaScript es un lenguaje de programación **interpretado**, **dinámico** y **de alto nivel** creado en 1995. Hoy es el único lenguaje que entienden los navegadores de forma nativa y forma la base de toda la web moderna.
+
+- **Front-end**: todo lo que ves y con lo que interactúas en un sitio web.
+- **Back-end**: servidores con Node.js, Deno o Bun.
+- **Apps móviles**: React Native, Ionic.
+- **Apps de escritorio**: Electron (VS Code está hecho con Electron).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// JavaScript corre en el navegador y en el servidor
+console.log("Hola, mundo!");
+
+const nombre = "Fernando";
+const edad = 38;
+
+console.log(\`Me llamo \${nombre} y tengo \${edad} años.\`);`
+    }
+  ]}
+  output={`Hola, mundo!\nMe llamo Fernando y tengo 38 años.`}
+/>
+
+</Section>
+
+<Section id="por-que" title="¿Por qué aprender JavaScript?">
+
+JavaScript es el lenguaje más usado del mundo según el índice TIOBE y la encuesta de Stack Overflow (12 años consecutivos). Aprenderlo abre las puertas a:
+
+- El desarrollo web (imprescindible junto con HTML y CSS).
+- El backend con Node.js, Fastify, Express, NestJS.
+- La inteligencia artificial aplicada a la web.
+- Librerías y frameworks como React, Vue, Svelte, Angular.
+
+<Callout title="¿Y TypeScript?">
+TypeScript es JavaScript con un sistema de tipos encima. Primero aprende JS; luego TypeScript se vuelve natural. En esta ruta los verás juntos — pero la base siempre es JavaScript.
+</Callout>
+
+</Section>
+
+<Section id="como-funciona" title="¿Cómo funciona?">
+
+El motor de JavaScript (V8 en Chrome y Node.js, SpiderMonkey en Firefox) convierte tu código a instrucciones de máquina. El proceso simplificado es:
+
+1. **Parseo**: el motor lee el código y crea un árbol sintáctico (AST).
+2. **Compilación JIT**: compila el código a bytecode optimizado en tiempo real.
+3. **Ejecución**: el código corre en el hilo principal (single-threaded) con un event loop para operaciones asíncronas.
+
+<Callout variant="tip" title="No necesitas entender el motor ahora">
+Lo importante es que JavaScript corre donde lo ejecutas: en el navegador, en Node.js o en Deno. No necesitas instalarlo — tu navegador ya lo tiene.
+</Callout>
+
+</Section>
+
+<Section id="donde-escribir" title="¿Dónde puedo escribirlo?">
+
+Tienes varias opciones para empezar hoy mismo:
+
+- **Consola del navegador**: abre DevTools (F12), ve a la pestaña "Console" y escribe código.
+- **Editor online**: usa el editor de esta plataforma — sin instalación.
+- **Node.js local**: instala Node.js desde nodejs.org y ejecuta `node archivo.js` en la terminal.
+- **VS Code + extensión**: el entorno más popular para proyectos reales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Consola del navegador",
+      code: `// Prueba esto en la consola de tu navegador (F12)
+2 + 2          // → 4
+typeof "hola"  // → "string"
+[1,2,3].map(x => x * 2)  // → [2, 4, 6]`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Dos ejercicios para comprobar que el entorno funciona."
+  items={[
+    { num: "01", name: "Hola desde la consola", diff: "easy", minutes: 2 },
+    { num: "02", name: "Tu nombre en una variable", diff: "easy", minutes: 3 },
+  ]}
+/>
+</Section>

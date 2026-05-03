@@ -1,0 +1,159 @@
+---
+title: "Parámetros y valores por defecto"
+short: "Parámetros y defaults"
+chapter: "04"
+num: "03"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los parámetros por defecto eliminan los chequeos manuales de undefined. Combinados con desestructuración hacen las funciones más expresivas y robustas."
+pro: false
+---
+
+<Section id="defaults" title="Parámetros por defecto">
+
+ES6 permite asignar un valor por defecto directamente en la firma. Se usa cuando el argumento es `undefined` o no se pasa.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sin defaults (patrón antiguo)
+function saludar1(nombre) {
+  nombre = nombre || "Invitado"; // problema: 0 o "" también activan el fallback
+  return \`Hola, \${nombre}\`;
+}
+
+// Con defaults (ES6)
+function saludar2(nombre = "Invitado") {
+  return \`Hola, \${nombre}\`;
+}
+
+console.log(saludar2());         // "Hola, Invitado"
+console.log(saludar2("Ana"));    // "Hola, Ana"
+console.log(saludar2(undefined)); // "Hola, Invitado"
+console.log(saludar2(null));     // "Hola, null" ← null no activa el default`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript infiere el tipo del default
+function saludar(nombre = "Invitado"): string {
+  return \`Hola, \${nombre}\`;
+}
+// nombre: string (inferido del default)
+
+// Con tipo explícito
+function crear(label: string, activo = true, puntos = 0) {
+  return { label, activo, puntos };
+}
+
+console.log(crear("Tarea"));            // { label: "Tarea", activo: true, puntos: 0 }
+console.log(crear("Reto", false, 50));  // { label: "Reto", activo: false, puntos: 50 }`
+    }
+  ]}
+  output={`Hola, Invitado\nHola, Ana`}
+/>
+
+<Callout variant="warn" title="null vs undefined">
+El valor por defecto solo se aplica cuando el argumento es `undefined`. `null` **no** activa el default — `null` es un valor explícito.
+</Callout>
+
+</Section>
+
+<Section id="desestructuracion" title="Desestructuración en parámetros">
+
+Puedes desestructurar objetos y arrays directamente en la firma de la función:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Desestructuración",
+      code: `// Sin desestructuración
+function mostrarUsuario1(usuario) {
+  console.log(usuario.nombre, usuario.edad);
+}
+
+// Con desestructuración en parámetro
+function mostrarUsuario({ nombre, edad }) {
+  console.log(nombre, edad);
+}
+
+// Con defaults en la desestructuración
+function mostrarUsuario2({ nombre = "Sin nombre", edad = 0 } = {}) {
+  console.log(nombre, edad);
+}
+
+mostrarUsuario({ nombre: "Ana", edad: 25 }); // "Ana" 25
+mostrarUsuario2();                            // "Sin nombre" 0
+mostrarUsuario2({ nombre: "Luis" });          // "Luis" 0`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Config {
+  host?: string;
+  port?: number;
+  debug?: boolean;
+}
+
+function iniciarServidor({
+  host = "localhost",
+  port = 3000,
+  debug = false,
+}: Config = {}) {
+  console.log(\`\${host}:\${port} debug=\${debug}\`);
+}
+
+iniciarServidor();                         // localhost:3000 debug=false
+iniciarServidor({ port: 8080 });           // localhost:8080 debug=false
+iniciarServidor({ host: "0.0.0.0", debug: true }); // 0.0.0.0:3000 debug=true`
+    }
+  ]}
+  output={`Ana 25\nSin nombre 0`}
+/>
+
+</Section>
+
+<Section id="orden" title="Orden de parámetros con defaults">
+
+Los parámetros con defaults deben ir **al final**. Si van antes, hay que pasar `undefined` para saltarlos, lo que es confuso:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Orden correcto",
+      code: `// ❌ Default al inicio — necesita undefined para saltarlo
+function mal(separador = ", ", a, b) {
+  return a + separador + b;
+}
+mal(undefined, "Ana", "Luis"); // "Ana, Luis" (confuso)
+
+// ✅ Defaults al final
+function bien(a, b, separador = ", ") {
+  return a + separador + b;
+}
+bien("Ana", "Luis");        // "Ana, Luis"
+bien("Ana", "Luis", " & "); // "Ana & Luis"`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Función de saludo con idioma por defecto", diff: "easy", minutes: 3 },
+    { num: "02", name: "Config con desestructuración y defaults", diff: "med", minutes: 5 },
+    { num: "03", name: "Refactoriza patrón || a default nativo", diff: "med", minutes: 4 },
+  ]}
+/>
+</Section>
