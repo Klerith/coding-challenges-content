@@ -1,0 +1,370 @@
+---
+title: "Fechas e Intl: formatear <em>tiempo y números</em> para el mundo real"
+short: "Fechas e Intl"
+chapter: "14"
+num: "03"
+chapterTitle: "Bonus prácticos"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "JavaScript tiene el objeto Date para trabajar con fechas y la API Intl para formatearlas según el idioma y la región del usuario. Juntos cubren la mayoría de casos de uso de fechas en aplicaciones web."
+pro: false
+---
+
+<Section id="objeto-date" title="El objeto Date — crear, parsear y comparar">
+
+`Date` en JavaScript representa un instante en el tiempo como milisegundos desde el epoch Unix (1 enero 1970 UTC).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Crear fechas
+const ahora    = new Date();                        // fecha y hora actuales
+const especifica = new Date("2026-05-02");           // desde string ISO
+const porPartes  = new Date(2026, 4, 2, 10, 30);    // año, mes(0-11), día, hora, min
+const desdeMs    = new Date(1746086400000);          // desde milisegundos
+
+console.log(ahora.toISOString());   // "2026-05-02T..."
+console.log(especifica.getFullYear()); // 2026
+console.log(porPartes.getMonth());     // 4 (mayo — los meses son 0-indexed)
+console.log(porPartes.getDate());      // 2
+
+// Métodos getter principales
+const fecha = new Date("2026-05-02T10:30:00");
+console.log(fecha.getFullYear()); // 2026
+console.log(fecha.getMonth());    // 4 (mayo)
+console.log(fecha.getDate());     // 2
+console.log(fecha.getHours());    // 10
+console.log(fecha.getMinutes());  // 30
+console.log(fecha.getDay());      // 6 (sábado — 0=domingo)
+
+// Comparar fechas — usar getTime() o valueOf()
+const d1 = new Date("2026-01-01");
+const d2 = new Date("2026-06-01");
+console.log(d1 < d2);                    // true
+console.log(d1.getTime() === d2.getTime()); // false`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript tipado con Date
+const ahora: Date = new Date();
+const especifica: Date = new Date("2026-05-02");
+
+console.log(ahora.toISOString());
+console.log(especifica.getFullYear()); // 2026
+
+// Función tipada para crear Date desde partes
+interface PartesFecha {
+  anio: number;
+  mes: number; // 1-12 (más intuitivo)
+  dia: number;
+}
+
+function crearFecha({ anio, mes, dia }: PartesFecha): Date {
+  return new Date(anio, mes - 1, dia); // convertir mes a 0-indexed
+}
+
+const miFecha = crearFecha({ anio: 2026, mes: 5, dia: 2 });
+console.log(miFecha.getMonth()); // 4 (internamente 0-indexed)
+console.log(miFecha.getDate());  // 2
+
+// Comparación tipada
+function esMayor(d1: Date, d2: Date): boolean {
+  return d1.getTime() > d2.getTime();
+}
+
+console.log(esMayor(new Date("2026-12-01"), new Date("2026-01-01"))); // true`
+    }
+  ]}
+  output={`2026-05-02T...\n2026\n4\n2\n2026\n4\n2\n10\n30\n6\ntrue\nfalse`}
+/>
+
+</Section>
+
+<Section id="operaciones-fechas" title="Operaciones con fechas — diferencias y sumas">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Aritmética con fechas",
+      code: `// Diferencia en días entre dos fechas
+function diferenciaDias(fecha1, fecha2) {
+  const ms = Math.abs(fecha2.getTime() - fecha1.getTime());
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+const inicio = new Date("2026-01-01");
+const fin    = new Date("2026-05-02");
+console.log(\`\${diferenciaDias(inicio, fin)} días\`); // "121 días"
+
+// Sumar días a una fecha
+function sumarDias(fecha, dias) {
+  const resultado = new Date(fecha); // clonar para no mutar
+  resultado.setDate(resultado.getDate() + dias);
+  return resultado;
+}
+
+const hoy    = new Date("2026-05-02");
+const manana = sumarDias(hoy, 1);
+const semana = sumarDias(hoy, 7);
+
+console.log(manana.toISOString().slice(0, 10)); // "2026-05-03"
+console.log(semana.toISOString().slice(0, 10));  // "2026-05-09"
+
+// Inicio y fin del mes actual
+function mesActual(fecha) {
+  const inicio = new Date(fecha.getFullYear(), fecha.getMonth(), 1);
+  const fin    = new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0); // día 0 del mes sig.
+  return { inicio, fin };
+}
+
+const { inicio: primerDia, fin: ultimoDia } = mesActual(new Date("2026-05-15"));
+console.log(primerDia.getDate()); // 1
+console.log(ultimoDia.getDate()); // 31`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function diferenciaDias(fecha1: Date, fecha2: Date): number {
+  const ms = Math.abs(fecha2.getTime() - fecha1.getTime());
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+function sumarDias(fecha: Date, dias: number): Date {
+  const resultado = new Date(fecha);
+  resultado.setDate(resultado.getDate() + dias);
+  return resultado;
+}
+
+const inicio = new Date("2026-01-01");
+const fin    = new Date("2026-05-02");
+console.log(\`\${diferenciaDias(inicio, fin)} días\`); // "121 días"
+
+const hoy    = new Date("2026-05-02");
+const semana = sumarDias(hoy, 7);
+console.log(semana.toISOString().slice(0, 10)); // "2026-05-09"
+
+interface RangoMes {
+  inicio: Date;
+  fin: Date;
+}
+
+function rangoMesActual(fecha: Date): RangoMes {
+  return {
+    inicio: new Date(fecha.getFullYear(), fecha.getMonth(), 1),
+    fin:    new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0),
+  };
+}
+
+const { inicio: p, fin: u } = rangoMesActual(new Date("2026-05-15"));
+console.log(p.getDate()); // 1
+console.log(u.getDate()); // 31`
+    }
+  ]}
+  output={`121 días\n2026-05-03\n2026-05-09\n1\n31`}
+/>
+
+<Callout variant="warn" title="Date nativo tiene limitaciones">
+El objeto `Date` de JavaScript es notoriamente difícil de usar: meses 0-indexed, timezone poco clara, APIs verbosas. Para aplicaciones que manejan fechas intensivamente, considera **date-fns** o **dayjs** — son ligeras, inmutables y tienen excelente soporte de TypeScript.
+</Callout>
+
+</Section>
+
+<Section id="intl-datetime" title="Intl.DateTimeFormat — formatear fechas por locale">
+
+La API `Intl` formatea fechas y números según el idioma y la región del usuario, sin librerías externas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Intl.DateTimeFormat",
+      code: `const fecha = new Date("2026-05-02T10:30:00");
+
+// Formato largo en español
+const formatoEs = new Intl.DateTimeFormat("es-MX", {
+  weekday: "long",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+console.log(formatoEs.format(fecha)); // "sábado, 2 de mayo de 2026"
+
+// Formato corto en inglés
+const formatoEn = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "2-digit",
+  year: "2-digit",
+});
+console.log(formatoEn.format(fecha)); // "May 02, 26"
+
+// Fecha y hora con timezone
+const conHora = new Intl.DateTimeFormat("es-MX", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "America/Mexico_City",
+});
+console.log(conHora.format(fecha)); // "2 may 2026, 10:30"
+
+// Forma corta con toLocaleDateString
+console.log(fecha.toLocaleDateString("es-MX", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+})); // "2 de mayo de 2026"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const fecha: Date = new Date("2026-05-02T10:30:00");
+
+// Opciones tipadas
+const opciones: Intl.DateTimeFormatOptions = {
+  weekday: "long",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+};
+
+const formatter = new Intl.DateTimeFormat("es-MX", opciones);
+console.log(formatter.format(fecha)); // "sábado, 2 de mayo de 2026"
+
+// Función reutilizable
+function formatearFecha(
+  fecha: Date,
+  locale: string = "es-MX",
+  opciones: Intl.DateTimeFormatOptions = { dateStyle: "long" }
+): string {
+  return new Intl.DateTimeFormat(locale, opciones).format(fecha);
+}
+
+console.log(formatearFecha(fecha));          // "2 de mayo de 2026"
+console.log(formatearFecha(fecha, "en-US")); // "May 2, 2026"
+console.log(formatearFecha(fecha, "de-DE")); // "2. Mai 2026"`
+    }
+  ]}
+  output={`sábado, 2 de mayo de 2026\nMay 02, 26\n2 may 2026, 10:30\n2 de mayo de 2026`}
+/>
+
+</Section>
+
+<Section id="intl-number-relative" title="Intl.NumberFormat y Intl.RelativeTimeFormat">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Números y tiempo relativo",
+      code: `// Intl.NumberFormat — monedas, porcentajes, compacto
+const precio = 1299.5;
+
+const enPesos = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+});
+console.log(enPesos.format(precio)); // "$1,299.50"
+
+const enEuros = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+});
+console.log(enEuros.format(precio)); // "1.299,50 €"
+
+const porcentaje = new Intl.NumberFormat("es-MX", {
+  style: "percent",
+  minimumFractionDigits: 1,
+});
+console.log(porcentaje.format(0.165)); // "16.5%"
+
+const compacto = new Intl.NumberFormat("es-MX", { notation: "compact" });
+console.log(compacto.format(1500000)); // "1.5M"
+
+// Intl.RelativeTimeFormat — "hace X días"
+const rtf = new Intl.RelativeTimeFormat("es-MX", { numeric: "auto" });
+
+console.log(rtf.format(-1, "day"));    // "ayer"
+console.log(rtf.format(-3, "day"));    // "hace 3 días"
+console.log(rtf.format(1, "day"));     // "mañana"
+console.log(rtf.format(-2, "week"));   // "hace 2 semanas"
+console.log(rtf.format(1, "month"));   // "el próximo mes"
+
+// Calcular tiempo relativo automáticamente
+function tiempoRelativo(fecha) {
+  const ahora = Date.now();
+  const diff  = fecha.getTime() - ahora;
+  const dias  = Math.round(diff / (1000 * 60 * 60 * 24));
+  const rtf   = new Intl.RelativeTimeFormat("es-MX", { numeric: "auto" });
+  return rtf.format(dias, "day");
+}
+
+console.log(tiempoRelativo(new Date(Date.now() - 86400000 * 5))); // "hace 5 días"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Intl.NumberFormat tipado
+function formatearMoneda(
+  valor: number,
+  moneda: string = "MXN",
+  locale: string = "es-MX"
+): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: moneda,
+  }).format(valor);
+}
+
+console.log(formatearMoneda(1299.5));           // "$1,299.50"
+console.log(formatearMoneda(99.99, "EUR", "de-DE")); // "99,99 €"
+
+// Tiempo relativo tipado
+type UnidadTiempo = Intl.RelativeTimeFormatUnit;
+
+function tiempoRelativo(fecha: Date, locale: string = "es-MX"): string {
+  const rtf   = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const diff  = fecha.getTime() - Date.now();
+  const absDiff = Math.abs(diff);
+
+  const unidades: Array<{ valor: number; unidad: UnidadTiempo }> = [
+    { valor: 365 * 24 * 60 * 60 * 1000, unidad: "year" },
+    { valor: 30  * 24 * 60 * 60 * 1000, unidad: "month" },
+    { valor: 7   * 24 * 60 * 60 * 1000, unidad: "week" },
+    { valor:       24 * 60 * 60 * 1000, unidad: "day" },
+    { valor:            60 * 60 * 1000, unidad: "hour" },
+  ];
+
+  for (const { valor, unidad } of unidades) {
+    if (absDiff >= valor) {
+      return rtf.format(Math.round(diff / valor), unidad);
+    }
+  }
+
+  return rtf.format(Math.round(diff / 60000), "minute");
+}
+
+console.log(tiempoRelativo(new Date(Date.now() - 86400000 * 3))); // "hace 3 días"
+console.log(tiempoRelativo(new Date(Date.now() + 86400000)));     // "mañana"`
+    }
+  ]}
+  output={`$1,299.50\n1.299,50 €\n16.5%\n1.5M\nayer\nhace 3 días\nmañana\nhace 2 semanas\nel próximo mes\nhace 5 días`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Muestra la fecha actual en formato español largo", diff: "easy", minutes: 5 },
+    { num: "02", name: "Calcula la diferencia en días entre dos fechas", diff: "med", minutes: 8 },
+    { num: "03", name: "Formatea un precio en MXN con Intl.NumberFormat", diff: "easy", minutes: 5 },
+    { num: "04", name: "Muestra 'hace X días' con RelativeTimeFormat", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

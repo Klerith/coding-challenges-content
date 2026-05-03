@@ -1,0 +1,366 @@
+---
+title: "Memoización: cachear resultados para <em>no calcular dos veces</em>"
+short: "Memoización"
+chapter: "14"
+num: "05"
+chapterTitle: "Bonus prácticos"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "La memoización almacena los resultados de funciones costosas para no recalcularlos cuando se llaman con los mismos argumentos. Es una optimización con un tradeoff claro: memoria a cambio de velocidad."
+pro: false
+---
+
+<Section id="que-es-memoizacion" title="¿Qué es la memoización?">
+
+**Memoización** es la técnica de guardar en caché el resultado de una función para cada conjunto de argumentos. Si la función es pura (mismo input → mismo output), el resultado es siempre reutilizable.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sin memoización — Fibonacci recalcula exponencialmente
+function fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+console.time("sin memo");
+fibonacci(40); // ~1.5 segundos — millones de llamadas
+console.timeEnd("sin memo");
+
+// Con memoización — almacena resultados previos
+function fibonacciMemo() {
+  const cache = new Map();
+
+  return function fib(n) {
+    if (n <= 1) return n;
+    if (cache.has(n)) return cache.get(n);
+
+    const resultado = fib(n - 1) + fib(n - 2);
+    cache.set(n, resultado);
+    return resultado;
+  };
+}
+
+const fib = fibonacciMemo();
+
+console.time("con memo");
+fib(40); // < 1ms — solo calcula cada valor una vez
+console.timeEnd("con memo");
+
+console.log(fib(10)); // 55
+console.log(fib(20)); // 6765
+console.log(fib(40)); // 102334155`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Fibonacci memoizado tipado
+function crearFibonacci(): (n: number) => number {
+  const cache = new Map<number, number>();
+
+  return function fib(n: number): number {
+    if (n <= 1) return n;
+    if (cache.has(n)) return cache.get(n)!;
+
+    const resultado = fib(n - 1) + fib(n - 2);
+    cache.set(n, resultado);
+    return resultado;
+  };
+}
+
+const fib = crearFibonacci();
+
+console.log(fib(10)); // 55
+console.log(fib(20)); // 6765
+console.log(fib(40)); // 102334155
+
+// El tamaño del cache crece linealmente con n
+// fib(40) → cache tiene 40 entradas`
+    }
+  ]}
+  output={`sin memo: ~1500ms\ncon memo: ~0ms\n55\n6765\n102334155`}
+/>
+
+</Section>
+
+<Section id="implementacion-basica" title="Implementación básica con Map">
+
+La implementación más simple de memoización usa un `Map` para almacenar pares (argumento → resultado):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Memoización manual",
+      code: `// Función costosa — cálculo de factorial
+function factorial(n) {
+  if (n <= 1) return 1;
+  return n * factorial(n - 1);
+}
+
+// Versión memoizada — manual con Map
+const cacheFactorial = new Map();
+
+function factorialMemo(n) {
+  if (cacheFactorial.has(n)) {
+    console.log(\`Cache hit para \${n}\`);
+    return cacheFactorial.get(n);
+  }
+
+  const resultado = n <= 1 ? 1 : n * factorialMemo(n - 1);
+  cacheFactorial.set(n, resultado);
+  return resultado;
+}
+
+console.log(factorialMemo(5));  // 120 — calcula
+console.log(factorialMemo(5));  // Cache hit para 5 → 120
+console.log(factorialMemo(6));  // Cache hit para 5 → 720
+console.log(factorialMemo(10)); // Calcula del 7 al 10
+
+// Ver el estado del cache
+console.log([...cacheFactorial.entries()].map(([k, v]) => \`\${k}! = \${v}\`));`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const cacheFactorial = new Map<number, number>();
+
+function factorialMemo(n: number): number {
+  if (cacheFactorial.has(n)) {
+    return cacheFactorial.get(n)!;
+  }
+
+  const resultado: number = n <= 1 ? 1 : n * factorialMemo(n - 1);
+  cacheFactorial.set(n, resultado);
+  return resultado;
+}
+
+console.log(factorialMemo(5));  // 120
+console.log(factorialMemo(10)); // 3628800
+
+// Versión con clase para encapsular el cache
+class FuncionMemoizada<T, R> {
+  private cache = new Map<T, R>();
+
+  constructor(private readonly fn: (arg: T) => R) {}
+
+  llamar(arg: T): R {
+    if (this.cache.has(arg)) return this.cache.get(arg)!;
+    const resultado = this.fn(arg);
+    this.cache.set(arg, resultado);
+    return resultado;
+  }
+
+  limpiarCache(): void {
+    this.cache.clear();
+  }
+}
+
+const factorialCls = new FuncionMemoizada((n: number): number =>
+  n <= 1 ? 1 : n * factorialCls.llamar(n - 1)
+);
+
+console.log(factorialCls.llamar(7)); // 5040`
+    }
+  ]}
+  output={`120\nCache hit para 5\n120\nCache hit para 5\n720\n3628800`}
+/>
+
+</Section>
+
+<Section id="memoizacion-generica" title="Memoización genérica — función de orden superior">
+
+Una función `memoize()` genérica puede cachear cualquier función pura con cualquier tipo de argumento:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "memoize() universal",
+      code: `function memoize(fn) {
+  const cache = new Map();
+
+  return function(...args) {
+    // La clave del cache es la serialización de los argumentos
+    const clave = JSON.stringify(args);
+
+    if (cache.has(clave)) {
+      return cache.get(clave);
+    }
+
+    const resultado = fn.apply(this, args);
+    cache.set(clave, resultado);
+    return resultado;
+  };
+}
+
+// Función costosa de ejemplo
+function calcularImpuesto(precio, tasa, descuento) {
+  // Simulamos un cálculo costoso
+  console.log(\`Calculando para: \${precio}, \${tasa}, \${descuento}\`);
+  return precio * (1 + tasa) * (1 - descuento);
+}
+
+const calcularMemo = memoize(calcularImpuesto);
+
+console.log(calcularMemo(1000, 0.16, 0.1)); // Calcula → 1044
+console.log(calcularMemo(1000, 0.16, 0.1)); // Cache hit → 1044 (sin console.log interno)
+console.log(calcularMemo(500, 0.16, 0));    // Calcula → 580
+console.log(calcularMemo(500, 0.16, 0));    // Cache hit → 580`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function memoize<T extends unknown[], R>(
+  fn: (...args: T) => R
+): (...args: T) => R {
+  const cache = new Map<string, R>();
+
+  return function(...args: T): R {
+    const clave = JSON.stringify(args);
+
+    if (cache.has(clave)) {
+      return cache.get(clave)!;
+    }
+
+    const resultado = fn(...args);
+    cache.set(clave, resultado);
+    return resultado;
+  };
+}
+
+// Memoizar función de dos parámetros
+function distanciaEuclidiana(x1: number, y1: number, x2: number, y2: number): number {
+  console.log(\`Calculando distancia...\`);
+  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+const distanciaMemo = memoize(distanciaEuclidiana);
+
+console.log(distanciaMemo(0, 0, 3, 4).toFixed(2)); // Calcula → "5.00"
+console.log(distanciaMemo(0, 0, 3, 4).toFixed(2)); // Cache hit → "5.00"
+console.log(distanciaMemo(1, 1, 4, 5).toFixed(2)); // Calcula → "5.00"`
+    }
+  ]}
+  output={`Calculando para: 1000, 0.16, 0.1\n1044\n1044\nCalculando para: 500, 0.16, 0\n580\n580`}
+/>
+
+</Section>
+
+<Section id="limitaciones" title="Limitaciones — memoria, TTL y claves de caché">
+
+La memoización no es gratuita. Hay casos donde puede ser contraproducente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Limitaciones y soluciones",
+      code: `// ⚠️ Problema 1: Memoria ilimitada
+// Un cache sin límite puede crecer indefinidamente
+// Solución: LRU cache o TTL (time-to-live)
+
+function memoizeConTTL(fn, ttlMs) {
+  const cache = new Map(); // { clave: { valor, expira } }
+
+  return function(...args) {
+    const clave = JSON.stringify(args);
+    const ahora = Date.now();
+
+    if (cache.has(clave)) {
+      const entrada = cache.get(clave);
+      if (ahora < entrada.expira) {
+        return entrada.valor; // cache válido
+      }
+      cache.delete(clave); // expirado — eliminar
+    }
+
+    const resultado = fn(...args);
+    cache.set(clave, { valor: resultado, expira: ahora + ttlMs });
+    return resultado;
+  };
+}
+
+function obtenerTipoCambio(moneda) {
+  // En real, llamaría a una API
+  console.log(\`Consultando tipo de cambio para \${moneda}...\`);
+  return { MXN: 17.2, EUR: 0.92, GBP: 0.79 }[moneda] ?? 1;
+}
+
+// Cache válido por 5 minutos (300,000ms)
+const obtenerTipoCambioMemo = memoizeConTTL(obtenerTipoCambio, 300000);
+
+console.log(obtenerTipoCambioMemo("MXN")); // Consulta → 17.2
+console.log(obtenerTipoCambioMemo("MXN")); // Cache hit → 17.2
+
+// ⚠️ Problema 2: Objetos como argumentos — clave incorrecta
+// JSON.stringify({ a: 1, b: 2 }) === JSON.stringify({ b: 2, a: 1 }) → false en algunos casos
+// Solución: normalizat los args o usar una biblioteca de memoización seria`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface EntradaCache<R> {
+  valor: R;
+  expira: number;
+}
+
+function memoizeConTTL<T extends unknown[], R>(
+  fn: (...args: T) => R,
+  ttlMs: number
+): (...args: T) => R {
+  const cache = new Map<string, EntradaCache<R>>();
+
+  return function(...args: T): R {
+    const clave = JSON.stringify(args);
+    const ahora = Date.now();
+
+    const entrada = cache.get(clave);
+    if (entrada && ahora < entrada.expira) {
+      return entrada.valor;
+    }
+
+    if (entrada) cache.delete(clave); // limpiar expirado
+
+    const resultado = fn(...args);
+    cache.set(clave, { valor: resultado, expira: ahora + ttlMs });
+    return resultado;
+  };
+}
+
+function obtenerTipoCambio(moneda: string): number {
+  console.log(\`Consultando tipo de cambio para \${moneda}...\`);
+  const tasas: Record<string, number> = { MXN: 17.2, EUR: 0.92, GBP: 0.79 };
+  return tasas[moneda] ?? 1;
+}
+
+const obtenerMemo = memoizeConTTL(obtenerTipoCambio, 5 * 60 * 1000);
+
+console.log(obtenerMemo("MXN")); // Consulta → 17.2
+console.log(obtenerMemo("MXN")); // Cache hit → 17.2`
+    }
+  ]}
+  output={`Consultando tipo de cambio para MXN...\n17.2\n17.2`}
+/>
+
+<Callout variant="warn" title="Memoiza solo funciones puras">
+La memoización asume que la función es pura: mismo input → mismo output. Si la función depende del tiempo, estado externo, red o números aleatorios, la memoización retornará resultados incorrectos. Usa TTL para funciones que necesitan refrescarse.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Memoiza una función Fibonacci recursiva", diff: "med", minutes: 8 },
+    { num: "02", name: "Función memoize() con TTL (expiración)", diff: "hard", minutes: 15 },
+    { num: "03", name: "Memoización con WeakMap para objetos como clave", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,544 @@
+---
+title: "Patrones de diseño: soluciones <em>probadas para problemas recurrentes</em>"
+short: "Patrones comunes"
+chapter: "14"
+num: "06"
+chapterTitle: "Bonus prácticos"
+difficulty: "advanced"
+readingMinutes: 11
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los patrones de diseño son soluciones reutilizables a problemas de software que aparecen una y otra vez. Singleton, Factory, Observer, Module y Strategy son los más comunes en JavaScript moderno."
+pro: true
+---
+
+<Section id="singleton" title="Singleton — una sola instancia">
+
+**Singleton** garantiza que una clase tenga exactamente una instancia y proporciona acceso global a ella. Útil para configuraciones, conexiones de base de datos y estado global.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Singleton con closure (ES6 modules ya son singletons por defecto)
+const Configuracion = (() => {
+  let instancia;
+
+  function crear() {
+    // Estado privado
+    let config = {
+      tema: "oscuro",
+      idioma: "es",
+      apiUrl: "https://api.miapp.com",
+    };
+
+    return {
+      obtener(clave) {
+        return config[clave];
+      },
+      actualizar(clave, valor) {
+        config = { ...config, [clave]: valor };
+      },
+      obtenerTodo() {
+        return { ...config }; // copia para evitar mutación externa
+      },
+    };
+  }
+
+  return {
+    getInstancia() {
+      if (!instancia) {
+        instancia = crear();
+      }
+      return instancia;
+    },
+  };
+})();
+
+const config1 = Configuracion.getInstancia();
+const config2 = Configuracion.getInstancia();
+
+console.log(config1 === config2); // true — misma instancia
+
+config1.actualizar("tema", "claro");
+console.log(config2.obtener("tema")); // "claro" — refleja el cambio`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface ConfiguracionData {
+  tema: string;
+  idioma: string;
+  apiUrl: string;
+}
+
+class Configuracion {
+  private static instancia: Configuracion;
+  private config: ConfiguracionData;
+
+  private constructor() {
+    this.config = {
+      tema: "oscuro",
+      idioma: "es",
+      apiUrl: "https://api.miapp.com",
+    };
+  }
+
+  static getInstancia(): Configuracion {
+    if (!Configuracion.instancia) {
+      Configuracion.instancia = new Configuracion();
+    }
+    return Configuracion.instancia;
+  }
+
+  obtener<K extends keyof ConfiguracionData>(clave: K): ConfiguracionData[K] {
+    return this.config[clave];
+  }
+
+  actualizar<K extends keyof ConfiguracionData>(clave: K, valor: ConfiguracionData[K]): void {
+    this.config = { ...this.config, [clave]: valor };
+  }
+}
+
+const c1 = Configuracion.getInstancia();
+const c2 = Configuracion.getInstancia();
+
+console.log(c1 === c2); // true
+
+c1.actualizar("tema", "claro");
+console.log(c2.obtener("tema")); // "claro"`
+    }
+  ]}
+  output={`true\nclaro`}
+/>
+
+<Callout variant="info" title="ES Modules son Singletons">
+En JavaScript moderno, cada módulo ES (archivo con import/export) se instancia una sola vez por proceso. Exportar un objeto desde un módulo ya es efectivamente un Singleton. El patrón clásico se usa cuando necesitas control explícito de la instanciación.
+</Callout>
+
+</Section>
+
+<Section id="factory" title="Factory — crear objetos sin new explícito">
+
+**Factory** encapsula la lógica de creación de objetos. En lugar de usar `new` directamente, delegas a una función que decide qué crear según el contexto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Factory de usuarios",
+      code: `// Sin factory — lógica de creación dispersa
+// new Admin(), new Editor(), new Viewer()... en cada parte del código
+
+// Con Factory — un solo lugar de creación
+function crearUsuario(tipo, datos) {
+  const base = {
+    ...datos,
+    creadoEn: new Date().toISOString(),
+    activo: true,
+  };
+
+  const permisos = {
+    admin:   { leer: true,  escribir: true,  eliminar: true,  administrar: true  },
+    editor:  { leer: true,  escribir: true,  eliminar: false, administrar: false },
+    viewer:  { leer: true,  escribir: false, eliminar: false, administrar: false },
+  };
+
+  if (!permisos[tipo]) throw new Error(\`Tipo de usuario desconocido: \${tipo}\`);
+
+  return {
+    ...base,
+    tipo,
+    permisos: permisos[tipo],
+    puedeEscribir() { return this.permisos.escribir; },
+    puedeAdministrar() { return this.permisos.administrar; },
+  };
+}
+
+const admin  = crearUsuario("admin",  { nombre: "Ana", email: "ana@ejemplo.com" });
+const editor = crearUsuario("editor", { nombre: "Carlos", email: "carlos@ejemplo.com" });
+
+console.log(admin.puedeAdministrar());  // true
+console.log(editor.puedeAdministrar()); // false
+console.log(editor.puedeEscribir());    // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type TipoUsuario = "admin" | "editor" | "viewer";
+
+interface Permisos {
+  leer: boolean;
+  escribir: boolean;
+  eliminar: boolean;
+  administrar: boolean;
+}
+
+interface Usuario {
+  nombre: string;
+  email: string;
+  tipo: TipoUsuario;
+  creadoEn: string;
+  activo: boolean;
+  permisos: Permisos;
+  puedeEscribir(): boolean;
+  puedeAdministrar(): boolean;
+}
+
+function crearUsuario(
+  tipo: TipoUsuario,
+  datos: { nombre: string; email: string }
+): Usuario {
+  const permisosMap: Record<TipoUsuario, Permisos> = {
+    admin:  { leer: true, escribir: true,  eliminar: true,  administrar: true  },
+    editor: { leer: true, escribir: true,  eliminar: false, administrar: false },
+    viewer: { leer: true, escribir: false, eliminar: false, administrar: false },
+  };
+
+  const permisos = permisosMap[tipo];
+
+  return {
+    ...datos,
+    tipo,
+    creadoEn: new Date().toISOString(),
+    activo: true,
+    permisos,
+    puedeEscribir: () => permisos.escribir,
+    puedeAdministrar: () => permisos.administrar,
+  };
+}
+
+const admin  = crearUsuario("admin",  { nombre: "Ana",    email: "ana@ej.com" });
+const viewer = crearUsuario("viewer", { nombre: "Carlos", email: "c@ej.com" });
+
+console.log(admin.puedeAdministrar());  // true
+console.log(viewer.puedeEscribir());    // false`
+    }
+  ]}
+  output={`true\nfalse\ntrue\ntrue\nfalse`}
+/>
+
+</Section>
+
+<Section id="observer" title="Observer / Event Emitter — publicar y suscribirse">
+
+**Observer** (también llamado Pub/Sub o Event Emitter) permite que objetos se suscriban a eventos y reciban notificaciones sin acoplamiento directo entre emisor y suscriptores.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "EventEmitter propio",
+      code: `class EventEmitter {
+  constructor() {
+    this.listeners = new Map(); // eventName → Set<handler>
+  }
+
+  on(evento, handler) {
+    if (!this.listeners.has(evento)) {
+      this.listeners.set(evento, new Set());
+    }
+    this.listeners.get(evento).add(handler);
+    return () => this.off(evento, handler); // retorna función de limpieza
+  }
+
+  off(evento, handler) {
+    this.listeners.get(evento)?.delete(handler);
+  }
+
+  emit(evento, ...args) {
+    this.listeners.get(evento)?.forEach(handler => handler(...args));
+  }
+
+  once(evento, handler) {
+    const wrapperUnicaVez = (...args) => {
+      handler(...args);
+      this.off(evento, wrapperUnicaVez);
+    };
+    this.on(evento, wrapperUnicaVez);
+  }
+}
+
+// Uso en una aplicación
+const tienda = new EventEmitter();
+
+// Suscribirse
+const desuscribir = tienda.on("compra", ({ producto, monto }) => {
+  console.log(\`Venta: \${producto} por $\${monto}\`);
+});
+
+tienda.once("apertura", () => {
+  console.log("¡Tienda abierta! (solo una vez)");
+});
+
+// Emitir eventos
+tienda.emit("apertura");           // "¡Tienda abierta!"
+tienda.emit("apertura");           // silencio — once ya se ejecutó
+tienda.emit("compra", { producto: "Curso JS", monto: 299 }); // "Venta: Curso JS por $299"
+desuscribir(); // quitar listener
+tienda.emit("compra", { producto: "Curso TS", monto: 199 }); // silencio`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Handler<T = unknown> = (data: T) => void;
+
+class EventEmitter<Events extends Record<string, unknown>> {
+  private listeners = new Map<keyof Events, Set<Handler>>();
+
+  on<K extends keyof Events>(evento: K, handler: Handler<Events[K]>): () => void {
+    if (!this.listeners.has(evento)) {
+      this.listeners.set(evento, new Set());
+    }
+    this.listeners.get(evento)!.add(handler as Handler);
+    return () => this.off(evento, handler);
+  }
+
+  off<K extends keyof Events>(evento: K, handler: Handler<Events[K]>): void {
+    this.listeners.get(evento)?.delete(handler as Handler);
+  }
+
+  emit<K extends keyof Events>(evento: K, data: Events[K]): void {
+    this.listeners.get(evento)?.forEach(h => h(data));
+  }
+}
+
+// Tipar los eventos de la aplicación
+interface EventosTienda {
+  compra: { producto: string; monto: number };
+  devolucion: { producto: string; motivo: string };
+  apertura: void;
+}
+
+const tienda = new EventEmitter<EventosTienda>();
+
+tienda.on("compra", ({ producto, monto }) => {
+  console.log(\`Venta: \${producto} por $\${monto}\`);
+});
+
+tienda.emit("compra", { producto: "Curso JS", monto: 299 });
+// TypeScript verifica que los datos coincidan con el tipo del evento`
+    }
+  ]}
+  output={`¡Tienda abierta! (solo una vez)\nVenta: Curso JS por $299`}
+/>
+
+</Section>
+
+<Section id="module-pattern" title="Module Pattern — encapsulación con closures">
+
+El **Module Pattern** usa closures para crear estado privado y exponer solo lo que es necesario. Era el patrón estándar antes de ES modules y clases.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Module Pattern",
+      code: `// Estado privado con closure
+const crearContador = (valorInicial = 0) => {
+  // Estado privado — solo accesible por las funciones internas
+  let valor = valorInicial;
+  let historial = [];
+
+  const registrar = (operacion, resultado) => {
+    historial.push({ operacion, resultado, ts: Date.now() });
+  };
+
+  // API pública
+  return {
+    incrementar(n = 1) {
+      valor += n;
+      registrar("incrementar", valor);
+      return this; // para encadenar
+    },
+    decrementar(n = 1) {
+      valor -= n;
+      registrar("decrementar", valor);
+      return this;
+    },
+    resetear() {
+      valor = valorInicial;
+      registrar("resetear", valor);
+      return this;
+    },
+    obtenerValor() { return valor; },
+    obtenerHistorial() { return [...historial]; }, // copia defensiva
+  };
+};
+
+const contador = crearContador(10);
+contador.incrementar(5).incrementar(3).decrementar(2);
+
+console.log(contador.obtenerValor()); // 16
+console.log(contador.obtenerHistorial().length); // 3
+// valor y historial son privados — no accesibles directamente`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface EntradaHistorial {
+  operacion: string;
+  resultado: number;
+  ts: number;
+}
+
+interface Contador {
+  incrementar(n?: number): Contador;
+  decrementar(n?: number): Contador;
+  resetear(): Contador;
+  obtenerValor(): number;
+  obtenerHistorial(): EntradaHistorial[];
+}
+
+function crearContador(valorInicial: number = 0): Contador {
+  let valor: number = valorInicial;
+  const historial: EntradaHistorial[] = [];
+
+  const registrar = (operacion: string, resultado: number): void => {
+    historial.push({ operacion, resultado, ts: Date.now() });
+  };
+
+  const api: Contador = {
+    incrementar(n: number = 1): Contador {
+      valor += n;
+      registrar("incrementar", valor);
+      return api;
+    },
+    decrementar(n: number = 1): Contador {
+      valor -= n;
+      registrar("decrementar", valor);
+      return api;
+    },
+    resetear(): Contador {
+      valor = valorInicial;
+      registrar("resetear", valor);
+      return api;
+    },
+    obtenerValor: () => valor,
+    obtenerHistorial: () => [...historial],
+  };
+
+  return api;
+}
+
+const c = crearContador(10);
+c.incrementar(5).incrementar(3).decrementar(2);
+console.log(c.obtenerValor()); // 16`
+    }
+  ]}
+  output={`16\n3`}
+/>
+
+</Section>
+
+<Section id="strategy" title="Strategy — intercambiar algoritmos en tiempo de ejecución">
+
+**Strategy** define una familia de algoritmos intercambiables. En lugar de if/else gigantes, encapsulas cada comportamiento en una función y las intercambias según el contexto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Strategy para ordenamiento",
+      code: `// Sin Strategy — if/else que crece con cada algoritmo
+function ordenar_MALO(arr, metodo) {
+  if (metodo === "burbuja") { /* ... */ }
+  else if (metodo === "seleccion") { /* ... */ }
+  else if (metodo === "insercion") { /* ... */ }
+  // ❌ Abierto a modificación — viola Open/Closed Principle
+}
+
+// Con Strategy — cada algoritmo es una función separada
+const estrategias = {
+  ascendente: (a, b) => a - b,
+  descendente: (a, b) => b - a,
+  porNombre: (a, b) => a.nombre.localeCompare(b.nombre),
+  porPuntos: (a, b) => b.puntos - a.puntos,
+  aleatorio: () => Math.random() - 0.5,
+};
+
+function ordenarUsuarios(usuarios, estrategia = "ascendente") {
+  const comparador = estrategias[estrategia];
+  if (!comparador) throw new Error(\`Estrategia desconocida: \${estrategia}\`);
+  return [...usuarios].sort(comparador);
+}
+
+const usuarios = [
+  { nombre: "Carlos", puntos: 850 },
+  { nombre: "Ana",    puntos: 1250 },
+  { nombre: "Diana",  puntos: 600  },
+];
+
+const porPuntos = ordenarUsuarios(usuarios, "porPuntos");
+console.log(porPuntos.map(u => u.nombre)); // ["Ana", "Carlos", "Diana"]
+
+const porNombre = ordenarUsuarios(usuarios, "porNombre");
+console.log(porNombre.map(u => u.nombre)); // ["Ana", "Carlos", "Diana"]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  nombre: string;
+  puntos: number;
+  nivel: string;
+}
+
+type EstrategiaOrden = (a: Usuario, b: Usuario) => number;
+
+const estrategias: Record<string, EstrategiaOrden> = {
+  porPuntosDesc: (a, b) => b.puntos - a.puntos,
+  porPuntosAsc:  (a, b) => a.puntos - b.puntos,
+  porNombre:     (a, b) => a.nombre.localeCompare(b.nombre),
+};
+
+function ordenarUsuarios(
+  usuarios: readonly Usuario[],
+  estrategia: string = "porPuntosDesc"
+): Usuario[] {
+  const comparador = estrategias[estrategia];
+  if (!comparador) throw new Error(\`Estrategia desconocida: \${estrategia}\`);
+  return [...usuarios].sort(comparador);
+}
+
+// También puedes pasar la función directamente
+function ordenarCon(
+  usuarios: readonly Usuario[],
+  comparador: EstrategiaOrden
+): Usuario[] {
+  return [...usuarios].sort(comparador);
+}
+
+const usuarios: Usuario[] = [
+  { nombre: "Carlos", puntos: 850,  nivel: "medio" },
+  { nombre: "Ana",    puntos: 1250, nivel: "avanzado" },
+  { nombre: "Diana",  puntos: 600,  nivel: "básico" },
+];
+
+const ranking = ordenarUsuarios(usuarios, "porPuntosDesc");
+console.log(ranking.map(u => \`\${u.nombre}: \${u.puntos}\`));
+// ["Ana: 1250", "Carlos: 850", "Diana: 600"]`
+    }
+  ]}
+  output={`["Ana", "Carlos", "Diana"]\n["Ana", "Carlos", "Diana"]\n["Ana: 1250", "Carlos: 850", "Diana: 600"]`}
+/>
+
+<Callout variant="tip" title="Patrones en JavaScript moderno">
+En JavaScript, muchos patrones clásicos de diseño se simplifican gracias a funciones de primera clase. Strategy es solo un Map de funciones. Observer es solo un Map de Sets de callbacks. No siempre necesitas clases — a veces una función y un objeto bastan.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa un EventEmitter simple (on/off/emit)", diff: "med", minutes: 12 },
+    { num: "02", name: "Factory que crea distintos tipos de usuario", diff: "easy", minutes: 8 },
+    { num: "03", name: "Singleton de configuración global", diff: "med", minutes: 10 },
+    { num: "04", name: "Strategy para distintos algoritmos de ordenamiento", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

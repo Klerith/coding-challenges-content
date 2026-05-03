@@ -1,0 +1,325 @@
+---
+title: "Debounce y throttle: controlar la <em>frecuencia de eventos</em>"
+short: "Debounce y throttle"
+chapter: "14"
+num: "04"
+chapterTitle: "Bonus prácticos"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Algunos eventos del navegador se disparan cientos de veces por segundo. Debounce y throttle son las herramientas para controlar esa frecuencia y proteger el rendimiento de tu app."
+pro: false
+---
+
+<Section id="el-problema" title="El problema — eventos que se disparan sin control">
+
+Eventos como `scroll`, `resize`, `mousemove` y `input` pueden dispararse cientos de veces por segundo. Llamar a una función costosa en cada disparo degrada el rendimiento severamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Simulación del problema — sin control
+let contadorScroll = 0;
+let contadorInput  = 0;
+
+// Esto se dispara potencialmente 60 veces/segundo al hacer scroll
+document.addEventListener("scroll", () => {
+  contadorScroll++;
+  // ❌ Mal: una llamada a la API por cada pixel de scroll
+  // fetchSugerencias(); // ← costaría miles de llamadas
+  console.log(\`scroll event #\${contadorScroll}\`);
+});
+
+// Esto se dispara por cada tecla presionada
+document.querySelector("#busqueda")?.addEventListener("input", (e) => {
+  contadorInput++;
+  // ❌ Mal: una petición HTTP por cada carácter
+  // buscarEnAPI(e.target.value); // ← inunda el servidor
+});
+
+// Con debounce y throttle, controlamos cuándo se ejecuta la función
+// sin modificar el listener del evento
+
+// Consola de Node.js — simular eventos
+function simularEventos(fn, veces = 10) {
+  for (let i = 0; i < veces; i++) {
+    fn(i);
+  }
+}
+
+simularEventos(i => console.log(\`Evento \${i}\`));`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// El problema en TypeScript — tipos de evento
+type Handler<T = void> = (evento?: T) => void;
+
+function simularEventosRapidos<T>(
+  handler: Handler<T>,
+  veces: number = 10,
+  intervaloMs: number = 50
+): void {
+  for (let i = 0; i < veces; i++) {
+    setTimeout(() => handler(), i * intervaloMs);
+  }
+}
+
+// Sin control, 10 llamadas en 500ms
+let contador = 0;
+simularEventosRapidos(() => {
+  contador++;
+  console.log(\`Llamada #\${contador}\`);
+}, 10, 50);
+
+// Con debounce o throttle, podríamos reducirlas a 1-3`
+    }
+  ]}
+  output={`Evento 0\nEvento 1\n...Evento 9\nLlamada #1\n...Llamada #10`}
+/>
+
+</Section>
+
+<Section id="debounce" title="Debounce — ejecutar solo después de que deja de dispararse">
+
+**Debounce** retrasa la ejecución de la función hasta que hayan pasado N milisegundos **sin que el evento se vuelva a disparar**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Implementación y uso",
+      code: `function debounce(fn, delay) {
+  let timeoutId;
+
+  return function(...args) {
+    // Cancelar el timer anterior
+    clearTimeout(timeoutId);
+
+    // Iniciar un nuevo timer
+    timeoutId = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
+// Uso — búsqueda con debounce
+function buscarEnAPI(termino) {
+  console.log(\`Buscando: "\${termino}"\`);
+}
+
+const buscarConDebounce = debounce(buscarEnAPI, 300);
+
+// Simular el usuario escribiendo "hola"
+buscarConDebounce("h");     // cancela
+buscarConDebounce("ho");    // cancela
+buscarConDebounce("hol");   // cancela
+buscarConDebounce("hola");  // espera 300ms y ejecuta
+
+// Solo una llamada a la API después de 300ms de silencio
+// Output: "Buscando: "hola""
+
+// Debounce con inmediato — ejecuta al primer disparo, luego espera
+function debounceInmediato(fn, delay) {
+  let timeoutId;
+  return function(...args) {
+    const ejecutarAhora = !timeoutId;
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => { timeoutId = null; }, delay);
+    if (ejecutarAhora) fn.apply(this, args);
+  };
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function debounce<T extends unknown[]>(
+  fn: (...args: T) => void,
+  delay: number
+): (...args: T) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  return function(this: unknown, ...args: T): void {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
+// Uso tipado
+function buscarUsuarios(termino: string): void {
+  console.log(\`Buscando usuarios: "\${termino}"\`);
+  // fetch(\`/api/usuarios?q=\${termino}\`)
+}
+
+const buscarConDebounce = debounce(buscarUsuarios, 300);
+
+// Simular escritura
+buscarConDebounce("c");
+buscarConDebounce("ca");
+buscarConDebounce("car");
+buscarConDebounce("carlos");
+// Solo ejecuta con "carlos" después de 300ms de silencio
+
+// Debounce para validación de formulario
+const validarEmailDebounced = debounce((email: string) => {
+  const valido = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+  console.log(\`Email "\${email}" es \${valido ? "válido" : "inválido"}\`);
+}, 500);`
+    }
+  ]}
+  output={`Buscando: "hola"\nBuscando usuarios: "carlos"`}
+/>
+
+</Section>
+
+<Section id="throttle" title="Throttle — ejecutar máximo una vez cada N ms">
+
+**Throttle** garantiza que la función se ejecute **como máximo una vez cada N milisegundos**, sin importar cuántas veces se dispare el evento.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Implementación y uso",
+      code: `function throttle(fn, limite) {
+  let ultimaEjecucion = 0;
+
+  return function(...args) {
+    const ahora = Date.now();
+
+    if (ahora - ultimaEjecucion >= limite) {
+      ultimaEjecucion = ahora;
+      return fn.apply(this, args);
+    }
+  };
+}
+
+// Uso — posición del scroll
+function actualizarBarraProgreso(posicion) {
+  const porcentaje = Math.round((posicion / document.body.scrollHeight) * 100);
+  console.log(\`Progreso: \${porcentaje}%\`);
+}
+
+const actualizarConThrottle = throttle(actualizarBarraProgreso, 200);
+
+// Aunque scroll dispare 60 veces/segundo,
+// actualizarBarraProgreso solo se llama 5 veces/segundo (cada 200ms)
+
+// Simular 10 llamadas rápidas
+let simulado = 0;
+const fn = throttle(() => {
+  simulado++;
+  console.log(\`Ejecutado: #\${simulado} a las \${Date.now()}\`);
+}, 500);
+
+fn(); // ejecuta — t=0
+fn(); // ignora — t=0
+fn(); // ignora — t=0
+// ...después de 500ms...
+// fn() → ejecuta`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function throttle<T extends unknown[]>(
+  fn: (...args: T) => void,
+  limite: number
+): (...args: T) => void {
+  let ultimaEjecucion: number = 0;
+
+  return function(this: unknown, ...args: T): void {
+    const ahora = Date.now();
+
+    if (ahora - ultimaEjecucion >= limite) {
+      ultimaEjecucion = ahora;
+      fn.apply(this, args);
+    }
+  };
+}
+
+// Throttle para posición del mouse
+interface Posicion {
+  x: number;
+  y: number;
+}
+
+function registrarPosicion(pos: Posicion): void {
+  console.log(\`Mouse en: (\${pos.x}, \${pos.y})\`);
+}
+
+const registrarConThrottle = throttle(registrarPosicion, 100);
+
+// Simular movimiento del mouse — solo registra cada 100ms
+document.addEventListener("mousemove", (e: MouseEvent) => {
+  registrarConThrottle({ x: e.clientX, y: e.clientY });
+});
+
+// Throttle para infinite scroll
+function cargarMasDatos(): void {
+  console.log("Cargando más items...");
+}
+
+const cargarConThrottle = throttle(cargarMasDatos, 1000);
+// Aunque el scroll llegue al fondo muchas veces, solo carga una vez por segundo`
+    }
+  ]}
+  output={`Ejecutado: #1 a las ...\nMouse en: (245, 380)\nCargando más items...`}
+/>
+
+</Section>
+
+<Section id="cuando-usar" title="Cuándo usar cada uno">
+
+<CompareTable
+  headers={["Aspecto", "Debounce", "Throttle"]}
+  rows={[
+    [
+      { kind: "good", value: "Comportamiento" },
+      { kind: "good", value: "Espera el silencio antes de ejecutar" },
+      { kind: "good", value: "Ejecuta una vez cada N ms como máximo" }
+    ],
+    [
+      { kind: "good", value: "Caso de uso típico" },
+      { kind: "good", value: "Search input, validación de formulario" },
+      { kind: "good", value: "Scroll, resize, mousemove, rate limiting" }
+    ],
+    [
+      { kind: "good", value: "¿Se ejecuta mientras el evento activo?" },
+      { kind: "bad", value: "No — solo al final, cuando hay silencio" },
+      { kind: "good", value: "Sí — a intervalos regulares" }
+    ],
+    [
+      { kind: "good", value: "Garantía de ejecución" },
+      { kind: "good", value: "Se ejecuta después de que para el evento" },
+      { kind: "bad", value: "Puede perderse el último disparo" }
+    ],
+    [
+      { kind: "good", value: "Latencia de respuesta" },
+      { kind: "bad", value: "Igual al delay configurado" },
+      { kind: "good", value: "Inmediata en el primer disparo" }
+    ]
+  ]}
+/>
+
+<Callout variant="tip" title="Regla práctica">
+Si el usuario espera el resultado de su última acción (escribir en un buscador), usa **debounce**. Si quieres actualización continua pero controlada (barra de progreso de scroll), usa **throttle**.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa debounce() desde cero", diff: "med", minutes: 10 },
+    { num: "02", name: "Implementa throttle() desde cero", diff: "med", minutes: 10 },
+    { num: "03", name: "Aplica debounce a un input de búsqueda", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>
