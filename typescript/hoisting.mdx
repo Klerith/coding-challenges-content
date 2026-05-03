@@ -1,0 +1,271 @@
+---
+title: "Hoisting: cómo JavaScript <em>mueve</em> las declaraciones"
+short: "Hoisting"
+chapter: "13"
+num: "01"
+chapterTitle: "Conceptos profundos de JavaScript"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "JavaScript mueve las declaraciones al inicio de su scope antes de ejecutar el código. Entender hoisting explica comportamientos que parecen magia — o bugs misteriosos."
+pro: false
+---
+
+<Section id="que-es" title="¿Qué es el hoisting?">
+
+Antes de ejecutar tu código, el motor de JavaScript hace una pasada y **mueve las declaraciones** al inicio de su scope. No el código físicamente — sino que las registra en memoria primero.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Esto funciona aunque saludar() está declarada abajo
+console.log(saludar("Ana")); // "Hola, Ana"
+
+function saludar(nombre) {
+  return \`Hola, \${nombre}\`;
+}
+
+// Así lo ve JavaScript internamente (conceptualmente):
+// function saludar(nombre) { ... }  ← sube completa
+// console.log(saludar("Ana"));`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript también aplica hoisting (compila a JS)
+console.log(saludar("Ana")); // "Hola, Ana"
+
+function saludar(nombre: string): string {
+  return \`Hola, \${nombre}\`;
+}
+
+// Nota: TypeScript puede dar error de análisis estático
+// en algunos editores, pero el runtime lo permite`
+    }
+  ]}
+  output={`Hola, Ana`}
+/>
+
+<Callout variant="info" title="Hoisting no mueve código">
+El código fuente no cambia. El motor JavaScript simplemente **registra las declaraciones en memoria** durante la fase de compilación, antes de la ejecución línea por línea.
+</Callout>
+
+</Section>
+
+<Section id="hoisting-var" title="Hoisting de var — declaración sube, asignación no">
+
+Con `var`, la **declaración** sube al inicio del scope de función, pero la **asignación** se queda en su lugar. El resultado: la variable existe pero vale `undefined` antes de su asignación.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Lo que escribes:
+console.log(ciudad); // undefined (no ReferenceError)
+var ciudad = "Guadalajara";
+console.log(ciudad); // "Guadalajara"
+
+// Lo que JavaScript "ve":
+// var ciudad;           ← declaración sube
+// console.log(ciudad);  // undefined
+// ciudad = "Guadalajara"; ← asignación se queda
+// console.log(ciudad);  // "Guadalajara"
+
+function ejemplo() {
+  console.log(x); // undefined
+  var x = 10;
+  console.log(x); // 10
+}
+
+ejemplo();`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript permite var pero el comportamiento es igual
+function ejemplo(): void {
+  console.log(x); // undefined en runtime
+  var x: number = 10;
+  console.log(x); // 10
+}
+
+ejemplo();
+
+// TypeScript recomienda let/const precisamente
+// para evitar este comportamiento confuso`
+    }
+  ]}
+  output={`undefined\nGuerreros\nundefined\n10`}
+/>
+
+</Section>
+
+<Section id="hoisting-funciones" title="Hoisting de funciones — suben completas">
+
+Las **declaraciones de función** (function declarations) son el caso más completo de hoisting: la función entera — nombre y cuerpo — sube al inicio del scope.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Declaración vs Expresión",
+      code: `// ✅ Declaración de función — hoisting completo
+console.log(sumar(3, 4)); // 7
+
+function sumar(a, b) {
+  return a + b;
+}
+
+// ❌ Expresión de función — NO hace hoisting del cuerpo
+try {
+  console.log(restar(10, 3)); // TypeError: restar is not a function
+} catch (e) {
+  console.log(e.message);
+}
+
+var restar = function(a, b) {
+  return a - b;
+};
+
+// ❌ Arrow function — mismo comportamiento que expresión
+try {
+  console.log(multiplicar(2, 5));
+} catch (e) {
+  console.log("multiplicar no está lista aún");
+}
+
+const multiplicar = (a, b) => a * b;`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ✅ Declaración de función — hoisting completo
+console.log(sumar(3, 4)); // 7
+
+function sumar(a: number, b: number): number {
+  return a + b;
+}
+
+// ❌ TypeScript detecta este error en tiempo de compilación
+// console.log(restar(10, 3)); // Error: Block-scoped variable used before declaration
+
+const restar = (a: number, b: number): number => a - b;
+
+// TypeScript protege contra muchos errores de hoisting
+// gracias al análisis estático`
+    }
+  ]}
+  output={`7\nrestar is not a function\nmultiplicar no está lista aún`}
+/>
+
+</Section>
+
+<Section id="tdz" title="let y const — Temporal Dead Zone (TDZ)">
+
+`let` y `const` también hacen hoisting — pero **no se inicializan**. Acceder a ellas antes de su declaración lanza un `ReferenceError`. Ese período se llama **Temporal Dead Zone (TDZ)**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "TDZ en acción",
+      code: `// ❌ TDZ — ReferenceError
+try {
+  console.log(nombre); // ReferenceError: Cannot access before initialization
+  let nombre = "Carlos";
+} catch (e) {
+  console.log(\`Error: \${e.message}\`);
+}
+
+// ✅ Uso correcto — declarar antes de usar
+let contador = 0;
+contador++;
+console.log(contador); // 1
+
+// ✅ const también tiene TDZ
+const PI = 3.14159;
+console.log(PI); // 3.14159
+
+// Comparación clara:
+{
+  // TDZ de "letVar" comienza aquí ↑
+  // console.log(letVar); // ❌ ReferenceError
+  let letVar = "seguro";
+  // TDZ de "letVar" termina aquí ↓
+  console.log(letVar); // "seguro"
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript detecta el error TDZ en compilación
+// console.log(nombre); // Error de compilación
+// let nombre: string = "Carlos";
+
+// ✅ Orden correcto
+let nombre: string = "Carlos";
+console.log(nombre); // "Carlos"
+
+// const con tipo explícito
+const PI: number = 3.14159;
+console.log(\`PI = \${PI}\`); // "PI = 3.14159"
+
+// En TypeScript, el compilador te avisa antes
+// de que el runtime lance el error`
+    }
+  ]}
+  output={`Error: Cannot access 'nombre' before initialization\n1\n3.14159\nseguro`}
+/>
+
+<CompareTable
+  headers={["Tipo", "Hoisting", "Valor antes de declaración", "Re-asignable"]}
+  rows={[
+    [
+      { kind: "good", value: "var" },
+      { kind: "good", value: "Sí — declaración sube" },
+      { kind: "bad", value: "undefined (silencioso)" },
+      { kind: "good", value: "Sí" }
+    ],
+    [
+      { kind: "good", value: "let" },
+      { kind: "good", value: "Sí — pero en TDZ" },
+      { kind: "bad", value: "ReferenceError (explícito)" },
+      { kind: "good", value: "Sí" }
+    ],
+    [
+      { kind: "good", value: "const" },
+      { kind: "good", value: "Sí — pero en TDZ" },
+      { kind: "bad", value: "ReferenceError (explícito)" },
+      { kind: "bad", value: "No" }
+    ],
+    [
+      { kind: "good", value: "function declaration" },
+      { kind: "good", value: "Sí — completa" },
+      { kind: "good", value: "Función disponible" },
+      { kind: "good", value: "Sí" }
+    ]
+  ]}
+/>
+
+<Callout variant="tip" title="TDZ es una mejora, no un problema">
+El error de TDZ con `let`/`const` es más útil que el `undefined` silencioso de `var`. Te dice exactamente qué salió mal en lugar de dejar que el bug se propague silenciosamente.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Predice el output con var hoisting", diff: "easy", minutes: 5 },
+    { num: "02", name: "Identifica el error TDZ con let", diff: "easy", minutes: 5 },
+    { num: "03", name: "Reescribe código confuso de hoisting de forma clara", diff: "med", minutes: 8 },
+    { num: "04", name: "Explica por qué esta función funciona antes de declararse", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

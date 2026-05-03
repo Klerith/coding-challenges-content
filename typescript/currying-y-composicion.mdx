@@ -1,0 +1,429 @@
+---
+title: "Currying y composición: funciones <em>parciales y combinadas</em>"
+short: "Currying y composición"
+chapter: "13"
+num: "07"
+chapterTitle: "Conceptos profundos de JavaScript"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Currying transforma una función de múltiples argumentos en una cadena de funciones de un argumento. Combinado con composición, permite construir pipelines de transformación expresivos y reutilizables."
+pro: true
+---
+
+<Section id="currying" title="Currying — f(a,b,c) en f(a)(b)(c)">
+
+**Currying** convierte una función que acepta múltiples argumentos en una secuencia de funciones que aceptan un argumento cada una.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sin currying
+function sumar3(a, b, c) {
+  return a + b + c;
+}
+console.log(sumar3(1, 2, 3)); // 6
+
+// Con currying — manual
+function sumar3Curry(a) {
+  return function(b) {
+    return function(c) {
+      return a + b + c;
+    };
+  };
+}
+
+console.log(sumar3Curry(1)(2)(3)); // 6
+
+// Con arrow functions — más compacto
+const sumar = a => b => c => a + b + c;
+console.log(sumar(1)(2)(3)); // 6
+
+// El poder real: aplicación parcial
+const sumarDesde10 = sumar(10);
+const sumarDesde10y5 = sumarDesde10(5);
+
+console.log(sumarDesde10(5)(3));   // 18
+console.log(sumarDesde10y5(2));    // 17
+console.log(sumarDesde10y5(100));  // 115`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Currying con tipos explícitos
+const sumar = (a: number) => (b: number) => (c: number): number => a + b + c;
+
+console.log(sumar(1)(2)(3)); // 6
+
+// Tipos inferidos correctamente
+const sumarDesde10 = sumar(10);    // (b: number) => (c: number) => number
+const sumarDesde10y5 = sumarDesde10(5); // (c: number) => number
+
+console.log(sumarDesde10(5)(3));   // 18
+console.log(sumarDesde10y5(2));    // 17
+
+// Currying útil con tipos de dominio
+const formatear =
+  (moneda: string) =>
+  (decimales: number) =>
+  (valor: number): string =>
+    \`\${moneda}\${valor.toFixed(decimales)}\`;
+
+const enPesos = formatear("$")(2);
+const enEuros = formatear("€")(2);
+
+console.log(enPesos(1299.5));  // "$1299.50"
+console.log(enEuros(99.99));   // "€99.99"`
+    }
+  ]}
+  output={`6\n6\n6\n18\n17\n115\n$1299.50\n€99.99`}
+/>
+
+</Section>
+
+<Section id="aplicacion-parcial" title="Aplicación parcial — fijar argumentos de antemano">
+
+La **aplicación parcial** fija algunos argumentos de una función y retorna una nueva función que espera el resto. Es más flexible que el currying — no requiere un argumento por llamada.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Aplicación parcial",
+      code: `// Function.bind() para aplicación parcial
+function log(nivel, mensaje) {
+  console.log(\`[\${nivel.toUpperCase()}] \${mensaje}\`);
+}
+
+const logError = log.bind(null, "error");
+const logInfo  = log.bind(null, "info");
+const logWarn  = log.bind(null, "warn");
+
+logError("Conexión fallida"); // [ERROR] Conexión fallida
+logInfo("Servidor iniciado"); // [INFO] Servidor iniciado
+logWarn("Disco casi lleno");  // [WARN] Disco casi lleno
+
+// Implementación manual de partial
+function partial(fn, ...argsParciales) {
+  return function(...argsRestantes) {
+    return fn(...argsParciales, ...argsRestantes);
+  };
+}
+
+function multiplicar(a, b, c) {
+  return a * b * c;
+}
+
+const porDoce = partial(multiplicar, 3, 4); // fija a=3, b=4
+console.log(porDoce(5));  // 60
+console.log(porDoce(10)); // 120`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Aplicación parcial con tipos genéricos
+function partial<T extends unknown[], P extends Partial<T>, R>(
+  fn: (...args: T) => R,
+  ...parciales: P
+): (...resto: unknown[]) => R {
+  return (...resto: unknown[]) => fn(...([...parciales, ...resto] as T));
+}
+
+// Versión simplificada para uso práctico
+function partial2<A, B, C, R>(
+  fn: (a: A, b: B, c: C) => R,
+  a: A,
+  b: B
+): (c: C) => R {
+  return (c: C) => fn(a, b, c);
+}
+
+function multiplicar(a: number, b: number, c: number): number {
+  return a * b * c;
+}
+
+const porDoce = partial2(multiplicar, 3, 4);
+console.log(porDoce(5));  // 60
+console.log(porDoce(10)); // 120
+
+// Caso real: fetch con base URL fija
+async function fetchAPI(baseUrl: string, endpoint: string): Promise<Response> {
+  return fetch(\`\${baseUrl}\${endpoint}\`);
+}
+
+const fetchProduccion = fetchAPI.bind(null, "https://api.miapp.com");
+// fetchProduccion("/usuarios") — solo necesita el endpoint`
+    }
+  ]}
+  output={`[ERROR] Conexión fallida\n[INFO] Servidor iniciado\n[WARN] Disco casi lleno\n60\n120`}
+/>
+
+</Section>
+
+<Section id="composicion" title="Composición — f(g(x)) de forma legible">
+
+La **composición** combina funciones para crear transformaciones complejas a partir de piezas simples.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "compose y pipe",
+      code: `// compose — de derecha a izquierda (notación matemática)
+const compose = (...fns) => x => fns.reduceRight((v, f) => f(v), x);
+
+// pipe — de izquierda a derecha (más legible en código)
+const pipe = (...fns) => x => fns.reduce((v, f) => f(v), x);
+
+// Funciones puras y simples
+const trim       = s => s.trim();
+const lowercase  = s => s.toLowerCase();
+const slugify    = s => s.replace(/\s+/g, "-");
+const prefixEs   = s => \`es-\${s}\`;
+
+// compose: se ejecuta de adentro hacia afuera (derecha → izquierda)
+const hacerSlug = compose(prefixEs, slugify, lowercase, trim);
+console.log(hacerSlug("  Hola Mundo  ")); // "es-hola-mundo"
+
+// pipe: más legible — el orden es el de ejecución
+const hacerSlugPipe = pipe(trim, lowercase, slugify, prefixEs);
+console.log(hacerSlugPipe("  Hola Mundo  ")); // "es-hola-mundo"
+
+// Pipeline de transformación de datos
+const procesarUsuario = pipe(
+  usuario => ({ ...usuario, nombre: usuario.nombre.trim() }),
+  usuario => ({ ...usuario, email: usuario.email.toLowerCase() }),
+  usuario => ({ ...usuario, slug: usuario.nombre.toLowerCase().replace(/\s+/g, "-") })
+);
+
+const resultado = procesarUsuario({ nombre: "  Ana García ", email: "ANA@EJEMPLO.COM" });
+console.log(resultado.slug);  // "ana-garcía"
+console.log(resultado.email); // "ana@ejemplo.com"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function compose<T>(...fns: Array<(v: T) => T>): (v: T) => T {
+  return (x: T) => fns.reduceRight((v, f) => f(v), x);
+}
+
+function pipe<T>(...fns: Array<(v: T) => T>): (v: T) => T {
+  return (x: T) => fns.reduce((v, f) => f(v), x);
+}
+
+const trim       = (s: string): string => s.trim();
+const lowercase  = (s: string): string => s.toLowerCase();
+const slugify    = (s: string): string => s.replace(/\s+/g, "-");
+const prefixEs   = (s: string): string => \`es-\${s}\`;
+
+const hacerSlug = pipe(trim, lowercase, slugify, prefixEs);
+console.log(hacerSlug("  Hola Mundo  ")); // "es-hola-mundo"
+
+interface Usuario {
+  nombre: string;
+  email: string;
+  slug?: string;
+}
+
+const procesarUsuario = pipe<Usuario>(
+  u => ({ ...u, nombre: u.nombre.trim() }),
+  u => ({ ...u, email: u.email.toLowerCase() }),
+  u => ({ ...u, slug: u.nombre.toLowerCase().replace(/\s+/g, "-") })
+);
+
+const resultado = procesarUsuario({ nombre: "  Ana García ", email: "ANA@EJEMPLO.COM" });
+console.log(resultado.slug);  // "ana-garcía"
+console.log(resultado.email); // "ana@ejemplo.com"`
+    }
+  ]}
+  output={`es-hola-mundo\nes-hola-mundo\nana-garcía\nana@ejemplo.com`}
+/>
+
+</Section>
+
+<Section id="pipe-composicion" title="Pipe — composición de izquierda a derecha">
+
+`pipe` es la forma más práctica de componer funciones en JavaScript moderno. Su orden de lectura coincide con el de ejecución.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Casos de uso reales",
+      code: `const pipe = (...fns) => x => fns.reduce((v, f) => f(v), x);
+
+// Pipeline para validar y transformar datos de formulario
+const validarEmail = email => {
+  if (!email.includes("@")) throw new Error("Email inválido");
+  return email;
+};
+
+const normalizarEmail = email => email.trim().toLowerCase();
+
+const procesarEmail = pipe(
+  normalizarEmail,
+  validarEmail
+);
+
+try {
+  console.log(procesarEmail("  Usuario@EJEMPLO.COM  ")); // "usuario@ejemplo.com"
+  console.log(procesarEmail("no-es-un-email"));           // lanza error
+} catch (e) {
+  console.log(e.message); // "Email inválido"
+}
+
+// Pipeline de transformación numérica
+const pipeline = pipe(
+  n => n * 2,       // doble
+  n => n + 10,      // sumar 10
+  n => n ** 2,      // cuadrado
+  n => n.toString() // a string
+);
+
+console.log(pipeline(5)); // "400" — (5*2+10)^2 = 20^2`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function pipe<T>(...fns: Array<(v: T) => T>): (v: T) => T {
+  return (x: T) => fns.reduce((v, f) => f(v), x);
+}
+
+// Pipeline tipado para strings
+const procesarEmail = pipe<string>(
+  email => email.trim().toLowerCase(),
+  email => {
+    if (!email.includes("@")) throw new Error("Email inválido");
+    return email;
+  }
+);
+
+try {
+  console.log(procesarEmail("  Usuario@EJEMPLO.COM  ")); // "usuario@ejemplo.com"
+  console.log(procesarEmail("no-es-un-email"));
+} catch (e) {
+  if (e instanceof Error) console.log(e.message);
+}
+
+// Pipeline numérico
+const pipelineNumero = pipe<number>(
+  n => n * 2,
+  n => n + 10,
+  n => n ** 2
+);
+
+console.log(pipelineNumero(5)); // 400`
+    }
+  ]}
+  output={`usuario@ejemplo.com\nEmail inválido\n400`}
+/>
+
+</Section>
+
+<Section id="casos-reales" title="Casos de uso reales — transformaciones y middleware">
+
+Currying y composición son la base de muchas librerías populares: Redux, RxJS, Ramda, fp-ts.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Patrones reales",
+      code: `const pipe = (...fns) => x => fns.reduce((v, f) => f(v), x);
+
+// Patrón de middleware con currying (similar a Express/Koa)
+const conAutenticacion = manejador => req => {
+  if (!req.token) return { error: "No autorizado", status: 401 };
+  return manejador(req);
+};
+
+const conLogging = manejador => req => {
+  console.log(\`[\${new Date().toISOString()}] \${req.method} \${req.path}\`);
+  return manejador(req);
+};
+
+const manejadorBase = req => ({
+  status: 200,
+  body: \`Hola, \${req.usuario}\`,
+});
+
+// Componer middleware (de derecha a izquierda con compose, o invertido con pipe)
+const compose = (...fns) => x => fns.reduceRight((v, f) => f(v), x);
+const manejadorFinal = compose(conLogging, conAutenticacion)(manejadorBase);
+
+const respuesta = manejadorFinal({ method: "GET", path: "/api/datos", token: "abc123", usuario: "Ana" });
+console.log(respuesta.status); // 200
+console.log(respuesta.body);   // "Hola, Ana"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Request {
+  method: string;
+  path: string;
+  token?: string;
+  usuario?: string;
+}
+
+interface Response {
+  status: number;
+  body?: string;
+  error?: string;
+}
+
+type Handler = (req: Request) => Response;
+type Middleware = (handler: Handler) => Handler;
+
+const conAutenticacion: Middleware = handler => req => {
+  if (!req.token) return { error: "No autorizado", status: 401 };
+  return handler(req);
+};
+
+const conLogging: Middleware = handler => req => {
+  console.log(\`[\${new Date().toISOString()}] \${req.method} \${req.path}\`);
+  return handler(req);
+};
+
+const manejadorBase: Handler = req => ({
+  status: 200,
+  body: \`Hola, \${req.usuario}\`,
+});
+
+// Compose de middleware
+function composeMiddleware(...middlewares: Middleware[]): Middleware {
+  return handler => middlewares.reduceRight((h, m) => m(h), handler);
+}
+
+const manejadorFinal = composeMiddleware(conLogging, conAutenticacion)(manejadorBase);
+
+const respuesta = manejadorFinal({
+  method: "GET",
+  path: "/api/datos",
+  token: "abc123",
+  usuario: "Ana",
+});
+
+console.log(respuesta.status); // 200
+console.log(respuesta.body);   // "Hola, Ana"`
+    }
+  ]}
+  output={`[2026-05-02T...] GET /api/datos\n200\nHola, Ana`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea una función curry() genérica", diff: "hard", minutes: 15 },
+    { num: "02", name: "Aplicación parcial de fetch con baseURL", diff: "med", minutes: 10 },
+    { num: "03", name: "Pipeline de transformación con pipe()", diff: "med", minutes: 10 },
+    { num: "04", name: "Implementa compose() tipado en TypeScript", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

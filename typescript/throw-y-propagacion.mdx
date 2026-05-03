@@ -1,0 +1,323 @@
+---
+title: "throw y propagación: lanza y escala errores"
+short: "throw y propagación"
+chapter: "07"
+num: "02"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "throw te permite señalar que algo salió mal en tu propio código. Los errores se propagan por el call stack hasta que alguien los atrapa — o hasta que colapsan el programa."
+pro: false
+---
+
+<Section id="throw" title="throw — lanza errores manualmente">
+
+`throw` detiene la ejecución de la función actual y lanza un valor como error. Ese valor puede ser cualquier cosa, pero la convención es lanzar un objeto `Error` (o una subclase) porque incluye el stack trace automáticamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "throw básico",
+      code: `function dividir(dividendo, divisor) {
+  if (divisor === 0) {
+    throw new Error("No se puede dividir entre cero");
+  }
+  return dividendo / divisor;
+}
+
+try {
+  console.log(dividir(10, 2));  // 5
+  console.log(dividir(10, 0)); // lanza Error
+} catch (error) {
+  console.error("Error:", error.message);
+}
+
+// throw detiene la función inmediatamente
+function validarEdad(edad) {
+  if (edad < 0) throw new RangeError("La edad no puede ser negativa");
+  if (edad > 150) throw new RangeError("La edad parece inválida");
+  return edad;
+}
+
+console.log(validarEdad(25));  // 25
+console.log(validarEdad(-1)); // lanza RangeError`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function dividir(dividendo: number, divisor: number): number {
+  if (divisor === 0) {
+    throw new Error("No se puede dividir entre cero");
+  }
+  return dividendo / divisor;
+}
+
+try {
+  console.log(dividir(10, 2));  // 5
+  console.log(dividir(10, 0)); // lanza Error
+} catch (error) {
+  if (error instanceof Error) {
+    console.error("Error:", error.message);
+  }
+}
+
+function validarEdad(edad: number): number {
+  if (edad < 0) throw new RangeError("La edad no puede ser negativa");
+  if (edad > 150) throw new RangeError("La edad parece inválida");
+  return edad;
+}
+
+console.log(validarEdad(25));  // 25
+console.log(validarEdad(-1)); // lanza RangeError`
+    }
+  ]}
+  output={`5\nError: No se puede dividir entre cero`}
+/>
+
+</Section>
+
+<Section id="que-lanzar" title="Qué se puede lanzar — y qué conviene">
+
+JavaScript permite lanzar cualquier valor: un string, un número, un objeto. Pero lanzar una instancia de `Error` es siempre la mejor opción porque incluye el stack trace, tiene propiedades estándar (`name`, `message`) y es lo que `instanceof Error` puede detectar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Qué puedes lanzar",
+      code: `// ❌ Lanzar primitivos — evitar
+throw "algo salió mal";    // string
+throw 404;                 // número
+throw { codigo: "ERR_01" }; // objeto plano
+
+// ✅ Lanzar instancias de Error — siempre preferible
+throw new Error("mensaje descriptivo");
+throw new TypeError("se esperaba un string");
+throw new RangeError("valor fuera del rango permitido");
+
+// Cuándo SÍ usar un objeto plano (con cuidado):
+// cuando necesitas propiedades extra Y no puedes extender Error
+// pero esto dificulta el instanceof check
+function buscarUsuario(id) {
+  if (id <= 0) {
+    throw new Error(\`ID inválido: \${id}\`);
+  }
+  // ...simulamos que no existe
+  throw new Error(\`Usuario \${id} no encontrado\`);
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript puede anotar el tipo del valor lanzado con 'never'
+// cuando se garantiza que una función siempre lanza
+function fallarSiempre(mensaje: string): never {
+  throw new Error(mensaje);
+}
+
+// Ejemplo práctico: assertion function
+function asegurar(condicion: boolean, mensaje: string): asserts condicion {
+  if (!condicion) {
+    throw new Error(mensaje);
+  }
+}
+
+function procesarEdad(valor: unknown): number {
+  asegurar(typeof valor === "number", "Se esperaba un número");
+  asegurar(valor >= 0, "La edad no puede ser negativa");
+  // Aquí TypeScript sabe que 'valor' es number y >= 0
+  return valor;
+}
+
+console.log(procesarEdad(25)); // 25
+console.log(procesarEdad(-1)); // lanza Error`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="propagacion" title="Propagación de errores — el error sube por el call stack">
+
+Cuando una función lanza un error y nadie lo atrapa en esa función, el error **sube** a quien la llamó. Si tampoco lo atrapa, sube más. Este proceso continúa hasta encontrar un `catch` o hasta que el programa termina.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Propagación en cascada",
+      code: `function leerArchivo(ruta) {
+  if (!ruta) throw new Error("Ruta vacía");
+  return "contenido del archivo";
+}
+
+function parsearConfig(ruta) {
+  const contenido = leerArchivo(ruta); // puede lanzar
+  return JSON.parse(contenido);        // también puede lanzar
+}
+
+function iniciarApp(rutaConfig) {
+  const config = parsearConfig(rutaConfig); // puede lanzar
+  console.log("App iniciada con:", config);
+}
+
+// El catch en el nivel más alto atrapa errores de toda la cadena
+try {
+  iniciarApp("");         // ruta vacía
+} catch (error) {
+  console.error("No se pudo iniciar la app:", error.message);
+}
+
+try {
+  iniciarApp("/config.json"); // ruta válida pero contenido inválido para JSON
+} catch (error) {
+  console.error("Error de config:", error.message);
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Config {
+  puerto: number;
+  modo: string;
+}
+
+function leerArchivo(ruta: string): string {
+  if (!ruta) throw new Error("Ruta vacía");
+  return '{"puerto": 3000, "modo": "dev"}';
+}
+
+function parsearConfig(ruta: string): Config {
+  const contenido = leerArchivo(ruta);
+  return JSON.parse(contenido) as Config;
+}
+
+function iniciarApp(rutaConfig: string): void {
+  const config = parsearConfig(rutaConfig);
+  console.log("App iniciada con:", config);
+}
+
+try {
+  iniciarApp("");
+} catch (error) {
+  if (error instanceof Error) {
+    console.error("No se pudo iniciar la app:", error.message);
+  }
+}
+
+try {
+  iniciarApp("/config.json");
+} catch (error) {
+  if (error instanceof Error) {
+    console.error("Error de config:", error.message);
+  }
+}`
+    }
+  ]}
+  output={`No se pudo iniciar la app: Ruta vacía\nApp iniciada con: { puerto: 3000, modo: "dev" }`}
+/>
+
+</Section>
+
+<Section id="relanzar" title="Re-lanzar errores — cuándo capturar y volver a lanzar">
+
+A veces quieres atrapar un error para inspeccionarlo, pero volver a lanzarlo si no es de tu responsabilidad. Esto permite que cada capa de código maneje solo los errores que entiende.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Re-lanzar errores",
+      code: `function conectarDB(url) {
+  if (!url) throw new TypeError("URL de base de datos requerida");
+  if (!url.startsWith("postgres://")) throw new Error("Protocolo no soportado");
+  console.log("Conectado a:", url);
+}
+
+function inicializarServicio(config) {
+  try {
+    conectarDB(config.dbUrl);
+  } catch (error) {
+    // Solo manejamos TypeError (configuración incorrecta)
+    // Relanzamos cualquier otro error
+    if (error instanceof TypeError) {
+      console.warn("Config inválida, usando valores por defecto");
+      conectarDB("postgres://localhost:5432/dev");
+    } else {
+      throw error; // relanzamos — no es nuestro problema
+    }
+  }
+}
+
+try {
+  inicializarServicio({ dbUrl: null });    // TypeError — manejado
+} catch (error) {
+  console.error("Error no recuperable:", error.message);
+}
+
+try {
+  inicializarServicio({ dbUrl: "mysql://servidor" }); // Error — relanzado
+} catch (error) {
+  console.error("Error no recuperable:", error.message);
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface ConfigServicio {
+  dbUrl: string | null;
+}
+
+function conectarDB(url: string): void {
+  if (!url) throw new TypeError("URL de base de datos requerida");
+  if (!url.startsWith("postgres://")) throw new Error("Protocolo no soportado");
+  console.log("Conectado a:", url);
+}
+
+function inicializarServicio(config: ConfigServicio): void {
+  try {
+    if (!config.dbUrl) throw new TypeError("URL de base de datos requerida");
+    conectarDB(config.dbUrl);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      console.warn("Config inválida, usando valores por defecto");
+      conectarDB("postgres://localhost:5432/dev");
+    } else {
+      throw error; // relanzamos errores que no sabemos manejar
+    }
+  }
+}
+
+try {
+  inicializarServicio({ dbUrl: null });
+} catch (error) {
+  if (error instanceof Error) {
+    console.error("Error no recuperable:", error.message);
+  }
+}`
+    }
+  ]}
+  output={`Config inválida, usando valores por defecto\nConectado a: postgres://localhost:5432/dev\nError no recuperable: Protocolo no soportado`}
+/>
+
+<Callout variant="tip" title="Regla de oro del re-lanzamiento">
+Si tu función no sabe cómo recuperarse de un error, relánzalo. Es mejor que un error llegue a quien sí puede manejarlo que silenciarlo en el lugar equivocado.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Lanza un error si el argumento es inválido", diff: "easy", minutes: 5 },
+    { num: "02", name: "Propaga un error a través de 3 funciones", diff: "med", minutes: 8 },
+    { num: "03", name: "Re-lanza solo errores específicos", diff: "med", minutes: 10 },
+    { num: "04", name: "Valida datos con throw en cada campo", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

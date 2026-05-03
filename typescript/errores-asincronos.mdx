@@ -1,0 +1,348 @@
+---
+title: "Errores asíncronos: captura lo que <em>no puedes ver</em>"
+short: "Errores async"
+chapter: "06"
+num: "06"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los errores asíncronos son más difíciles que los síncronos: el stack trace desaparece, los try/catch normales no los capturan, y una Promise rechazada sin manejar puede silenciar bugs graves."
+pro: false
+---
+
+<Section id="por-que-son-dificiles" title="Por qué los errores async son difíciles">
+
+Un `try/catch` síncrono no puede capturar errores que ocurren en el futuro:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// ❌ Este try/catch NO captura el error async
+try {
+  setTimeout(() => {
+    throw new Error("Error dentro del timeout"); // No capturado
+  }, 100);
+} catch (err) {
+  console.log("Nunca llega aquí");
+}
+
+// El error aparece como "Uncaught Error" en la consola del browser
+
+// ❌ Tampoco captura una Promise rechazada
+try {
+  Promise.reject(new Error("Promise rechazada")); // No capturado
+} catch (err) {
+  console.log("Tampoco llega aquí");
+}
+
+// ✅ Necesitas capturar donde el error puede ocurrir
+setTimeout(() => {
+  try {
+    throw new Error("Error dentro del timeout");
+  } catch (err) {
+    console.log("Capturado:", err.message); // Capturado: Error dentro del timeout
+  }
+}, 100);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ❌ Este try/catch NO captura el error async
+try {
+  setTimeout((): void => {
+    throw new Error("Error dentro del timeout");
+  }, 100);
+} catch (err) {
+  console.log("Nunca llega aquí");
+}
+
+// ❌ Tampoco captura una Promise rechazada
+try {
+  Promise.reject(new Error("Promise rechazada"));
+} catch (err) {
+  console.log("Tampoco llega aquí");
+}
+
+// ✅ Necesitas capturar donde el error puede ocurrir
+setTimeout((): void => {
+  try {
+    throw new Error("Error dentro del timeout");
+  } catch (err) {
+    if (err instanceof Error) {
+      console.log("Capturado:", err.message);
+    }
+  }
+}, 100);`
+    }
+  ]}
+  output={`Capturado: Error dentro del timeout`}
+/>
+
+</Section>
+
+<Section id="errores-en-promises" title="Errores en Promises: .catch() vs segundo argumento">
+
+Hay dos formas de capturar rechazos en `.then()`, pero no son equivalentes:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function operacionRiesgosa(debeFallar) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (debeFallar) {
+        reject(new Error("Operación fallida"));
+      } else {
+        resolve("datos");
+      }
+    }, 50);
+  });
+}
+
+// ❌ Segundo argumento de .then() — NO captura errores del primer argumento
+operacionRiesgosa(false).then(
+  datos => {
+    throw new Error("Error al procesar datos"); // No capturado
+    return datos.toUpperCase();
+  },
+  err => {
+    console.log("Solo captura rechazos de la Promise original:", err.message);
+  }
+);
+
+// ✅ .catch() captura TODO lo que falle en la cadena
+operacionRiesgosa(false)
+  .then(datos => {
+    throw new Error("Error al procesar datos");
+  })
+  .catch(err => {
+    console.log("Capturado por .catch():", err.message);
+    // Capturado por .catch(): Error al procesar datos
+  });
+
+// ✅ .catch() para rechazo original
+operacionRiesgosa(true)
+  .then(datos => datos.toUpperCase())
+  .catch(err => {
+    console.log("Rechazo original:", err.message);
+    // Rechazo original: Operación fallida
+  });`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function operacionRiesgosa(debeFallar: boolean): Promise<string> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (debeFallar) {
+        reject(new Error("Operación fallida"));
+      } else {
+        resolve("datos");
+      }
+    }, 50);
+  });
+}
+
+// ✅ .catch() captura TODO lo que falle en la cadena
+operacionRiesgosa(false)
+  .then((datos: string) => {
+    throw new Error("Error al procesar datos");
+  })
+  .catch((err: Error) => {
+    console.log("Capturado por .catch():", err.message);
+    // Capturado por .catch(): Error al procesar datos
+  });
+
+// ✅ .catch() para rechazo original
+operacionRiesgosa(true)
+  .then((datos: string) => datos.toUpperCase())
+  .catch((err: Error) => {
+    console.log("Rechazo original:", err.message);
+    // Rechazo original: Operación fallida
+  });`
+    }
+  ]}
+  output={`Capturado por .catch(): Error al procesar datos\nRechazo original: Operación fallida`}
+/>
+
+<Callout variant="tip" title="Siempre prefiere .catch() al final">
+El segundo argumento de `.then(onFulfilled, onRejected)` solo captura rechazos de la Promise anterior — no errores lanzados en `onFulfilled`. `.catch()` captura ambos. Úsalo siempre.
+</Callout>
+
+</Section>
+
+<Section id="errores-async-await" title="Errores en async/await con try/catch">
+
+Con async/await, los errores de Promises rechazadas se comportan como errores síncronos dentro del bloque `try`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `async function cargarDatos(url) {
+  const respuesta = await fetch(url);
+  if (!respuesta.ok) {
+    throw new Error(\`HTTP \${respuesta.status}: \${respuesta.statusText}\`);
+  }
+  return respuesta.json();
+}
+
+// ✅ Manejo centralizado con try/catch
+async function procesarPagina() {
+  try {
+    const datos = await cargarDatos("https://api.ejemplo.com/datos");
+    const procesados = datos.items.map(item => item.nombre);
+    console.log("Items:", procesados);
+  } catch (err) {
+    // Captura tanto errores de red como errores de datos
+    console.error("Fallo al procesar:", err.message);
+  }
+}
+
+// ✅ Patrón: función wrapper que convierte Promise en [error, dato]
+async function intentar(promesa) {
+  try {
+    const dato = await promesa;
+    return [null, dato];
+  } catch (err) {
+    return [err, null];
+  }
+}
+
+async function usarIntento() {
+  const [err, datos] = await intentar(cargarDatos("https://api.ejemplo.com/datos"));
+
+  if (err) {
+    console.log("Error capturado sin try/catch:", err.message);
+    return;
+  }
+  console.log("Datos recibidos:", datos);
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `async function cargarDatos<T>(url: string): Promise<T> {
+  const respuesta = await fetch(url);
+  if (!respuesta.ok) {
+    throw new Error(\`HTTP \${respuesta.status}: \${respuesta.statusText}\`);
+  }
+  return respuesta.json() as Promise<T>;
+}
+
+// ✅ Patrón: función wrapper que convierte Promise en [error, dato]
+async function intentar<T>(
+  promesa: Promise<T>
+): Promise<[Error, null] | [null, T]> {
+  try {
+    const dato = await promesa;
+    return [null, dato];
+  } catch (err) {
+    return [err instanceof Error ? err : new Error(String(err)), null];
+  }
+}
+
+type DatosApi = { items: { nombre: string }[] };
+
+async function usarIntento(): Promise<void> {
+  const [err, datos] = await intentar(
+    cargarDatos<DatosApi>("https://api.ejemplo.com/datos")
+  );
+
+  if (err) {
+    console.log("Error capturado sin try/catch:", err.message);
+    return;
+  }
+  console.log("Items:", datos.items.map(i => i.nombre));
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="unhandled-rejection" title="Errores no capturados: unhandledRejection">
+
+Una Promise rechazada sin `.catch()` ni `try/catch` produce un `unhandledRejection`. El comportamiento varía por entorno:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript — Node.js",
+      code: `// En Node.js — escuchar rechazos no capturados
+process.on("unhandledRejection", (razon, promesa) => {
+  console.error("Promise rechazada sin capturar:", razon);
+  // En producción: registrar en sistema de monitoreo
+  // No es recomendable como estrategia principal de manejo de errores
+});
+
+// En el browser — equivalente
+window.addEventListener("unhandledrejection", (evento) => {
+  console.error("Rechazo no capturado:", evento.reason);
+  evento.preventDefault(); // Evita que aparezca en la consola
+});
+
+// ❌ Esta Promise rechazada activa unhandledRejection
+Promise.reject(new Error("Sin capturar"));
+
+// ✅ Siempre captura tus Promises
+Promise.reject(new Error("Con captura"))
+  .catch(err => console.error("Capturado:", err.message));
+
+// ✅ En Node.js moderno, un unhandledRejection termina el proceso
+// — es una señal de que el código tiene un bug`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript — Node.js",
+      code: `// En Node.js — escuchar rechazos no capturados
+process.on("unhandledRejection", (razon: unknown, promesa: Promise<unknown>) => {
+  const mensaje = razon instanceof Error ? razon.message : String(razon);
+  console.error("Promise rechazada sin capturar:", mensaje);
+});
+
+// En el browser
+window.addEventListener("unhandledrejection", (evento: PromiseRejectionEvent) => {
+  const mensaje = evento.reason instanceof Error
+    ? evento.reason.message
+    : String(evento.reason);
+  console.error("Rechazo no capturado:", mensaje);
+  evento.preventDefault();
+});
+
+// ❌ Sin captura — activa unhandledRejection
+Promise.reject(new Error("Sin capturar"));
+
+// ✅ Siempre captura tus Promises
+Promise.reject(new Error("Con captura"))
+  .catch((err: Error) => console.error("Capturado:", err.message));`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Node.js 15+ termina el proceso">
+Desde Node.js 15, un `unhandledRejection` termina el proceso con código de salida 1. Tratar el evento como "safety net" es una mala práctica — corrígelo en la fuente.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Captura errores en una cadena de Promises", diff: "easy", minutes: 5 },
+    { num: "02", name: "Wrapper genérico de try/catch para async", diff: "med", minutes: 8 },
+    { num: "03", name: "Distingue entre errores de red y errores de datos", diff: "med", minutes: 10 },
+    { num: "04", name: "Propaga errores personalizados desde async", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

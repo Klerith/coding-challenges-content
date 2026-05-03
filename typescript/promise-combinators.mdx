@@ -1,0 +1,448 @@
+---
+title: "Promise combinators: operaciones en <em>paralelo</em>"
+short: "Promise combinators"
+chapter: "06"
+num: "04"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Cuando necesitas coordinar múltiples Promises, JavaScript ofrece cuatro combinadores: all, allSettled, race y any. Elegir el correcto puede significar la diferencia entre un error silencioso y una app robusta."
+pro: false
+---
+
+<Section id="promise-all" title="Promise.all — todas o ninguna">
+
+`Promise.all` espera a que todas las Promises resuelvan. Si una sola falla, el conjunto entero falla:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function cargarUsuario(id) {
+  return new Promise(resolve =>
+    setTimeout(() => resolve({ id, nombre: \`Usuario \${id}\` }), 100)
+  );
+}
+
+function cargarConfiguracion() {
+  return new Promise(resolve =>
+    setTimeout(() => resolve({ tema: "oscuro", idioma: "es" }), 150)
+  );
+}
+
+function cargarPermisos(userId) {
+  return new Promise(resolve =>
+    setTimeout(() => resolve(["leer", "escribir"]), 80)
+  );
+}
+
+// ✅ Ejecutan en PARALELO — el total es ~150ms, no 330ms
+async function inicializarApp(userId) {
+  const [usuario, config, permisos] = await Promise.all([
+    cargarUsuario(userId),
+    cargarConfiguracion(),
+    cargarPermisos(userId),
+  ]);
+
+  console.log(usuario.nombre); // Usuario 1
+  console.log(config.tema);    // oscuro
+  console.log(permisos);       // ["leer", "escribir"]
+}
+
+inicializarApp(1);
+
+// ❌ Si una falla, Promise.all rechaza con ese error
+Promise.all([
+  Promise.resolve("ok"),
+  Promise.reject(new Error("Falló el servidor")),
+  Promise.resolve("también ok"),
+]).catch(err => console.error(err.message)); // Falló el servidor`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Usuario = { id: number; nombre: string };
+type Configuracion = { tema: string; idioma: string };
+type Permiso = "leer" | "escribir" | "admin";
+
+function cargarUsuario(id: number): Promise<Usuario> {
+  return new Promise(resolve =>
+    setTimeout(() => resolve({ id, nombre: \`Usuario \${id}\` }), 100)
+  );
+}
+
+function cargarConfiguracion(): Promise<Configuracion> {
+  return new Promise(resolve =>
+    setTimeout(() => resolve({ tema: "oscuro", idioma: "es" }), 150)
+  );
+}
+
+function cargarPermisos(userId: number): Promise<Permiso[]> {
+  return new Promise(resolve =>
+    setTimeout(() => resolve(["leer", "escribir"]), 80)
+  );
+}
+
+async function inicializarApp(userId: number): Promise<void> {
+  const [usuario, config, permisos]: [Usuario, Configuracion, Permiso[]] =
+    await Promise.all([
+      cargarUsuario(userId),
+      cargarConfiguracion(),
+      cargarPermisos(userId),
+    ]);
+
+  console.log(usuario.nombre); // Usuario 1
+  console.log(config.tema);    // oscuro
+  console.log(permisos);       // ["leer", "escribir"]
+}
+
+inicializarApp(1);`
+    }
+  ]}
+  output={`Usuario 1\noscuro\n["leer", "escribir"]`}
+/>
+
+<Callout variant="warn" title="Promise.all es fail-fast">
+Si cualquier Promise falla, `Promise.all` rechaza inmediatamente — sin esperar las otras. Las Promises restantes siguen ejecutándose en el motor, pero sus resultados se descartan. Usa `allSettled` si necesitas los resultados de todas.
+</Callout>
+
+</Section>
+
+<Section id="promise-allsettled" title="Promise.allSettled — reporta cada resultado">
+
+A diferencia de `all`, `allSettled` siempre espera a que todas terminen y reporta el estado de cada una:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function cargarServicio(nombre, debefallar) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (debefallar) {
+        reject(new Error(\`\${nombre} no disponible\`));
+      } else {
+        resolve({ nombre, datos: "ok" });
+      }
+    }, 100);
+  });
+}
+
+async function verificarServicios() {
+  const resultados = await Promise.allSettled([
+    cargarServicio("Pagos", false),
+    cargarServicio("Notificaciones", true), // este falla
+    cargarServicio("Inventario", false),
+  ]);
+
+  resultados.forEach(resultado => {
+    if (resultado.status === "fulfilled") {
+      console.log("✓", resultado.value.nombre);
+    } else {
+      console.log("✗", resultado.reason.message);
+    }
+  });
+}
+
+verificarServicios();
+// ✓ Pagos
+// ✗ Notificaciones no disponible
+// ✓ Inventario`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Servicio = { nombre: string; datos: string };
+
+function cargarServicio(nombre: string, debeFallar: boolean): Promise<Servicio> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (debeFallar) {
+        reject(new Error(\`\${nombre} no disponible\`));
+      } else {
+        resolve({ nombre, datos: "ok" });
+      }
+    }, 100);
+  });
+}
+
+async function verificarServicios(): Promise<void> {
+  const resultados = await Promise.allSettled([
+    cargarServicio("Pagos", false),
+    cargarServicio("Notificaciones", true),
+    cargarServicio("Inventario", false),
+  ]);
+
+  resultados.forEach((resultado: PromiseSettledResult<Servicio>) => {
+    if (resultado.status === "fulfilled") {
+      console.log("✓", resultado.value.nombre);
+    } else {
+      console.log("✗", (resultado.reason as Error).message);
+    }
+  });
+}
+
+verificarServicios();
+// ✓ Pagos
+// ✗ Notificaciones no disponible
+// ✓ Inventario`
+    }
+  ]}
+  output={`✓ Pagos\n✗ Notificaciones no disponible\n✓ Inventario`}
+/>
+
+</Section>
+
+<Section id="promise-race" title="Promise.race — gana la más rápida">
+
+`Promise.race` resuelve o rechaza con la primera Promise que termine — sea éxito o error:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function consultarServidor(servidor, latencia) {
+  return new Promise(resolve =>
+    setTimeout(() => resolve(\`Respuesta de \${servidor}\`), latencia)
+  );
+}
+
+function timeout(ms) {
+  return new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(\`Timeout: excedió \${ms}ms\`)), ms)
+  );
+}
+
+// Caso 1: encontrar el servidor más rápido
+async function obtenerRespuestaRapida() {
+  const respuesta = await Promise.race([
+    consultarServidor("EU", 300),
+    consultarServidor("US", 150),  // este gana
+    consultarServidor("AS", 400),
+  ]);
+  console.log(respuesta); // Respuesta de US
+}
+
+// Caso 2: implementar un timeout para cualquier operación
+async function conTimeout(promesa, ms) {
+  return Promise.race([promesa, timeout(ms)]);
+}
+
+async function probarTimeout() {
+  try {
+    const resultado = await conTimeout(
+      consultarServidor("Lento", 1000),
+      500
+    );
+    console.log(resultado);
+  } catch (err) {
+    console.error(err.message); // Timeout: excedió 500ms
+  }
+}
+
+obtenerRespuestaRapida();
+probarTimeout();`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function consultarServidor(servidor: string, latencia: number): Promise<string> {
+  return new Promise(resolve =>
+    setTimeout(() => resolve(\`Respuesta de \${servidor}\`), latencia)
+  );
+}
+
+function timeout(ms: number): Promise<never> {
+  return new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(\`Timeout: excedió \${ms}ms\`)), ms)
+  );
+}
+
+async function obtenerRespuestaRapida(): Promise<void> {
+  const respuesta = await Promise.race([
+    consultarServidor("EU", 300),
+    consultarServidor("US", 150),
+    consultarServidor("AS", 400),
+  ]);
+  console.log(respuesta); // Respuesta de US
+}
+
+async function conTimeout<T>(promesa: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([promesa, timeout(ms)]);
+}
+
+async function probarTimeout(): Promise<void> {
+  try {
+    const resultado = await conTimeout(
+      consultarServidor("Lento", 1000),
+      500
+    );
+    console.log(resultado);
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error(err.message); // Timeout: excedió 500ms
+    }
+  }
+}
+
+obtenerRespuestaRapida();
+probarTimeout();`
+    }
+  ]}
+  output={`Respuesta de US\nTimeout: excedió 500ms`}
+/>
+
+</Section>
+
+<Section id="promise-any" title="Promise.any — el primero en tener éxito">
+
+`Promise.any` ignora rechazos y resuelve con la primera Promise que tenga éxito. Solo falla si todas fallan:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function intentarConServidor(url, latencia, funciona) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (funciona) {
+        resolve(\`Conectado a: \${url}\`);
+      } else {
+        reject(new Error(\`\${url} no responde\`));
+      }
+    }, latencia);
+  });
+}
+
+// Promise.any — ignora los rechazos, espera al primero en tener éxito
+async function conectarAlMejorServidor() {
+  try {
+    const conexion = await Promise.any([
+      intentarConServidor("cdn-1.ejemplo.com", 400, false), // falla
+      intentarConServidor("cdn-2.ejemplo.com", 200, true),  // resuelve ← gana
+      intentarConServidor("cdn-3.ejemplo.com", 100, false), // falla
+    ]);
+    console.log(conexion); // Conectado a: cdn-2.ejemplo.com
+  } catch (err) {
+    // AggregateError — todos fallaron
+    console.error("Sin servidores disponibles:", err.message);
+  }
+}
+
+// Si TODOS fallan → AggregateError
+async function todosfallan() {
+  try {
+    await Promise.any([
+      Promise.reject(new Error("Servidor 1 caído")),
+      Promise.reject(new Error("Servidor 2 caído")),
+    ]);
+  } catch (err) {
+    console.error("Tipo:", err.constructor.name); // AggregateError
+    console.error("Errores:", err.errors.length); // 2
+  }
+}
+
+conectarAlMejorServidor();
+todosfallan();`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function intentarConServidor(
+  url: string,
+  latencia: number,
+  funciona: boolean
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (funciona) {
+        resolve(\`Conectado a: \${url}\`);
+      } else {
+        reject(new Error(\`\${url} no responde\`));
+      }
+    }, latencia);
+  });
+}
+
+async function conectarAlMejorServidor(): Promise<void> {
+  try {
+    const conexion = await Promise.any([
+      intentarConServidor("cdn-1.ejemplo.com", 400, false),
+      intentarConServidor("cdn-2.ejemplo.com", 200, true),
+      intentarConServidor("cdn-3.ejemplo.com", 100, false),
+    ]);
+    console.log(conexion); // Conectado a: cdn-2.ejemplo.com
+  } catch (err) {
+    if (err instanceof AggregateError) {
+      console.error("Sin servidores disponibles, errores:", err.errors.length);
+    }
+  }
+}
+
+async function todosFallan(): Promise<void> {
+  try {
+    await Promise.any([
+      Promise.reject(new Error("Servidor 1 caído")),
+      Promise.reject(new Error("Servidor 2 caído")),
+    ]);
+  } catch (err) {
+    if (err instanceof AggregateError) {
+      console.error("Tipo:", err.constructor.name); // AggregateError
+      console.error("Errores:", err.errors.length); // 2
+    }
+  }
+}
+
+conectarAlMejorServidor();
+todosFallan();`
+    }
+  ]}
+  output={`Conectado a: cdn-2.ejemplo.com\nTipo: AggregateError\nErrores: 2`}
+/>
+
+<CompareTable
+  headers={["Combinador", "Resuelve cuando", "Rechaza cuando"]}
+  rows={[
+    [
+      "Promise.all",
+      { kind: "good", value: "TODAS resuelven" },
+      { kind: "bad", value: "UNA falla (fail-fast)" }
+    ],
+    [
+      "Promise.allSettled",
+      { kind: "good", value: "TODAS terminan (sin importar resultado)" },
+      { kind: "good", value: "Nunca rechaza — reporta cada estado" }
+    ],
+    [
+      "Promise.race",
+      { kind: "good", value: "La PRIMERA en terminar (éxito o error)" },
+      { kind: "bad", value: "La primera en terminar si es un rechazo" }
+    ],
+    [
+      "Promise.any",
+      { kind: "good", value: "La PRIMERA en resolver (solo éxito)" },
+      { kind: "bad", value: "TODAS rechazan (AggregateError)" }
+    ],
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Carga 3 recursos en paralelo con Promise.all", diff: "med", minutes: 8 },
+    { num: "02", name: "Usa allSettled para reportar éxitos y fallos", diff: "med", minutes: 8 },
+    { num: "03", name: "Implementa un timeout con Promise.race", diff: "hard", minutes: 12 },
+    { num: "04", name: "Encuentra el servidor más rápido con Promise.any", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,237 @@
+---
+title: "Default vs Named exports: elige la <em>estrategia correcta</em>"
+short: "Default vs Named"
+chapter: "10"
+num: "02"
+chapterTitle: "Módulos"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Hay dos sabores de export en ESM: named exports (con llaves al importar) y default export (uno por archivo, nombre libre). Conocer cuándo usar cada uno evita confusiones y hace tu código más fácil de navegar."
+pro: false
+---
+
+<Section id="named-exports" title="Named exports — exportaciones nombradas">
+
+Los named exports son los más comunes. Puedes tener tantos como necesites en un archivo y al importarlos **debes usar el nombre exacto** (o renombrarlo con `as`).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// validaciones.js
+export function esEmail(valor) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
+}
+
+export function esVacio(valor) {
+  return valor === null || valor === undefined || valor === "";
+}
+
+export function tieneMinCaracteres(valor, min) {
+  return valor.length >= min;
+}
+
+// --- En otro archivo ---
+// Debes usar llaves {} y el nombre exacto
+import { esEmail, esVacio } from "./validaciones.js";
+
+console.log(esEmail("ana@ejemplo.com")); // true
+console.log(esVacio(""));               // true
+
+// Renombrar para evitar colisiones
+import { esEmail as validarEmail } from "./validaciones.js";`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// validaciones.ts
+export function esEmail(valor: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
+}
+
+export function esVacio(valor: unknown): boolean {
+  return valor === null || valor === undefined || valor === "";
+}
+
+export function tieneMinCaracteres(valor: string, min: number): boolean {
+  return valor.length >= min;
+}
+
+// --- En otro archivo ---
+import { esEmail, esVacio } from "./validaciones.js";
+
+console.log(esEmail("ana@ejemplo.com")); // true
+console.log(esVacio(""));               // true
+
+// Renombrar con alias
+import { esEmail as validarEmail } from "./validaciones.js";`
+    }
+  ]}
+  output={`true\ntrue`}
+/>
+
+</Section>
+
+<Section id="default-export" title="Default export — uno por módulo, nombre libre">
+
+Cada módulo puede tener **un solo** `export default`. Al importarlo no usas llaves y puedes elegir cualquier nombre local.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Logger.js — clase principal del módulo
+class Logger {
+  #prefijo;
+
+  constructor(prefijo = "APP") {
+    this.#prefijo = prefijo;
+  }
+
+  info(mensaje) {
+    console.log(\`[\${this.#prefijo}] INFO: \${mensaje}\`);
+  }
+
+  error(mensaje) {
+    console.error(\`[\${this.#prefijo}] ERROR: \${mensaje}\`);
+  }
+}
+
+export default Logger;
+
+// --- En otro archivo ---
+// Sin llaves, y puedes llamarlo como quieras
+import Logger from "./Logger.js";
+import MiLog from "./Logger.js"; // también válido
+
+const log = new Logger("AUTH");
+log.info("Usuario autenticado"); // [AUTH] INFO: Usuario autenticado`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Logger.ts
+class Logger {
+  private prefijo: string;
+
+  constructor(prefijo = "APP") {
+    this.prefijo = prefijo;
+  }
+
+  info(mensaje: string): void {
+    console.log(\`[\${this.prefijo}] INFO: \${mensaje}\`);
+  }
+
+  error(mensaje: string): void {
+    console.error(\`[\${this.prefijo}] ERROR: \${mensaje}\`);
+  }
+}
+
+export default Logger;
+
+// --- En otro archivo ---
+import Logger from "./Logger.js";
+
+const log = new Logger("AUTH");
+log.info("Usuario autenticado"); // [AUTH] INFO: Usuario autenticado`
+    }
+  ]}
+  output={`[AUTH] INFO: Usuario autenticado`}
+/>
+
+</Section>
+
+<Section id="comparacion" title="Cuándo usar cada uno">
+
+<CompareTable
+  headers={["Aspecto", "Named export", "Default export"]}
+  rows={[
+    ["Sintaxis export", "`export function fn() {}`", "`export default function fn() {}`"],
+    ["Sintaxis import", "`import { fn } from './m'`", "`import fn from './m'`"],
+    ["¿Se puede renombrar?", "Sí, con `as`", "Sí, cualquier nombre"],
+    ["¿Cuántos por archivo?", "Ilimitados", "Solo uno"],
+    ["Auto-completado IDE", "Excelente (nombre fijo)", "Depende del tooling"],
+    ["Convención de uso", "Utilidades, constantes, tipos", "Clases, componentes, función principal"],
+  ]}
+/>
+
+<Callout variant="tip" title="Convención en la industria">
+Usa **default export** para la cosa principal del archivo (un componente React, una clase). Usa **named exports** para helpers y utilidades. Mezclar ambos en el mismo archivo es válido y común.
+</Callout>
+
+</Section>
+
+<Section id="reexports" title="Re-exports y barrel files">
+
+Los barrel files (`index.ts`) agrupan y re-exportan módulos de una carpeta, creando una API pública limpia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Estructura de carpeta:
+// utils/
+//   formato.js
+//   validaciones.js
+//   fecha.js
+//   index.js  ← barrel file
+
+// utils/index.js — re-exporta todo desde un punto único
+export { capitalizar, slugify } from "./formato.js";
+export { esEmail, esVacio } from "./validaciones.js";
+export { formatearFecha, esFechaValida } from "./fecha.js";
+
+// Re-exportar el default de otro módulo como named
+export { default as Logger } from "./Logger.js";
+
+// --- En el resto de la app ---
+// Antes: import { esEmail } from "../../utils/validaciones.js"
+// Ahora:
+import { esEmail, capitalizar, Logger } from "./utils/index.js";
+// O incluso más corto si el bundler resuelve index:
+import { esEmail, capitalizar } from "./utils";`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// utils/index.ts — barrel file con tipos también
+export { capitalizar, slugify } from "./formato.js";
+export { esEmail, esVacio } from "./validaciones.js";
+export { formatearFecha, esFechaValida } from "./fecha.js";
+
+// Re-exportar tipos
+export type { ConfigFormatos } from "./formato.js";
+export type { OpcionesFecha } from "./fecha.js";
+
+// Re-exportar default como named
+export { default as Logger } from "./Logger.js";
+
+// --- Uso en la app ---
+import { esEmail, capitalizar, Logger, type ConfigFormatos } from "./utils";
+
+const log = new Logger("UTILS");
+log.info(capitalizar("hola mundo")); // [UTILS] INFO: Hola mundo`
+    }
+  ]}
+  output={`[UTILS] INFO: Hola mundo`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte exports nombrados a default y viceversa", diff: "easy", minutes: 5 },
+    { num: "02", name: "Crea un barrel file que re-exporta 3 módulos", diff: "med", minutes: 8 },
+    { num: "03", name: "Importa con alias para evitar colisiones de nombres", diff: "med", minutes: 8 },
+    { num: "04", name: "Reestructura una carpeta usando index.ts", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,368 @@
+---
+title: "map, filter y reduce: el trío de arrays funcionales"
+short: "map / filter / reduce"
+chapter: "08"
+num: "01"
+chapterTitle: "Arrays y objetos avanzados"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "map transforma, filter selecciona y reduce acumula. Dominando estos tres métodos puedes reemplazar la mayoría de los bucles for y escribir código más declarativo y componible."
+pro: false
+---
+
+<Section id="map" title="map — transforma cada elemento">
+
+`map` aplica una función a cada elemento del array y devuelve un **nuevo array** del mismo tamaño. El array original nunca se modifica.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "map en acción",
+      code: `const precios = [10, 25, 8, 42, 15];
+
+// Aplica un descuento del 20% a cada precio
+const conDescuento = precios.map((precio) => precio * 0.8);
+console.log(conDescuento); // [8, 20, 6.4, 33.6, 12]
+
+// Transformar objetos
+const usuarios = [
+  { nombre: "Ana", activo: true },
+  { nombre: "Carlos", activo: false },
+  { nombre: "Beatriz", activo: true },
+];
+
+const nombres = usuarios.map((u) => u.nombre);
+console.log(nombres); // ["Ana", "Carlos", "Beatriz"]
+
+// map con índice
+const items = ["manzana", "pera", "uva"];
+const enumerados = items.map((item, i) => \`\${i + 1}. \${item}\`);
+console.log(enumerados); // ["1. manzana", "2. pera", "3. uva"]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Producto {
+  nombre: string;
+  precio: number;
+}
+
+interface ProductoConDescuento extends Producto {
+  precioFinal: number;
+}
+
+const productos: Producto[] = [
+  { nombre: "Teclado", precio: 80 },
+  { nombre: "Mouse", precio: 35 },
+  { nombre: "Monitor", precio: 320 },
+];
+
+// TypeScript infiere el tipo del resultado
+const conDescuento: ProductoConDescuento[] = productos.map((p) => ({
+  ...p,
+  precioFinal: p.precio * 0.8,
+}));
+
+console.log(conDescuento);
+// [{ nombre: "Teclado", precio: 80, precioFinal: 64 }, ...]
+
+const nombres: string[] = productos.map((p) => p.nombre);
+console.log(nombres); // ["Teclado", "Mouse", "Monitor"]`
+    }
+  ]}
+  output={`[8, 20, 6.4, 33.6, 12]\n["Ana", "Carlos", "Beatriz"]\n["1. manzana", "2. pera", "3. uva"]`}
+/>
+
+</Section>
+
+<Section id="filter" title="filter — filtra elementos por condición">
+
+`filter` devuelve un nuevo array que contiene solo los elementos para los cuales la función callback retorna `true`. El tamaño del resultado puede ser menor al original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "filter en acción",
+      code: `const numeros = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const pares = numeros.filter((n) => n % 2 === 0);
+console.log(pares); // [2, 4, 6, 8, 10]
+
+const mayoresDeCinco = numeros.filter((n) => n > 5);
+console.log(mayoresDeCinco); // [6, 7, 8, 9, 10]
+
+// Filtrar objetos
+const productos = [
+  { nombre: "Teclado", stock: 5, activo: true },
+  { nombre: "Mouse", stock: 0, activo: true },
+  { nombre: "Monitor", stock: 2, activo: false },
+  { nombre: "Webcam", stock: 8, activo: true },
+];
+
+// Solo productos activos con stock
+const disponibles = productos.filter((p) => p.activo && p.stock > 0);
+console.log(disponibles.map((p) => p.nombre)); // ["Teclado", "Webcam"]
+
+// Eliminar valores falsy de un array
+const valores = [0, "hola", null, 42, "", undefined, true];
+const limpios = valores.filter(Boolean);
+console.log(limpios); // ["hola", 42, true]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Producto {
+  nombre: string;
+  stock: number;
+  activo: boolean;
+}
+
+const productos: Producto[] = [
+  { nombre: "Teclado", stock: 5, activo: true },
+  { nombre: "Mouse", stock: 0, activo: true },
+  { nombre: "Monitor", stock: 2, activo: false },
+  { nombre: "Webcam", stock: 8, activo: true },
+];
+
+// TypeScript infiere que 'disponibles' es Producto[]
+const disponibles = productos.filter((p) => p.activo && p.stock > 0);
+console.log(disponibles.map((p) => p.nombre)); // ["Teclado", "Webcam"]
+
+// Type guard en filter — estrecha el tipo del resultado
+const valores: (string | null | undefined)[] = ["Ana", null, "Carlos", undefined, "Bea"];
+const soloStrings: string[] = valores.filter(
+  (v): v is string => typeof v === "string"
+);
+console.log(soloStrings); // ["Ana", "Carlos", "Bea"]`
+    }
+  ]}
+  output={`[2, 4, 6, 8, 10]\n[6, 7, 8, 9, 10]\n["Teclado", "Webcam"]\n["hola", 42, true]`}
+/>
+
+</Section>
+
+<Section id="reduce" title="reduce — acumula un valor a partir del array">
+
+`reduce` procesa el array de izquierda a derecha, acumulando un único resultado. Puede producir un número, un string, un objeto o incluso otro array.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "reduce en acción",
+      code: `const numeros = [1, 2, 3, 4, 5];
+
+// Suma — el clásico
+const suma = numeros.reduce((acumulador, actual) => acumulador + actual, 0);
+console.log(suma); // 15
+
+// Producto
+const producto = numeros.reduce((acc, n) => acc * n, 1);
+console.log(producto); // 120
+
+// Construir un objeto desde un array
+const palabras = ["manzana", "pera", "manzana", "uva", "pera", "pera"];
+const frecuencias = palabras.reduce((acc, palabra) => {
+  acc[palabra] = (acc[palabra] ?? 0) + 1;
+  return acc;
+}, {});
+console.log(frecuencias);
+// { manzana: 2, pera: 3, uva: 1 }
+
+// Aplanar un array de arrays
+const matrices = [[1, 2], [3, 4], [5, 6]];
+const plano = matrices.reduce((acc, fila) => acc.concat(fila), []);
+console.log(plano); // [1, 2, 3, 4, 5, 6]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface ItemCarrito {
+  nombre: string;
+  precio: number;
+  cantidad: number;
+}
+
+const carrito: ItemCarrito[] = [
+  { nombre: "Teclado", precio: 80, cantidad: 1 },
+  { nombre: "Mouse", precio: 35, cantidad: 2 },
+  { nombre: "Alfombrilla", precio: 15, cantidad: 1 },
+];
+
+// reduce tipado — el tipo del acumulador se infiere del valor inicial
+const totalCarrito = carrito.reduce(
+  (total, item) => total + item.precio * item.cantidad,
+  0
+);
+console.log(totalCarrito); // 165
+
+// Agrupar por propiedad
+type Agrupado = Record<string, ItemCarrito[]>;
+
+const porPrecio = carrito.reduce<Agrupado>((grupos, item) => {
+  const clave = item.precio < 50 ? "económico" : "premium";
+  grupos[clave] = [...(grupos[clave] ?? []), item];
+  return grupos;
+}, {});
+
+console.log(Object.keys(porPrecio)); // ["premium", "económico"]`
+    }
+  ]}
+  output={`15\n120\n{ manzana: 2, pera: 3, uva: 1 }\n[1, 2, 3, 4, 5, 6]`}
+/>
+
+</Section>
+
+<Section id="encadenamiento" title="Encadenamiento — .filter().map().reduce() como pipeline">
+
+La verdadera potencia aparece cuando encadenas los tres. Cada método devuelve un array nuevo, listo para el siguiente paso.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Pipeline encadenado",
+      code: `const pedidos = [
+  { producto: "Teclado",  precio: 80,  completado: true,  cliente: "Ana" },
+  { producto: "Mouse",    precio: 35,  completado: false, cliente: "Carlos" },
+  { producto: "Monitor",  precio: 320, completado: true,  cliente: "Ana" },
+  { producto: "Webcam",   precio: 90,  completado: true,  cliente: "Bea" },
+  { producto: "Hub USB",  precio: 25,  completado: false, cliente: "Ana" },
+];
+
+// Pipeline: solo completados → nombres en mayúsculas → total facturado
+const totalFacturado = pedidos
+  .filter((p) => p.completado)               // [Teclado, Monitor, Webcam]
+  .map((p) => p.precio)                      // [80, 320, 90]
+  .reduce((total, precio) => total + precio, 0); // 490
+
+console.log("Total facturado:", totalFacturado); // 490
+
+// Pedidos de Ana completados, ordenados por precio
+const pedidosAna = pedidos
+  .filter((p) => p.cliente === "Ana" && p.completado)
+  .map((p) => ({ producto: p.producto, precio: p.precio }))
+  .sort((a, b) => a.precio - b.precio);
+
+console.log(pedidosAna);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Pedido {
+  producto: string;
+  precio: number;
+  completado: boolean;
+  cliente: string;
+}
+
+const pedidos: Pedido[] = [
+  { producto: "Teclado",  precio: 80,  completado: true,  cliente: "Ana" },
+  { producto: "Mouse",    precio: 35,  completado: false, cliente: "Carlos" },
+  { producto: "Monitor",  precio: 320, completado: true,  cliente: "Ana" },
+  { producto: "Webcam",   precio: 90,  completado: true,  cliente: "Bea" },
+];
+
+// TypeScript infiere los tipos en cada paso del pipeline
+const totalFacturado: number = pedidos
+  .filter((p): p is Pedido => p.completado)
+  .map((p) => p.precio)
+  .reduce((total, precio) => total + precio, 0);
+
+console.log("Total facturado:", totalFacturado); // 490`
+    }
+  ]}
+  output={`Total facturado: 490`}
+/>
+
+</Section>
+
+<Section id="errores-comunes" title="Errores comunes — mutar en map, olvidar el valor inicial">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Errores a evitar",
+      code: `const usuarios = [
+  { nombre: "Ana", puntos: 100 },
+  { nombre: "Carlos", puntos: 200 },
+];
+
+// ❌ Mutación en map — nunca modifiques el elemento original
+const mal = usuarios.map((u) => {
+  u.puntos += 50; // muta el objeto original
+  return u;
+});
+
+// ✅ Devuelve un nuevo objeto con spread
+const bien = usuarios.map((u) => ({ ...u, puntos: u.puntos + 50 }));
+console.log(usuarios[0].puntos); // 100 — sin cambios
+
+// ❌ reduce sin valor inicial — falla con array vacío
+const numeros = [];
+try {
+  numeros.reduce((acc, n) => acc + n); // TypeError si el array está vacío
+} catch (e) {
+  console.log("Error:", e.message);
+}
+
+// ✅ Siempre pasa el valor inicial
+const suma = numeros.reduce((acc, n) => acc + n, 0); // 0 si está vacío
+console.log(suma); // 0`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  nombre: string;
+  puntos: number;
+}
+
+const usuarios: Usuario[] = [
+  { nombre: "Ana", puntos: 100 },
+  { nombre: "Carlos", puntos: 200 },
+];
+
+// ❌ Mutación — TypeScript no te avisa de esto
+const mal = usuarios.map((u) => {
+  u.puntos += 50; // muta el objeto original
+  return u;
+});
+
+// ✅ Objeto nuevo con spread — inmutable y correcto
+const bien: Usuario[] = usuarios.map((u) => ({
+  ...u,
+  puntos: u.puntos + 50,
+}));
+
+// Con Readonly para que TypeScript sí te avise si intentas mutar
+const inmutables: ReadonlyArray<Readonly<Usuario>> = usuarios;
+// inmutables[0].puntos = 999; // Error de compilación`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="map no es forEach">
+`map` devuelve un array nuevo — úsalo cuando necesitas el resultado. Si solo quieres ejecutar un efecto secundario (console.log, actualizar DOM), usa `forEach`. Ignorar el resultado de `map` es un antipatrón.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Normaliza un array de strings con map", diff: "easy", minutes: 5 },
+    { num: "02", name: "Filtra usuarios activos de una lista", diff: "easy", minutes: 5 },
+    { num: "03", name: "Suma los precios de un carrito con reduce", diff: "med", minutes: 8 },
+    { num: "04", name: "Agrupa elementos por propiedad con reduce", diff: "hard", minutes: 12 },
+    { num: "05", name: "Pipeline: filtra → transforma → acumula", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

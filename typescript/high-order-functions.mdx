@@ -1,0 +1,349 @@
+---
+title: "Higher-order functions: funciones que <em>trabajan con funciones</em>"
+short: "Higher-order functions"
+chapter: "13"
+num: "06"
+chapterTitle: "Conceptos profundos de JavaScript"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Una higher-order function recibe funciones como argumentos o devuelve funciones como resultado. Son la base de map, filter, reduce y los patrones más expresivos de JavaScript moderno."
+pro: false
+---
+
+<Section id="que-es-hof" title="¿Qué es una higher-order function?">
+
+En JavaScript las funciones son ciudadanos de primera clase — puedes pasarlas como argumentos, retornarlas y asignarlas a variables. Una **higher-order function (HOF)** aprovecha esto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// HOF que recibe una función como argumento
+function aplicar(valor, fn) {
+  return fn(valor);
+}
+
+const doblar = n => n * 2;
+const cuadrado = n => n ** 2;
+
+console.log(aplicar(5, doblar));    // 10
+console.log(aplicar(5, cuadrado));  // 25
+console.log(aplicar(5, n => n + 100)); // 105 — función inline
+
+// HOF que retorna una función
+function multiplicadorPor(factor) {
+  return function(numero) {
+    return numero * factor;
+  };
+}
+
+const triplicar = multiplicadorPor(3);
+const por10    = multiplicadorPor(10);
+
+console.log(triplicar(4));  // 12
+console.log(por10(7));      // 70
+console.log(triplicar(por10(2))); // 60 — composición`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// HOF tipada que recibe función
+function aplicar<T, R>(valor: T, fn: (v: T) => R): R {
+  return fn(valor);
+}
+
+const doblar = (n: number): number => n * 2;
+const cuadrado = (n: number): number => n ** 2;
+
+console.log(aplicar(5, doblar));    // 10
+console.log(aplicar(5, cuadrado));  // 25
+
+// HOF que retorna una función — tipada
+function multiplicadorPor(factor: number): (n: number) => number {
+  return (numero: number) => numero * factor;
+}
+
+const triplicar = multiplicadorPor(3);
+const por10     = multiplicadorPor(10);
+
+console.log(triplicar(4));  // 12
+console.log(por10(7));      // 70
+
+// TypeScript infiere el tipo de retorno correctamente
+const resultado: number = triplicar(por10(2));
+console.log(resultado); // 60`
+    }
+  ]}
+  output={`10\n25\n105\n12\n70\n60`}
+/>
+
+</Section>
+
+<Section id="hofs-conocidas" title="HOFs que ya conoces — map, filter, reduce">
+
+Las HOFs más usadas ya vienen en el lenguaje. Son la razón por la que el código funcional es tan expresivo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "map / filter / reduce",
+      code: `const productos = [
+  { nombre: "Curso JS",  precio: 299, activo: true  },
+  { nombre: "Curso TS",  precio: 199, activo: false },
+  { nombre: "Curso Vue", precio: 249, activo: true  },
+];
+
+// map — transforma cada elemento
+const nombres = productos.map(p => p.nombre);
+console.log(nombres); // ["Curso JS", "Curso TS", "Curso Vue"]
+
+// filter — selecciona elementos
+const activos = productos.filter(p => p.activo);
+console.log(activos.length); // 2
+
+// reduce — acumula en un valor
+const totalActivos = productos
+  .filter(p => p.activo)
+  .reduce((acc, p) => acc + p.precio, 0);
+
+console.log(\`Total: $\${totalActivos}\`); // "Total: $548"
+
+// find — primer elemento que cumple la condición
+const cursots = productos.find(p => p.nombre.includes("TS"));
+console.log(cursots?.nombre); // "Curso TS"
+
+// every / some
+const todosCuestan = productos.every(p => p.precio > 100); // true
+const algunoBarato = productos.some(p => p.precio < 200);  // true
+
+console.log(todosCuestan, algunoBarato);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Producto {
+  nombre: string;
+  precio: number;
+  activo: boolean;
+}
+
+const productos: Producto[] = [
+  { nombre: "Curso JS",  precio: 299, activo: true  },
+  { nombre: "Curso TS",  precio: 199, activo: false },
+  { nombre: "Curso Vue", precio: 249, activo: true  },
+];
+
+// TypeScript infiere tipos en callbacks
+const nombres: string[] = productos.map(p => p.nombre);
+console.log(nombres);
+
+const activos: Producto[] = productos.filter(p => p.activo);
+console.log(activos.length); // 2
+
+const totalActivos: number = productos
+  .filter(p => p.activo)
+  .reduce((acc, p) => acc + p.precio, 0);
+
+console.log(\`Total: $\${totalActivos}\`); // "Total: $548"
+
+const cursots: Producto | undefined = productos.find(p => p.nombre.includes("TS"));
+console.log(cursots?.nombre); // "Curso TS"
+
+const todosCuestan: boolean = productos.every(p => p.precio > 100);
+const algunoBarato: boolean = productos.some(p => p.precio < 200);
+console.log(todosCuestan, algunoBarato); // true true`
+    }
+  ]}
+  output={`["Curso JS", "Curso TS", "Curso Vue"]\n2\nTotal: $548\nCurso TS\ntrue true`}
+/>
+
+</Section>
+
+<Section id="crear-hofs" title="Crear HOFs — decoradores y middleware">
+
+Puedes crear tus propias HOFs para agregar comportamiento a funciones existentes sin modificarlas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Decoradores de función",
+      code: `// HOF que agrega logging a cualquier función
+function conLogging(fn) {
+  return function(...args) {
+    console.log(\`Llamando \${fn.name} con:\`, args);
+    const resultado = fn(...args);
+    console.log(\`\${fn.name} retornó:\`, resultado);
+    return resultado;
+  };
+}
+
+function sumar(a, b) {
+  return a + b;
+}
+
+const sumarConLog = conLogging(sumar);
+sumarConLog(3, 4);
+// Llamando sumar con: [3, 4]
+// sumar retornó: 7
+
+// HOF que agrega reintentos
+function conReintentos(fn, maxIntentos = 3) {
+  return async function(...args) {
+    for (let intento = 1; intento <= maxIntentos; intento++) {
+      try {
+        return await fn(...args);
+      } catch (error) {
+        if (intento === maxIntentos) throw error;
+        console.log(\`Intento \${intento} falló, reintentando...\`);
+      }
+    }
+  };
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// HOF con tipos genéricos
+function conLogging<T extends unknown[], R>(
+  fn: (...args: T) => R
+): (...args: T) => R {
+  return function(...args: T): R {
+    console.log(\`Llamando \${fn.name} con:\`, args);
+    const resultado = fn(...args);
+    console.log(\`\${fn.name} retornó:\`, resultado);
+    return resultado;
+  };
+}
+
+function sumar(a: number, b: number): number {
+  return a + b;
+}
+
+const sumarConLog = conLogging(sumar);
+sumarConLog(3, 4);
+
+// HOF async con tipos
+function conReintentos<T extends unknown[], R>(
+  fn: (...args: T) => Promise<R>,
+  maxIntentos: number = 3
+): (...args: T) => Promise<R> {
+  return async function(...args: T): Promise<R> {
+    for (let intento = 1; intento <= maxIntentos; intento++) {
+      try {
+        return await fn(...args);
+      } catch (error) {
+        if (intento === maxIntentos) throw error;
+        console.log(\`Intento \${intento} falló, reintentando...\`);
+      }
+    }
+    throw new Error("No debería llegar aquí");
+  };
+}`
+    }
+  ]}
+  output={`Llamando sumar con: [3, 4]\nsumar retornó: 7`}
+/>
+
+</Section>
+
+<Section id="composicion" title="Composición de funciones — pipe y compose">
+
+Combinar múltiples funciones en una sola es el poder real de las HOFs.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "pipe y compose",
+      code: `// pipe — aplica funciones de izquierda a derecha
+const pipe = (...fns) => (valor) => fns.reduce((acc, fn) => fn(acc), valor);
+
+// compose — aplica funciones de derecha a izquierda
+const compose = (...fns) => (valor) => fns.reduceRight((acc, fn) => fn(acc), valor);
+
+// Funciones simples y puras
+const quitarEspacios  = str => str.trim();
+const aMayusculas     = str => str.toUpperCase();
+const agregarPrefijo  = str => \`[USUARIO] \${str}\`;
+const recortar        = str => str.slice(0, 20);
+
+// Componer el pipeline
+const procesarNombre = pipe(
+  quitarEspacios,
+  aMayusculas,
+  agregarPrefijo,
+  recortar
+);
+
+console.log(procesarNombre("  ana garcía  ")); // "[USUARIO] ANA GARCÍA"
+
+// compose aplica en orden inverso: recortar primero, luego...
+const procesarInverso = compose(
+  agregarPrefijo,
+  aMayusculas,
+  quitarEspacios
+);
+
+console.log(procesarInverso("  carlos  ")); // "[USUARIO] CARLOS"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// pipe para un solo tipo
+function pipe<T>(...fns: Array<(v: T) => T>): (v: T) => T {
+  return (valor: T) => fns.reduce((acc, fn) => fn(acc), valor);
+}
+
+function compose<T>(...fns: Array<(v: T) => T>): (v: T) => T {
+  return (valor: T) => fns.reduceRight((acc, fn) => fn(acc), valor);
+}
+
+const quitarEspacios  = (s: string): string => s.trim();
+const aMayusculas     = (s: string): string => s.toUpperCase();
+const agregarPrefijo  = (s: string): string => \`[USUARIO] \${s}\`;
+const recortar        = (s: string): string => s.slice(0, 20);
+
+const procesarNombre = pipe(
+  quitarEspacios,
+  aMayusculas,
+  agregarPrefijo,
+  recortar
+);
+
+console.log(procesarNombre("  ana garcía  ")); // "[USUARIO] ANA GARCÍA"
+
+const procesarInverso = compose(
+  agregarPrefijo,
+  aMayusculas,
+  quitarEspacios
+);
+
+console.log(procesarInverso("  carlos  ")); // "[USUARIO] CARLOS"`
+    }
+  ]}
+  output={`[USUARIO] ANA GARCÍA\n[USUARIO] CARLOS`}
+/>
+
+<Callout variant="tip" title="pipe vs compose">
+`pipe` es más legible en la mayoría de casos — el orden de las funciones coincide con el orden de ejecución. `compose` viene de la notación matemática f(g(x)) y se usa más en código funcional puro.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa tu propio map() desde cero", diff: "med", minutes: 10 },
+    { num: "02", name: "Función memoize() genérica", diff: "med", minutes: 10 },
+    { num: "03", name: "Implementa pipe() para componer funciones", diff: "hard", minutes: 12 },
+    { num: "04", name: "Logger middleware con HOF", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

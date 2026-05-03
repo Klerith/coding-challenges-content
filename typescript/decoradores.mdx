@@ -1,0 +1,371 @@
+---
+title: "Decoradores: <em>metaprogramación</em> en TypeScript"
+short: "Decoradores"
+chapter: "12"
+num: "07"
+chapterTitle: "TypeScript avanzado"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los decoradores son funciones que se aplican a clases, métodos, propiedades y parámetros para añadirles comportamiento sin modificar su código. Son la base de frameworks como NestJS, Angular y TypeORM."
+pro: true
+---
+
+<Section id="que-son" title="¿Qué son los decoradores?">
+
+Un decorador es una función especial que se ejecuta cuando la clase o miembro al que se aplica es **definido** — no cuando se instancia. Permiten **aumentar, modificar o anotar** código de forma declarativa.
+
+<Callout variant="warn" title="Requiere configuración en tsconfig.json">
+Los decoradores son una característica experimental. Asegúrate de tener `"experimentalDecorators": true` en tu `tsconfig.json`. Con TypeScript 5.0+ también existe la propuesta TC39 Stage 3 de decoradores, con una API ligeramente diferente — esta lección cubre los decoradores `experimentalDecorators` que usa NestJS, Angular y TypeORM.
+</Callout>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// tsconfig.json
+// {
+//   "compilerOptions": {
+//     "experimentalDecorators": true,
+//     "emitDecoratorMetadata": true
+//   }
+// }
+
+// Un decorador de clase básico — recibe el constructor
+function Logueable(constructor: Function) {
+  console.log(\`Clase registrada: \${constructor.name}\`);
+}
+
+@Logueable
+class Servicio {
+  constructor(private nombre: string) {}
+
+  ejecutar(): void {
+    console.log(\`Ejecutando: \${this.nombre}\`);
+  }
+}
+
+// Al definir la clase, @Logueable se ejecuta inmediatamente
+// Output: "Clase registrada: Servicio"
+
+const svc = new Servicio("mi servicio");
+svc.ejecutar();
+// Output: "Ejecutando: mi servicio"`
+    }
+  ]}
+  output={`Clase registrada: Servicio\nEjecutando: mi servicio`}
+/>
+
+</Section>
+
+<Section id="clase" title="Decoradores de clase — @Sealed, @Injectable">
+
+Los decoradores de clase reciben el constructor como único argumento. Pueden modificarlo, reemplazarlo, o simplemente anotar metadatos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// @Sealed — previene extensión y modificación de la clase y su prototipo
+function Sealed(constructor: Function): void {
+  Object.seal(constructor);
+  Object.seal(constructor.prototype);
+}
+
+@Sealed
+class BancoCuenta {
+  saldo: number;
+
+  constructor(saldoInicial: number) {
+    this.saldo = saldoInicial;
+  }
+
+  depositar(cantidad: number): void {
+    this.saldo += cantidad;
+  }
+}
+
+// BancoCuenta.prototype.hackear = () => {}; // ❌ Falla en runtime — sellado
+
+// @Singleton — el decorador modifica el constructor para reutilizar instancias
+function Singleton<T extends new (...args: any[]) => {}>(Base: T) {
+  let instancia: InstanceType<T> | null = null;
+
+  return class extends Base {
+    constructor(...args: any[]) {
+      if (instancia) return instancia;
+      super(...args);
+      instancia = this as InstanceType<T>;
+    }
+  };
+}
+
+@Singleton
+class ConexionDB {
+  readonly id: number;
+
+  constructor() {
+    this.id = Math.random();
+    console.log(\`Conexión creada: \${this.id}\`);
+  }
+}
+
+const db1 = new ConexionDB(); // Crea la instancia
+const db2 = new ConexionDB(); // Devuelve la misma instancia
+
+console.log(db1 === db2); // true — es el mismo objeto`
+    }
+  ]}
+  output={`Conexión creada: 0.7234...\ntrue`}
+/>
+
+</Section>
+
+<Section id="metodo" title="Decoradores de método — @Log, @Memoize, @Bind">
+
+Los decoradores de método reciben el prototipo de la clase, el nombre del método y su descriptor de propiedad. Puedes envolver el método original con cualquier lógica.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// @Log — registra llamadas al método con sus argumentos y tiempo
+function Log(
+  target: object,
+  propertyKey: string,
+  descriptor: PropertyDescriptor
+): PropertyDescriptor {
+  const original = descriptor.value as Function;
+
+  descriptor.value = function (...args: unknown[]) {
+    const inicio = performance.now();
+    console.log(\`[\${propertyKey}] llamado con:\`, args);
+    const resultado = original.apply(this, args);
+    const fin = performance.now();
+    console.log(\`[\${propertyKey}] completado en \${(fin - inicio).toFixed(2)}ms\`);
+    return resultado;
+  };
+
+  return descriptor;
+}
+
+// @Memoize — cachea el resultado según los argumentos
+function Memoize(
+  _target: object,
+  propertyKey: string,
+  descriptor: PropertyDescriptor
+): PropertyDescriptor {
+  const original = descriptor.value as Function;
+  const cache = new Map<string, unknown>();
+
+  descriptor.value = function (...args: unknown[]) {
+    const clave = JSON.stringify(args);
+    if (cache.has(clave)) {
+      console.log(\`[Memoize:\${propertyKey}] cache hit\`);
+      return cache.get(clave);
+    }
+    const resultado = original.apply(this, args);
+    cache.set(clave, resultado);
+    return resultado;
+  };
+
+  return descriptor;
+}
+
+class Calculadora {
+  @Log
+  sumar(a: number, b: number): number {
+    return a + b;
+  }
+
+  @Memoize
+  fibonacci(n: number): number {
+    if (n <= 1) return n;
+    return this.fibonacci(n - 1) + this.fibonacci(n - 2);
+  }
+}
+
+const calc = new Calculadora();
+console.log(calc.sumar(3, 4));    // [sumar] llamado con: [3, 4] → 7
+console.log(calc.fibonacci(10));  // 55
+console.log(calc.fibonacci(10));  // [Memoize:fibonacci] cache hit → 55`
+    }
+  ]}
+  output={`[sumar] llamado con: [3, 4]\n[sumar] completado en 0.xx ms\n7\n55\n[Memoize:fibonacci] cache hit\n55`}
+/>
+
+</Section>
+
+<Section id="propiedad" title="Decoradores de propiedad — @Validate, @Transform">
+
+Los decoradores de propiedad reciben el prototipo de la clase y el nombre de la propiedad. No tienen acceso al valor — para eso necesitas combinarlos con `Object.defineProperty`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Metadata store para validaciones
+const validaciones = new Map<object, Map<string, (v: unknown) => boolean>>();
+
+// @Validate — adjunta un validador a la propiedad
+function Validate(validador: (valor: unknown) => boolean) {
+  return function (target: object, propertyKey: string) {
+    if (!validaciones.has(target)) {
+      validaciones.set(target, new Map());
+    }
+    validaciones.get(target)!.set(propertyKey, validador);
+  };
+}
+
+// @Min / @Max — validadores concretos
+function Min(min: number) {
+  return Validate((v) => typeof v === "number" && v >= min);
+}
+
+function Max(max: number) {
+  return Validate((v) => typeof v === "number" && v <= max);
+}
+
+// Función que valida un objeto contra sus decoradores registrados
+function validar(instancia: object): string[] {
+  const errores: string[] = [];
+  const proto = Object.getPrototypeOf(instancia);
+  const mapa = validaciones.get(proto);
+  if (!mapa) return errores;
+
+  for (const [clave, fn] of mapa) {
+    const valor = (instancia as Record<string, unknown>)[clave];
+    if (!fn(valor)) {
+      errores.push(\`\${clave} no pasa la validación (valor: \${valor})\`);
+    }
+  }
+  return errores;
+}
+
+class Producto {
+  nombre: string;
+
+  @Min(0)
+  @Max(10000)
+  precio: number;
+
+  @Min(0)
+  stock: number;
+
+  constructor(nombre: string, precio: number, stock: number) {
+    this.nombre = nombre;
+    this.precio = precio;
+    this.stock  = stock;
+  }
+}
+
+const valido   = new Producto("Teclado", 89, 5);
+const invalido = new Producto("Error",  -1, -3);
+
+console.log(validar(valido));    // []
+console.log(validar(invalido));  // ["precio no pasa...", "stock no pasa..."]`
+    }
+  ]}
+  output={`[]\n["precio no pasa la validación (valor: -1)", "stock no pasa la validación (valor: -3)"]`}
+/>
+
+</Section>
+
+<Section id="parametro" title="Decoradores de parámetro — inyección de dependencias">
+
+Los decoradores de parámetro son los menos comunes en uso directo, pero son el mecanismo que frameworks como NestJS usan para implementar inyección de dependencias. Reciben el prototipo, el nombre del método y el índice del parámetro.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Registro de metadatos de parámetros
+const paramMetadata = new Map<string, Map<number, string>>();
+
+// @Inject("token") — marca el parámetro para inyección
+function Inject(token: string) {
+  return function (target: object, methodKey: string | undefined, paramIndex: number) {
+    const key = \`\${target.constructor.name}:\${methodKey ?? "constructor"}\`;
+    if (!paramMetadata.has(key)) {
+      paramMetadata.set(key, new Map());
+    }
+    paramMetadata.get(key)!.set(paramIndex, token);
+  };
+}
+
+// Contenedor simple de inyección de dependencias
+class Container {
+  private providers = new Map<string, unknown>();
+
+  register(token: string, value: unknown): void {
+    this.providers.set(token, value);
+  }
+
+  resolve<T>(Clase: new (...args: any[]) => T): T {
+    const key = \`\${Clase.name}:constructor\`;
+    const meta = paramMetadata.get(key);
+
+    if (!meta || meta.size === 0) return new Clase();
+
+    const args: unknown[] = [];
+    for (const [index, token] of meta) {
+      args[index] = this.providers.get(token);
+    }
+    return new Clase(...args);
+  }
+}
+
+// ── Uso del decorador @Inject ────────────────────────────────────────
+interface ILogger {
+  log(msg: string): void;
+}
+
+class ConsoleLogger implements ILogger {
+  log(msg: string): void {
+    console.log(\`[LOG] \${msg}\`);
+  }
+}
+
+class AppService {
+  constructor(
+    @Inject("logger") private logger: ILogger
+  ) {}
+
+  ejecutar(): void {
+    this.logger.log("AppService ejecutado");
+  }
+}
+
+const container = new Container();
+container.register("logger", new ConsoleLogger());
+
+const service = container.resolve(AppService);
+service.ejecutar(); // [LOG] AppService ejecutado`
+    }
+  ]}
+  output={`[LOG] AppService ejecutado`}
+/>
+
+<Callout variant="info" title="emitDecoratorMetadata">
+Con `"emitDecoratorMetadata": true` en `tsconfig.json`, TypeScript emite metadatos de tipo que puedes leer con `Reflect.getMetadata`. NestJS y otros frameworks usan esto para inferir los tipos de los parámetros sin necesidad de `@Inject` explícito.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa @Log que registra argumentos y tiempo de ejecución", diff: "med", minutes: 12 },
+    { num: "02", name: "Decorador @Validate para propiedades con reglas configurables", diff: "hard", minutes: 15 },
+    { num: "03", name: "Decorator factory @Retry(n) que reintenta el método n veces", diff: "hard", minutes: 20 },
+  ]}
+/>
+</Section>

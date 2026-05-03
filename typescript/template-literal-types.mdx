@@ -1,0 +1,247 @@
+---
+title: "Template literal types: <em>strings tipados</em>"
+short: "Template literal types"
+chapter: "12"
+num: "05"
+chapterTitle: "TypeScript avanzado"
+difficulty: "advanced"
+readingMinutes: 9
+appliesTo: ["ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los template literal types llevan la potencia de los template strings de JavaScript al sistema de tipos. Permiten construir unions de strings con precisión quirúrgica y tipado automático para nombres de eventos, rutas y getters."
+pro: true
+---
+
+<Section id="sintaxis" title="Sintaxis — tipos de string interpolados">
+
+Los template literal types funcionan igual que los template strings de JavaScript, pero en el nivel de tipos. Combinas tipos string literales para producir nuevos tipos string literales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// En JS: \`hola \${nombre}\` → string en runtime
+// En TS: \`hola \${T}\` → tipo string literal en compile-time
+
+type Saludo = \`hola \${"mundo" | "TypeScript"}\`;
+// "hola mundo" | "hola TypeScript"
+
+// Con tipos genéricos
+type Prefijado<P extends string, T extends string> = \`\${P}_\${T}\`;
+
+type Accion = Prefijado<"on", "click" | "hover" | "focus">;
+// "on_click" | "on_hover" | "on_focus"
+
+// Combinando múltiples unions — el producto cartesiano
+type Posicion = "top" | "bottom";
+type Lado     = "left" | "right";
+type Esquina  = \`\${Posicion}-\${Lado}\`;
+// "top-left" | "top-right" | "bottom-left" | "bottom-right"
+
+type Variante = "primary" | "secondary" | "danger";
+type Tamanio  = "sm" | "md" | "lg";
+type ClaseBoton = \`btn-\${Variante}-\${Tamanio}\`;
+// "btn-primary-sm" | "btn-primary-md" | ... (9 combinaciones)
+
+const clase: ClaseBoton = "btn-primary-md"; // ✅
+// const mala: ClaseBoton = "btn-extra-xl"; // ❌ Error en compilación
+
+console.log(clase); // "btn-primary-md"`
+    }
+  ]}
+  output={`btn-primary-md`}
+/>
+
+</Section>
+
+<Section id="unions-distribucion" title="Combinación con union types — distribución automática">
+
+Cuando uno de los tipos interpolados es una union, TypeScript **distribuye** el template literal sobre todos sus miembros, generando el producto cartesiano de las unions combinadas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Nombres de eventos de DOM tipados
+type ElementoDOM = "button" | "input" | "form" | "div";
+type EventoDOM   = "click" | "focus" | "blur" | "change";
+
+type SelectorEvento = \`\${ElementoDOM}:\${EventoDOM}\`;
+// "button:click" | "button:focus" | "button:blur" | "button:change" |
+// "input:click"  | "input:focus"  | ... (16 combinaciones)
+
+// Nombres de rutas de API
+type Recurso = "usuario" | "producto" | "categoria";
+type Metodo  = "obtener" | "crear" | "actualizar" | "eliminar";
+
+type AccionAPI = \`\${Recurso}:\${Metodo}\`;
+// "usuario:obtener" | "usuario:crear" | ... (12 combinaciones)
+
+// Sistema de permisos type-safe
+type Entidad = "post" | "comentario" | "perfil";
+type Permiso = "leer" | "escribir" | "eliminar" | "admin";
+
+type ClavePermiso = \`\${Entidad}.\${Permiso}\`;
+
+interface PermisosCuenta {
+  permisos: Set<ClavePermiso>;
+}
+
+function tienePermiso(cuenta: PermisosCuenta, clave: ClavePermiso): boolean {
+  return cuenta.permisos.has(clave);
+}
+
+const cuenta: PermisosCuenta = {
+  permisos: new Set(["post.leer", "post.escribir", "comentario.leer"]),
+};
+
+console.log(tienePermiso(cuenta, "post.leer"));     // true
+console.log(tienePermiso(cuenta, "post.eliminar")); // false
+// tienePermiso(cuenta, "post.volar"); // ❌ Error — "post.volar" no existe`
+    }
+  ]}
+  output={`true\nfalse`}
+/>
+
+</Section>
+
+<Section id="manipulacion-strings" title="Manipulación de strings — Uppercase, Lowercase, Capitalize">
+
+TypeScript incluye cuatro utility types para transformar strings a nivel de tipo: `Uppercase<T>`, `Lowercase<T>`, `Capitalize<T>` y `Uncapitalize<T>`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Los cuatro utility types de transformación de strings
+type U = Uppercase<"hola">;     // "HOLA"
+type L = Lowercase<"HOLA">;     // "hola"
+type C = Capitalize<"hola">;    // "Hola"
+type N = Uncapitalize<"Hola">;  // "hola"
+
+// Combinados con template literals — muy expresivos
+type Clave  = "nombre" | "email" | "telefono";
+
+// Getter: getNombre, getEmail, getTelefono
+type Getter = \`get\${Capitalize<Clave>}\`;
+// "getNombre" | "getEmail" | "getTelefono"
+
+// Setter: setNombre, setEmail, setTelefono
+type Setter = \`set\${Capitalize<Clave>}\`;
+
+// Evento CSS: onNombre → no tiene sentido, pero con eventos sí:
+type Evento = "click" | "mouseenter" | "mouseleave" | "focus";
+type HandlerEvento = \`on\${Capitalize<Evento>}\`;
+// "onClick" | "onMouseenter" | "onMouseleave" | "onFocus"
+
+// Constantes: NOMBRE, EMAIL, TELEFONO
+type Constante = Uppercase<Clave>;
+// "NOMBRE" | "EMAIL" | "TELEFONO"
+
+// Caso real: tipos de action de un reducer al estilo Redux
+type Entidad2   = "usuario" | "producto";
+type Operacion  = "cargando" | "exitoso" | "fallido";
+
+type ActionType = \`\${Uppercase<Entidad2>}_\${Uppercase<Operacion>}\`;
+// "USUARIO_CARGANDO" | "USUARIO_EXITOSO" | "USUARIO_FALLIDO" |
+// "PRODUCTO_CARGANDO" | "PRODUCTO_EXITOSO" | "PRODUCTO_FALLIDO"
+
+interface Action {
+  type: ActionType;
+  payload?: unknown;
+}
+
+const accion: Action = { type: "USUARIO_EXITOSO", payload: { id: 1 } };
+console.log(accion.type); // "USUARIO_EXITOSO"`
+    }
+  ]}
+  output={`USUARIO_EXITOSO`}
+/>
+
+</Section>
+
+<Section id="casos-de-uso" title="Casos de uso — eventos, rutas y getters/setters tipados">
+
+Los template literal types brillan en APIs donde los nombres de propiedades siguen patrones predecibles.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ── Getters y setters tipados para cualquier objeto ──────────────────
+type GettersOf<T> = {
+  [K in keyof T as \`get\${Capitalize<string & K>}\`]: () => T[K];
+};
+
+type SettersOf<T> = {
+  [K in keyof T as \`set\${Capitalize<string & K>}\`]: (val: T[K]) => void;
+};
+
+type AccessorsOf<T> = GettersOf<T> & SettersOf<T>;
+
+interface Perfil {
+  nombre: string;
+  email: string;
+  edad: number;
+}
+
+// Genera automáticamente: getNombre, setNombre, getEmail, setEmail, ...
+function crearAccessors<T extends object>(obj: T): AccessorsOf<T> {
+  const result: any = {};
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    const capitalized = (String(key)[0].toUpperCase() + String(key).slice(1)) as string;
+    result[\`get\${capitalized}\`] = () => obj[key];
+    result[\`set\${capitalized}\`] = (val: T[typeof key]) => { obj[key] = val; };
+  }
+  return result;
+}
+
+const perfil: Perfil = { nombre: "Ana", email: "ana@ejemplo.com", edad: 28 };
+const accessors = crearAccessors(perfil);
+
+console.log(accessors.getNombre()); // "Ana"
+accessors.setEdad(29);
+console.log(accessors.getEdad());   // 29
+
+// ── Rutas de API tipadas ────────────────────────────────────────────
+type Recurso2   = "usuarios" | "productos" | "categorias";
+type RutaBase  = \`/api/\${Recurso2}\`;
+type RutaConId = \`/api/\${Recurso2}/\${number}\`;
+// Pero number en template literal produce el tipo string en TS
+// Así que: usamos string para el id
+type RutaDetalle = \`/api/\${Recurso2}/\${string}\`;
+
+// Función que solo acepta rutas válidas
+function fetch2(url: RutaBase | RutaDetalle): void {
+  console.log(\`Fetching: \${url}\`);
+}
+
+fetch2("/api/usuarios");
+fetch2("/api/productos/123");
+// fetch2("/api/pedidos"); // ❌ Error — "pedidos" no es un Recurso`
+    }
+  ]}
+  output={`Ana\n29`}
+/>
+
+<Callout variant="tip" title="number en template literal types">
+Cuando interpolas `number` en un template literal type, TypeScript produce `\`/ruta/\${number}\`` como tipo — pero en runtime ese número se convierte a string. Para IDs, usar `string` en el template literal es más flexible y práctico.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Tipo EventName<T> que produce 'on' + Capitalize<T>", diff: "med", minutes: 10 },
+    { num: "02", name: "Rutas de API tipadas con template literals y métodos HTTP", diff: "med", minutes: 12 },
+    { num: "03", name: "Getter y setter genérico tipado con template literal types", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

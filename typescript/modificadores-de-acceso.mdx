@@ -1,0 +1,265 @@
+---
+title: "Modificadores de acceso: <em>public, private y protected</em>"
+short: "Modificadores de acceso"
+chapter: "09"
+num: "04"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los modificadores de acceso controlan desde dónde se pueden leer o modificar las propiedades y métodos de una clase, protegiendo la integridad del estado interno."
+pro: false
+---
+
+<Section id="public" title="public: accesible desde cualquier lugar">
+
+`public` es el modificador por defecto. Las propiedades y métodos públicos se pueden acceder desde cualquier lugar: dentro de la clase, en subclases y desde fuera:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Producto {
+  public nombre: string;  // public es el default
+  public precio: number;
+
+  constructor(nombre: string, precio: number) {
+    this.nombre = nombre;
+    this.precio = precio;
+  }
+
+  public describir(): string {
+    return \`\${this.nombre} cuesta \$\${this.precio}\`;
+  }
+}
+
+const p = new Producto("Laptop", 1200);
+
+// Acceso desde fuera ✅
+console.log(p.nombre);    // "Laptop"
+console.log(p.precio);    // 1200
+console.log(p.describir()); // "Laptop cuesta $1200"
+
+// Modificación desde fuera ✅
+p.precio = 999;
+console.log(p.precio);    // 999`
+    }
+  ]}
+  output={`Laptop\n1200\nLaptop cuesta $1200\n999`}
+/>
+
+<Callout variant="info" title="public es opcional">
+No necesitas escribir `public` explícitamente — es el comportamiento por defecto. Sin embargo, escribirlo mejora la legibilidad y hace explícita la intención del diseño.
+</Callout>
+
+</Section>
+
+<Section id="private" title="private: solo dentro de la clase">
+
+`private` restringe el acceso a dentro de la clase únicamente. Ni las subclases ni el código externo pueden leer o modificar la propiedad:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class CuentaBancaria {
+  public titular: string;
+  private saldo: number;
+
+  constructor(titular: string, saldoInicial: number) {
+    this.titular = titular;
+    this.saldo = saldoInicial;
+  }
+
+  depositar(monto: number): void {
+    if (monto <= 0) throw new Error("El monto debe ser positivo");
+    this.saldo += monto;
+  }
+
+  retirar(monto: number): void {
+    if (monto > this.saldo) throw new Error("Saldo insuficiente");
+    this.saldo -= monto;
+  }
+
+  obtenerSaldo(): number {
+    return this.saldo; // ← método público que expone saldo de forma controlada
+  }
+}
+
+const cuenta = new CuentaBancaria("Ana", 1000);
+cuenta.depositar(500);
+console.log(cuenta.obtenerSaldo()); // 1500
+
+// ❌ Error: Property 'saldo' is private
+// console.log(cuenta.saldo);
+// cuenta.saldo = 999999;`
+    }
+  ]}
+  output={`1500`}
+/>
+
+<Callout variant="tip" title="private de TypeScript vs # de JavaScript">
+TypeScript tiene su propio `private` (solo en tiempo de compilación) y también soporta el `#` privado de JavaScript (privacidad en runtime). Usa `private` para la mayoría de los casos; usa `#campo` cuando necesites privacidad real en runtime.
+</Callout>
+
+</Section>
+
+<Section id="protected" title="protected: clase y subclases">
+
+`protected` permite el acceso dentro de la clase y en todas sus subclases, pero no desde el exterior:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Empleado {
+  public nombre: string;
+  protected salarioBase: number; // accesible en subclases
+
+  constructor(nombre: string, salario: number) {
+    this.nombre = nombre;
+    this.salarioBase = salario;
+  }
+
+  protected calcularImpuesto(): number {
+    return this.salarioBase * 0.15; // método protegido
+  }
+
+  getSalarioNeto(): number {
+    return this.salarioBase - this.calcularImpuesto();
+  }
+}
+
+class Gerente extends Empleado {
+  private bono: number;
+
+  constructor(nombre: string, salario: number, bono: number) {
+    super(nombre, salario);
+    this.bono = bono;
+  }
+
+  // Puede acceder a salarioBase y calcularImpuesto porque son protected
+  override getSalarioNeto(): number {
+    const impuesto = this.calcularImpuesto();         // ✅ protected
+    return this.salarioBase + this.bono - impuesto;   // ✅ protected
+  }
+}
+
+const emp = new Empleado("Carlos", 3000);
+const ger = new Gerente("Diana", 5000, 1500);
+
+console.log(emp.getSalarioNeto()); // 2550
+console.log(ger.getSalarioNeto()); // 5750
+
+// ❌ Error desde fuera: salarioBase es protected
+// console.log(emp.salarioBase);`
+    }
+  ]}
+  output={`2550\n5750`}
+/>
+
+</Section>
+
+<Section id="readonly" title="readonly: solo asignable en el constructor">
+
+`readonly` permite leer la propiedad desde cualquier lugar, pero solo asignarla durante la inicialización:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Configuracion {
+  readonly nombre: string;
+  readonly version: string;
+  readonly creadoEn: Date;
+
+  constructor(nombre: string, version: string) {
+    this.nombre = nombre;
+    this.version = version;
+    this.creadoEn = new Date();
+  }
+
+  describir(): string {
+    return \`\${this.nombre} v\${this.version}\`;
+  }
+}
+
+const config = new Configuracion("MiApp", "1.0.0");
+
+console.log(config.nombre);    // "MiApp"
+console.log(config.describir()); // "MiApp v1.0.0"
+
+// ❌ Error: Cannot assign to 'nombre' because it is a read-only property
+// config.nombre = "OtraApp";
+
+// readonly + private: encapsulación total
+class Usuario {
+  private readonly id: number;
+  public nombre: string;
+
+  constructor(id: number, nombre: string) {
+    this.id = id;
+    this.nombre = nombre;
+  }
+
+  getId(): number {
+    return this.id; // se puede leer, no modificar
+  }
+}
+
+const u = new Usuario(42, "Ana");
+console.log(u.getId()); // 42`
+    }
+  ]}
+  output={`MiApp\nMiApp v1.0.0\n42`}
+/>
+
+<CompareTable
+  headers={["Modificador", "Dentro de la clase", "Subclases", "Desde fuera"]}
+  rows={[
+    [
+      { value: "public" },
+      { kind: "good", value: "Sí" },
+      { kind: "good", value: "Sí" },
+      { kind: "good", value: "Sí" }
+    ],
+    [
+      { value: "protected" },
+      { kind: "good", value: "Sí" },
+      { kind: "good", value: "Sí" },
+      { kind: "bad", value: "No" }
+    ],
+    [
+      { value: "private" },
+      { kind: "good", value: "Sí" },
+      { kind: "bad", value: "No" },
+      { kind: "bad", value: "No" }
+    ],
+    [
+      { value: "readonly" },
+      { kind: "good", value: "Solo en constructor" },
+      { kind: "good", value: "Lectura sí" },
+      { kind: "good", value: "Solo lectura" }
+    ]
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte propiedades de CuentaBancaria a private", diff: "easy", minutes: 8 },
+    { num: "02", name: "Usa protected para lógica compartida en herencia", diff: "med", minutes: 10 },
+    { num: "03", name: "Readonly para propiedades que no deben cambiar", diff: "easy", minutes: 5 },
+    { num: "04", name: "Encapsula estado con private y getters públicos", diff: "med", minutes: 12 },
+  ]}
+/>
+</Section>

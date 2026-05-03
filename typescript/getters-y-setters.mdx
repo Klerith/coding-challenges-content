@@ -1,0 +1,385 @@
+---
+title: "Getters y setters: propiedades <em>inteligentes</em>"
+short: "Getters y setters"
+chapter: "09"
+num: "06"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los getters y setters permiten acceder a propiedades con lógica personalizada — cálculos automáticos, validaciones y transformaciones — con la sintaxis natural de una propiedad."
+pro: false
+---
+
+<Section id="get" title="get: propiedades computadas de solo lectura">
+
+Un getter define una propiedad que se **calcula** a partir de otras. Se accede como propiedad, no como método (sin paréntesis):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Rectangulo {
+  constructor(ancho, alto) {
+    this.ancho = ancho;
+    this.alto = alto;
+  }
+
+  // get convierte un método en una propiedad computada
+  get area() {
+    return this.ancho * this.alto;
+  }
+
+  get perimetro() {
+    return 2 * (this.ancho + this.alto);
+  }
+
+  get esCuadrado() {
+    return this.ancho === this.alto;
+  }
+}
+
+const r = new Rectangulo(10, 5);
+
+// Se accede sin paréntesis, como si fueran propiedades normales
+console.log(r.area);       // 50
+console.log(r.perimetro);  // 30
+console.log(r.esCuadrado); // false
+
+// Si cambia la propiedad base, el getter se recalcula
+r.ancho = 5;
+console.log(r.area);       // 25
+console.log(r.esCuadrado); // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Rectangulo {
+  constructor(
+    public ancho: number,
+    public alto: number
+  ) {}
+
+  get area(): number {
+    return this.ancho * this.alto;
+  }
+
+  get perimetro(): number {
+    return 2 * (this.ancho + this.alto);
+  }
+
+  get esCuadrado(): boolean {
+    return this.ancho === this.alto;
+  }
+}
+
+const r = new Rectangulo(10, 5);
+
+console.log(r.area);       // 50
+console.log(r.perimetro);  // 30
+console.log(r.esCuadrado); // false
+
+r.ancho = 5;
+console.log(r.area);       // 25
+console.log(r.esCuadrado); // true`
+    }
+  ]}
+  output={`50\n30\nfalse\n25\ntrue`}
+/>
+
+<Callout variant="tip" title="Getter vs método">
+`r.area` (getter) vs `r.getArea()` (método) hacen lo mismo, pero el getter se usa cuando el resultado *parece* una propiedad del objeto — algo que el objeto *es*, no algo que *hace*.
+</Callout>
+
+</Section>
+
+<Section id="set" title="set: interceptar asignaciones">
+
+Un setter intercepta las asignaciones a una propiedad. Puedes transformar el valor, validarlo o disparar efectos secundarios:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Usuario {
+  #_nombre;
+  #_email;
+
+  constructor(nombre, email) {
+    // Los setters también se llaman en el constructor
+    this.nombre = nombre;
+    this.email = email;
+  }
+
+  get nombre() {
+    return this.#_nombre;
+  }
+
+  set nombre(valor) {
+    if (!valor || valor.trim().length < 2) {
+      throw new Error("El nombre debe tener al menos 2 caracteres");
+    }
+    this.#_nombre = valor.trim();
+  }
+
+  get email() {
+    return this.#_email;
+  }
+
+  set email(valor) {
+    if (!valor.includes("@")) {
+      throw new Error("Email inválido");
+    }
+    this.#_email = valor.toLowerCase();
+  }
+}
+
+const u = new Usuario("  Ana  ", "ANA@EJEMPLO.COM");
+console.log(u.nombre); // "Ana"  ← trimmed
+console.log(u.email);  // "ana@ejemplo.com" ← lowercase
+
+// ❌ Esto lanzará un error
+// u.nombre = "A";`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Usuario {
+  private _nombre: string = "";
+  private _email: string = "";
+
+  constructor(nombre: string, email: string) {
+    this.nombre = nombre;
+    this.email = email;
+  }
+
+  get nombre(): string {
+    return this._nombre;
+  }
+
+  set nombre(valor: string) {
+    if (!valor || valor.trim().length < 2) {
+      throw new Error("El nombre debe tener al menos 2 caracteres");
+    }
+    this._nombre = valor.trim();
+  }
+
+  get email(): string {
+    return this._email;
+  }
+
+  set email(valor: string) {
+    if (!valor.includes("@")) {
+      throw new Error("Email inválido");
+    }
+    this._email = valor.toLowerCase();
+  }
+}
+
+const u = new Usuario("  Ana  ", "ANA@EJEMPLO.COM");
+console.log(u.nombre); // "Ana"
+console.log(u.email);  // "ana@ejemplo.com"`
+    }
+  ]}
+  output={`Ana\nana@ejemplo.com`}
+/>
+
+<Callout variant="info" title="Convención _propiedad">
+La convención `_nombre` (con guión bajo) indica que la propiedad es de uso interno y el acceso externo debe hacerse a través del getter/setter. En TypeScript moderno también puedes usar `#nombre` (privado real de JS).
+</Callout>
+
+</Section>
+
+<Section id="propiedades-calculadas" title="Propiedades calculadas: fullName y más">
+
+Los getters son ideales para propiedades que se derivan de combinar otras propiedades:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Persona {
+  constructor(nombre, apellido, nacimiento) {
+    this.nombre = nombre;
+    this.apellido = apellido;
+    this.nacimiento = new Date(nacimiento);
+  }
+
+  get nombreCompleto() {
+    return \`\${this.nombre} \${this.apellido}\`;
+  }
+
+  get edad() {
+    const hoy = new Date();
+    const cumple = new Date(hoy.getFullYear(), this.nacimiento.getMonth(), this.nacimiento.getDate());
+    const edad = hoy.getFullYear() - this.nacimiento.getFullYear();
+    return hoy < cumple ? edad - 1 : edad;
+  }
+
+  get iniciales() {
+    return \`\${this.nombre[0]}.\${this.apellido[0]}.\`;
+  }
+}
+
+const p = new Persona("Ana", "García", "1995-06-15");
+console.log(p.nombreCompleto); // "Ana García"
+console.log(p.iniciales);      // "A.G."`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Persona {
+  nombre: string;
+  apellido: string;
+  nacimiento: Date;
+
+  constructor(nombre: string, apellido: string, nacimiento: string) {
+    this.nombre = nombre;
+    this.apellido = apellido;
+    this.nacimiento = new Date(nacimiento);
+  }
+
+  get nombreCompleto(): string {
+    return \`\${this.nombre} \${this.apellido}\`;
+  }
+
+  get edad(): number {
+    const hoy = new Date();
+    const cumple = new Date(hoy.getFullYear(), this.nacimiento.getMonth(), this.nacimiento.getDate());
+    const edad = hoy.getFullYear() - this.nacimiento.getFullYear();
+    return hoy < cumple ? edad - 1 : edad;
+  }
+
+  get iniciales(): string {
+    return \`\${this.nombre[0]}.\${this.apellido[0]}.\`;
+  }
+}
+
+const p = new Persona("Ana", "García", "1995-06-15");
+console.log(p.nombreCompleto); // "Ana García"
+console.log(p.iniciales);      // "A.G."`
+    }
+  ]}
+  output={`Ana García\nA.G.`}
+/>
+
+</Section>
+
+<Section id="validacion-setters" title="Validación en setters">
+
+Los setters son el lugar ideal para centralizar las reglas de negocio sobre qué valores son válidos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Validación completa",
+      code: `class Producto {
+  #nombre;
+  #precio;
+  #stock;
+
+  constructor(nombre, precio, stock) {
+    this.nombre = nombre;
+    this.precio = precio;
+    this.stock = stock;
+  }
+
+  get precio() { return this.#precio; }
+
+  set precio(valor) {
+    if (typeof valor !== "number" || valor < 0) {
+      throw new TypeError("El precio debe ser un número positivo");
+    }
+    this.#precio = Math.round(valor * 100) / 100; // 2 decimales
+  }
+
+  get stock() { return this.#stock; }
+
+  set stock(valor) {
+    if (!Number.isInteger(valor) || valor < 0) {
+      throw new RangeError("El stock debe ser un entero no negativo");
+    }
+    this.#stock = valor;
+  }
+
+  get disponible() {
+    return this.#stock > 0;
+  }
+
+  get resumen() {
+    return \`\${this.#nombre} | \$\${this.#precio} | Stock: \${this.#stock}\`;
+  }
+}
+
+const laptop = new Producto("Laptop Pro", 1199.999, 15);
+console.log(laptop.precio);    // 1200  ← redondeado
+console.log(laptop.disponible); // true
+console.log(laptop.resumen);   // "Laptop Pro | $1200 | Stock: 15"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Producto {
+  private _nombre: string;
+  private _precio: number = 0;
+  private _stock: number = 0;
+
+  constructor(nombre: string, precio: number, stock: number) {
+    this._nombre = nombre;
+    this.precio = precio;
+    this.stock = stock;
+  }
+
+  get precio(): number { return this._precio; }
+
+  set precio(valor: number) {
+    if (valor < 0) throw new RangeError("El precio no puede ser negativo");
+    this._precio = Math.round(valor * 100) / 100;
+  }
+
+  get stock(): number { return this._stock; }
+
+  set stock(valor: number) {
+    if (!Number.isInteger(valor) || valor < 0) {
+      throw new RangeError("El stock debe ser un entero no negativo");
+    }
+    this._stock = valor;
+  }
+
+  get disponible(): boolean {
+    return this._stock > 0;
+  }
+
+  get resumen(): string {
+    return \`\${this._nombre} | \$\${this._precio} | Stock: \${this._stock}\`;
+  }
+}
+
+const laptop = new Producto("Laptop Pro", 1199.999, 15);
+console.log(laptop.precio);     // 1200
+console.log(laptop.disponible); // true
+console.log(laptop.resumen);    // "Laptop Pro | $1200 | Stock: 15"`
+    }
+  ]}
+  output={`1200\ntrue\nLaptop Pro | $1200 | Stock: 15`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Getter para nombre completo desde nombre y apellido", diff: "easy", minutes: 5 },
+    { num: "02", name: "Setter con validación de edad (0-120)", diff: "easy", minutes: 8 },
+    { num: "03", name: "Getter que formatea una fecha legible", diff: "med", minutes: 8 },
+    { num: "04", name: "Clase Temperatura con getters Celsius y Fahrenheit", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

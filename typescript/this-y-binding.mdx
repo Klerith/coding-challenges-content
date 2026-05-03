@@ -1,0 +1,370 @@
+---
+title: "this y binding: el contexto de ejecución"
+short: "this y binding"
+chapter: "09"
+num: "03"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El valor de this en JavaScript depende de cómo se llama una función, no de dónde está escrita. Entender esto es crucial para evitar errores sutiles en clases y callbacks."
+pro: true
+---
+
+<Section id="que-es-this" title="¿Qué es this?">
+
+`this` es una referencia al **contexto de ejecución** actual — el objeto desde el que se llama una función. Su valor no es fijo: cambia según cómo se invoca la función:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "this depende del llamador",
+      code: `function mostrarNombre() {
+  console.log(this.nombre);
+}
+
+const persona1 = { nombre: "Ana", mostrarNombre };
+const persona2 = { nombre: "Carlos", mostrarNombre };
+
+persona1.mostrarNombre(); // "Ana"    ← this es persona1
+persona2.mostrarNombre(); // "Carlos" ← this es persona2
+
+// Llamada directa (sin contexto)
+mostrarNombre(); // undefined (en strict mode) o window.nombre en el navegador`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function mostrarNombre(this: { nombre: string }) {
+  console.log(this.nombre);
+}
+
+const persona1 = { nombre: "Ana", mostrarNombre };
+const persona2 = { nombre: "Carlos", mostrarNombre };
+
+persona1.mostrarNombre(); // "Ana"
+persona2.mostrarNombre(); // "Carlos"`
+    }
+  ]}
+  output={`Ana\nCarlos`}
+/>
+
+<Callout variant="info" title="Regla fundamental">
+`this` es determinado en el momento de la **llamada**, no en el momento de la **definición**. Este es el origen de la mayoría de los bugs relacionados con `this`.
+</Callout>
+
+</Section>
+
+<Section id="this-en-metodos" title="this en métodos de objeto">
+
+Dentro de un método de objeto, `this` apunta al objeto que contiene el método — siempre que se llame como propiedad del objeto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Contador {
+  constructor() {
+    this.valor = 0;
+  }
+
+  incrementar() {
+    this.valor++;
+    return this.valor;
+  }
+
+  reiniciar() {
+    this.valor = 0;
+  }
+}
+
+const c = new Contador();
+console.log(c.incrementar()); // 1
+console.log(c.incrementar()); // 2
+console.log(c.incrementar()); // 3
+c.reiniciar();
+console.log(c.incrementar()); // 1`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Contador {
+  valor: number = 0;
+
+  incrementar(): number {
+    this.valor++;
+    return this.valor;
+  }
+
+  reiniciar(): void {
+    this.valor = 0;
+  }
+}
+
+const c = new Contador();
+console.log(c.incrementar()); // 1
+console.log(c.incrementar()); // 2
+console.log(c.incrementar()); // 3
+c.reiniciar();
+console.log(c.incrementar()); // 1`
+    }
+  ]}
+  output={`1\n2\n3\n1`}
+/>
+
+</Section>
+
+<Section id="this-perdido" title="this perdido: callbacks y event handlers">
+
+El problema más común: extraer un método de su objeto hace que pierda el contexto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "El problema clásico",
+      code: `class Temporizador {
+  constructor() {
+    this.segundos = 0;
+  }
+
+  iniciar() {
+    // ❌ Problema: la función pasada a setInterval pierde 'this'
+    setInterval(function() {
+      this.segundos++; // TypeError: Cannot read 'segundos' of undefined
+      console.log(this.segundos);
+    }, 1000);
+  }
+}
+
+// Otro caso común: extraer el método
+class Saludador {
+  constructor(nombre) {
+    this.nombre = nombre;
+  }
+
+  saludar() {
+    return \`Hola, \${this.nombre}\`;
+  }
+}
+
+const s = new Saludador("Ana");
+const fn = s.saludar; // ← extrae el método sin el contexto
+
+console.log(s.saludar()); // "Hola, Ana" ✅
+// console.log(fn());      // ❌ this.nombre es undefined`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript detecta el problema",
+      code: `class Saludador {
+  nombre: string;
+
+  constructor(nombre: string) {
+    this.nombre = nombre;
+  }
+
+  saludar(): string {
+    return \`Hola, \${this.nombre}\`;
+  }
+}
+
+const s = new Saludador("Ana");
+const fn = s.saludar; // ← extrae el método sin el contexto
+
+console.log(s.saludar()); // "Hola, Ana" ✅
+// fn();                   // ❌ Error en runtime: this es undefined`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="soluciones" title="Soluciones: bind, arrow functions y campos de clase">
+
+Existen tres formas de garantizar que `this` sea el correcto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Las tres soluciones",
+      code: `class Temporizador {
+  constructor() {
+    this.segundos = 0;
+
+    // Solución 3: campo de clase como arrow function
+    this.tick = () => {
+      this.segundos++;
+      console.log(\`Tick: \${this.segundos}\`);
+    };
+  }
+
+  // Solución 1: bind en el método
+  iniciarConBind() {
+    const fn = this.tick.bind(this);
+    setTimeout(fn, 1000);
+  }
+
+  // Solución 2: arrow function como callback
+  iniciarConArrow() {
+    setTimeout(() => {
+      this.segundos++;
+      console.log(\`Arrow tick: \${this.segundos}\`);
+    }, 1000);
+  }
+}
+
+// Comparación rápida:
+class Ejemplo {
+  valor = 42;
+
+  // Método normal — this se puede perder
+  metodoNormal() { return this.valor; }
+
+  // Campo de clase arrow — this siempre es la instancia
+  metodoArrow = () => this.valor;
+}
+
+const e = new Ejemplo();
+const normal = e.metodoNormal;
+const arrow = e.metodoArrow;
+
+// console.log(normal()); // ❌ undefined o error
+console.log(arrow());  // ✅ 42`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Temporizador {
+  segundos: number = 0;
+
+  // Solución 1: bind en el constructor
+  constructor() {
+    this.iniciar = this.iniciar.bind(this);
+  }
+
+  iniciar(): void {
+    this.segundos++;
+    console.log(\`Tick: \${this.segundos}\`);
+  }
+
+  // Solución 2: arrow function inline
+  iniciarConArrow(): void {
+    setTimeout(() => {
+      this.segundos++;
+      console.log(\`Arrow tick: \${this.segundos}\`);
+    }, 100);
+  }
+}
+
+// Solución 3: campo de clase arrow (más moderna)
+class Boton {
+  etiqueta: string;
+
+  constructor(etiqueta: string) {
+    this.etiqueta = etiqueta;
+  }
+
+  // Campo de clase — this siempre es la instancia
+  handleClick = (): void => {
+    console.log(\`Clic en: \${this.etiqueta}\`);
+  };
+}
+
+const btn = new Boton("Enviar");
+const handler = btn.handleClick; // extrae sin perder this
+handler(); // ✅ "Clic en: Enviar"`
+    }
+  ]}
+  output={`Clic en: Enviar`}
+/>
+
+<Callout variant="tip" title="¿Cuál solución usar?">
+Para React y event handlers modernos, usa **campos de clase arrow** (`handleClick = () => {}`). Para lógica general, las **arrow functions inline** son más limpias. El `bind` en el constructor es el enfoque más antiguo y verboso.
+</Callout>
+
+</Section>
+
+<Section id="call-apply" title="call() y apply(): this explícito">
+
+`call()` y `apply()` permiten llamar una función con un `this` específico:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "call y apply",
+      code: `function presentar(saludo, puntuacion) {
+  return \`\${saludo}, soy \${this.nombre}\${puntuacion}\`;
+}
+
+const persona = { nombre: "Ana" };
+
+// call: argumentos separados por coma
+const r1 = presentar.call(persona, "Hola", "!");
+console.log(r1); // "Hola, soy Ana!"
+
+// apply: argumentos como array
+const r2 = presentar.apply(persona, ["Buenos días", "."]);
+console.log(r2); // "Buenos días, soy Ana."
+
+// Caso práctico: reutilizar un método entre objetos
+const calcular = {
+  impuesto: 0.16,
+  conImpuesto(precio) {
+    return precio * (1 + this.impuesto);
+  },
+};
+
+const calcularMexico = { impuesto: 0.16 };
+const calcularEuropa = { impuesto: 0.21 };
+
+console.log(calcular.conImpuesto.call(calcularMexico, 100)); // 116
+console.log(calcular.conImpuesto.call(calcularEuropa, 100)); // 121`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function presentar(
+  this: { nombre: string },
+  saludo: string,
+  puntuacion: string
+): string {
+  return \`\${saludo}, soy \${this.nombre}\${puntuacion}\`;
+}
+
+const persona = { nombre: "Ana" };
+
+const r1 = presentar.call(persona, "Hola", "!");
+console.log(r1); // "Hola, soy Ana!"
+
+const r2 = presentar.apply(persona, ["Buenos días", "."]);
+console.log(r2); // "Buenos días, soy Ana."
+
+// Diferencia: call vs apply vs bind
+// call(thisArg, arg1, arg2)      — invoca inmediatamente
+// apply(thisArg, [arg1, arg2])   — invoca inmediatamente con array
+// bind(thisArg, arg1)            — retorna nueva función, NO invoca`
+    }
+  ]}
+  output={`Hola, soy Ana!\nBuenos días, soy Ana.\n116\n121`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Identifica el valor de this en cada contexto", diff: "med", minutes: 8 },
+    { num: "02", name: "Corrige un método que pierde this en setTimeout", diff: "med", minutes: 10 },
+    { num: "03", name: "Implementa bind() manualmente desde cero", diff: "hard", minutes: 15 },
+    { num: "04", name: "Usa call() para reutilizar un método entre objetos", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

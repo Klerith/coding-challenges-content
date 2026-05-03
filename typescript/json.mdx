@@ -1,0 +1,363 @@
+---
+title: "JSON: serialización y <em>deserialización</em> de datos"
+short: "JSON"
+chapter: "14"
+num: "01"
+chapterTitle: "Bonus prácticos"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "JSON es el formato universal de intercambio de datos en la web. Aprende a convertir entre objetos JavaScript y texto JSON, y a personalizar la serialización para casos avanzados."
+pro: false
+---
+
+<Section id="que-es-json" title="¿Qué es JSON?">
+
+**JSON** (JavaScript Object Notation) es un formato de texto para representar datos estructurados. Es el estándar de facto para APIs REST, archivos de configuración y almacenamiento de datos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// JSON es texto — un string con estructura específica
+const jsonString = \`{
+  "nombre": "Ana García",
+  "edad": 28,
+  "activo": true,
+  "cursos": ["JavaScript", "TypeScript"],
+  "direccion": null
+}\`;
+
+// JSON soporta estos tipos:
+// string, number, boolean, null, array, object
+// No soporta: undefined, Date, Function, Symbol
+
+// Tipos válidos en JSON:
+const ejemploJSON = {
+  texto: "hola",           // string ✅
+  numero: 42,              // number ✅
+  decimal: 3.14,           // number ✅
+  booleano: true,          // boolean ✅
+  nulo: null,              // null ✅
+  lista: [1, "dos", true], // array ✅
+  objeto: { a: 1 },        // object ✅
+};
+
+// Tipos que se PIERDEN en JSON:
+// undefined → desaparece
+// Date → se convierte a string ISO
+// Function → desaparece
+// Symbol → desaparece`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript puede tipar la estructura JSON esperada
+interface UsuarioJSON {
+  nombre: string;
+  edad: number;
+  activo: boolean;
+  cursos: string[];
+  direccion: string | null;
+}
+
+// El tipo genérico de JSON en TypeScript
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JSONValue[]
+  | { [key: string]: JSONValue };
+
+// JSON válido tipado
+const datos: UsuarioJSON = {
+  nombre: "Ana García",
+  edad: 28,
+  activo: true,
+  cursos: ["JavaScript", "TypeScript"],
+  direccion: null,
+};
+
+console.log(datos.nombre); // "Ana García"`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="json-parse" title="JSON.parse() — string a objeto">
+
+`JSON.parse()` convierte un string JSON en un objeto JavaScript. Si el string no es JSON válido, lanza un `SyntaxError`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JSON.parse()",
+      code: `const respuestaAPI = \`{
+  "id": 1,
+  "usuario": "ana_garcia",
+  "puntos": 1250,
+  "nivel": "intermedio",
+  "ultimaConexion": "2026-05-02T10:30:00.000Z"
+}\`;
+
+// Convertir a objeto
+const datos = JSON.parse(respuestaAPI);
+console.log(datos.usuario);  // "ana_garcia"
+console.log(datos.puntos);   // 1250
+console.log(typeof datos.puntos); // "number"
+
+// ⚠️ Los arrays también son JSON válido
+const listaJSON = '["JavaScript", "TypeScript", "React"]';
+const lista = JSON.parse(listaJSON);
+console.log(lista[0]); // "JavaScript"
+console.log(Array.isArray(lista)); // true
+
+// Manejo seguro de errores
+function parsearSeguro(texto) {
+  try {
+    return { ok: true, datos: JSON.parse(texto) };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+const resultado = parsearSeguro("esto no es json");
+console.log(resultado.ok);    // false
+console.log(resultado.error); // "Unexpected token..."`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface DatosUsuario {
+  id: number;
+  usuario: string;
+  puntos: number;
+  nivel: string;
+  ultimaConexion: string;
+}
+
+const respuestaAPI = \`{
+  "id": 1,
+  "usuario": "ana_garcia",
+  "puntos": 1250,
+  "nivel": "intermedio",
+  "ultimaConexion": "2026-05-02T10:30:00.000Z"
+}\`;
+
+// JSON.parse retorna 'any' — necesitas hacer el cast o validar
+const datos = JSON.parse(respuestaAPI) as DatosUsuario;
+console.log(datos.usuario); // "ana_garcia"
+console.log(datos.puntos);  // 1250
+
+// Función segura con generics
+function parsearSeguro<T>(texto: string): { ok: true; datos: T } | { ok: false; error: string } {
+  try {
+    return { ok: true, datos: JSON.parse(texto) as T };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+const resultado = parsearSeguro<DatosUsuario>(respuestaAPI);
+if (resultado.ok) {
+  console.log(resultado.datos.usuario); // TypeScript sabe el tipo
+}`
+    }
+  ]}
+  output={`ana_garcia\n1250\nnumber\nJavaScript\ntrue\nfalse\nUnexpected token...`}
+/>
+
+</Section>
+
+<Section id="json-stringify" title="JSON.stringify() — objeto a string">
+
+`JSON.stringify()` convierte un objeto JavaScript a su representación JSON como string.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JSON.stringify()",
+      code: `const usuario = {
+  nombre: "Carlos López",
+  puntos: 850,
+  activo: true,
+  cursos: ["JS", "TS"],
+  // Estos se omiten o transforman:
+  clave: undefined,       // → omitida
+  fn: () => "hola",      // → omitida
+  creado: new Date(),     // → string ISO
+};
+
+// Básico — una línea
+const compacto = JSON.stringify(usuario);
+console.log(compacto);
+// {"nombre":"Carlos López","puntos":850,"activo":true,"cursos":["JS","TS"],"creado":"..."}
+
+// Con indentación — legible para humanos
+const legible = JSON.stringify(usuario, null, 2);
+console.log(legible);
+// {
+//   "nombre": "Carlos López",
+//   "puntos": 850,
+//   ...
+// }
+
+// Truco para clonar objetos simples (sin funciones, fechas especiales)
+const original = { a: 1, b: [2, 3], c: { d: 4 } };
+const clon = JSON.parse(JSON.stringify(original));
+clon.b.push(99);
+console.log(original.b); // [2, 3] — no mutado
+console.log(clon.b);     // [2, 3, 99]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Configuracion {
+  tema: string;
+  idioma: string;
+  notificaciones: boolean;
+  puntosMinimos: number;
+}
+
+const config: Configuracion = {
+  tema: "oscuro",
+  idioma: "es",
+  notificaciones: true,
+  puntosMinimos: 100,
+};
+
+// Serializar para guardar en localStorage / API
+const configJSON: string = JSON.stringify(config, null, 2);
+console.log(configJSON);
+
+// Restaurar — con tipo explícito
+const configRestaurada = JSON.parse(configJSON) as Configuracion;
+console.log(configRestaurada.tema); // "oscuro"
+
+// Clonar deep copy básico
+function clonarProfundo<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+const original = { a: 1, b: [2, 3] };
+const clon = clonarProfundo(original);
+clon.b.push(99);
+console.log(original.b); // [2, 3]
+console.log(clon.b);     // [2, 3, 99]`
+    }
+  ]}
+  output={`{"nombre":"Carlos López","puntos":850,...}\n[2, 3]\n[2, 3, 99]`}
+/>
+
+</Section>
+
+<Section id="replacer-reviver" title="Replacer y reviver — personalizar la conversión">
+
+El segundo argumento de `stringify` es el **replacer** (filtrar/transformar al serializar), y el segundo argumento de `parse` es el **reviver** (transformar al deserializar).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Replacer y reviver",
+      code: `// Replacer como array — incluir solo ciertas propiedades
+const usuario = {
+  id: 1,
+  nombre: "Ana",
+  password: "secreto123", // ¡no queremos exponer esto!
+  email: "ana@ejemplo.com",
+  puntos: 500,
+};
+
+const seguro = JSON.stringify(usuario, ["id", "nombre", "email"]);
+console.log(seguro);
+// {"id":1,"nombre":"Ana","email":"ana@ejemplo.com"}
+
+// Replacer como función — transformación personalizada
+const conMascara = JSON.stringify(usuario, (clave, valor) => {
+  if (clave === "password") return undefined; // omitir
+  if (clave === "email") return valor.replace(/(.+)@/, "***@"); // enmascarar
+  return valor;
+});
+console.log(conMascara);
+// {"id":1,"nombre":"Ana","password":undefined,"email":"***@ejemplo.com","puntos":500}
+
+// Reviver — transformar al parsear
+const jsonConFechas = \`{
+  "titulo": "Mi proyecto",
+  "creado": "2026-01-15T00:00:00.000Z",
+  "modificado": "2026-05-02T10:00:00.000Z"
+}\`;
+
+const datos = JSON.parse(jsonConFechas, (clave, valor) => {
+  if (clave === "creado" || clave === "modificado") {
+    return new Date(valor); // string → Date
+  }
+  return valor;
+});
+
+console.log(datos.creado instanceof Date);         // true
+console.log(datos.creado.getFullYear());           // 2026`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Proyecto {
+  titulo: string;
+  creado: Date;
+  modificado: Date;
+}
+
+const jsonConFechas = \`{
+  "titulo": "Mi proyecto",
+  "creado": "2026-01-15T00:00:00.000Z",
+  "modificado": "2026-05-02T10:00:00.000Z"
+}\`;
+
+// Reviver convierte strings de fecha a Date
+const datosRaw = JSON.parse(jsonConFechas, (clave: string, valor: unknown) => {
+  if ((clave === "creado" || clave === "modificado") && typeof valor === "string") {
+    return new Date(valor);
+  }
+  return valor;
+}) as Proyecto;
+
+console.log(datosRaw.creado instanceof Date);  // true
+console.log(datosRaw.creado.getFullYear());    // 2026
+
+// Replacer tipado para omitir campos
+interface UsuarioPublico {
+  id: number;
+  nombre: string;
+  email: string;
+}
+
+const usuario = { id: 1, nombre: "Ana", password: "secreto", email: "ana@ej.com" };
+const camposPublicos: (keyof typeof usuario)[] = ["id", "nombre", "email"];
+const publico = JSON.stringify(usuario, camposPublicos);
+console.log(publico); // {"id":1,"nombre":"Ana","email":"ana@ej.com"}`
+    }
+  ]}
+  output={`{"id":1,"nombre":"Ana","email":"ana@ejemplo.com"}\ntrue\n2026`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Parsea una respuesta de API JSON", diff: "easy", minutes: 3 },
+    { num: "02", name: "Serializa un objeto con formato legible (indent 2)", diff: "easy", minutes: 3 },
+    { num: "03", name: "Filtra propiedades con replacer", diff: "med", minutes: 8 },
+    { num: "04", name: "Reviver para convertir strings de fecha a Date", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

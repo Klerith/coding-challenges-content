@@ -1,0 +1,370 @@
+---
+title: "Symbol: valores únicos e <em>irremplazables</em>"
+short: "Symbol"
+chapter: "11"
+num: "04"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "advanced"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Symbol es el séptimo tipo primitivo de JavaScript: cada Symbol creado es garantizadamente único, incluso si tiene la misma descripción. Son la herramienta ideal para propiedades de objeto que no deben colisionar con nada, y los well-known symbols permiten personalizar el comportamiento del lenguaje."
+pro: true
+---
+
+<Section id="que-es-symbol" title="¿Qué es un Symbol? — único, primitivo, no colisionable">
+
+Un `Symbol` es un valor primitivo. Cada llamada a `Symbol()` produce un valor distinto, garantizado. Dos symbols con la misma descripción son siempre diferentes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Cada Symbol es único — siempre
+const s1 = Symbol("id");
+const s2 = Symbol("id");
+
+console.log(s1 === s2);       // false — son diferentes aunque la descripción sea igual
+console.log(typeof s1);        // "symbol"
+console.log(s1.toString());    // "Symbol(id)"
+console.log(s1.description);   // "id" (ES2019+)
+
+// Los symbols NO se convierten implícitamente a string
+// console.log("Prefijo: " + s1); // ❌ TypeError
+// console.log(\`Valor: \${s1}\`);  // ❌ TypeError en strict mode
+
+// Sí puedes convertirlos explícitamente
+console.log(String(s1));       // "Symbol(id)"
+console.log(s1.toString());    // "Symbol(id)"
+
+// Symbol.for() — registro global compartido (sí puede reutilizar)
+const global1 = Symbol.for("app.config");
+const global2 = Symbol.for("app.config");
+console.log(global1 === global2); // true — mismo símbolo del registro global
+console.log(Symbol.keyFor(global1)); // "app.config"
+
+// Sin descripción — sigue siendo único
+const anonimo = Symbol();
+console.log(typeof anonimo); // "symbol"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript tiene tipo literal para symbols únicos: unique symbol
+const ID = Symbol("id");
+type ID = typeof ID; // unique symbol
+
+// unique symbol — solo asignable a const, tipo estricto
+const CLAVE_A: unique symbol = Symbol("a");
+const CLAVE_B: unique symbol = Symbol("b");
+
+// CLAVE_A y CLAVE_B son tipos distintos — no intercambiables
+// function usarA(s: typeof CLAVE_A): void {}
+// usarA(CLAVE_B); // ❌ Error de tipo
+
+// symbol (minúsculas) — cualquier symbol, menos restrictivo
+let simboloDinamico: symbol = Symbol("dinamico");
+simboloDinamico = Symbol("otro"); // ✅ 
+
+// Symbol.for — devuelve symbol (no unique symbol)
+const global: symbol = Symbol.for("app.config");
+console.log(Symbol.keyFor(global)); // "app.config"
+
+// En TypeScript moderno puedes usar 'const' assertions con symbols
+const ESTADO = {
+  ACTIVO: Symbol("activo"),
+  INACTIVO: Symbol("inactivo"),
+  PENDIENTE: Symbol("pendiente"),
+} as const;
+
+type Estado = typeof ESTADO[keyof typeof ESTADO];`
+    }
+  ]}
+  output={`false\nsymbol\nSymbol(id)\nid\nSymbol(id)\ntrue\napp.config`}
+/>
+
+</Section>
+
+<Section id="crear-y-usar" title="Crear y usar Symbols — descripción y Symbol.for">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Symbols como constantes de estado — sin riesgo de colisión de strings
+const Estado = {
+  PENDIENTE: Symbol("pendiente"),
+  ACTIVO: Symbol("activo"),
+  CANCELADO: Symbol("cancelado"),
+};
+
+function procesarPedido(pedido) {
+  switch (pedido.estado) {
+    case Estado.PENDIENTE:
+      return "Procesando...";
+    case Estado.ACTIVO:
+      return "En camino";
+    case Estado.CANCELADO:
+      return "Cancelado";
+    default:
+      throw new Error("Estado desconocido");
+  }
+}
+
+const pedido = { id: 42, estado: Estado.ACTIVO };
+console.log(procesarPedido(pedido)); // "En camino"
+
+// A diferencia de strings, nadie puede crear accidentalmente Estado.ACTIVO
+// si alguien escribe "activo" (string), NO iguala a Symbol("activo")
+const estadoIncorrecto = "activo";
+console.log(estadoIncorrecto === Estado.ACTIVO); // false — protegido por diseño
+
+// Symbol.for — útil cuando dos módulos distintos necesitan el mismo símbolo
+// modulo-a.js:
+const EVENTO_LISTO = Symbol.for("mi-app.listo");
+// modulo-b.js (separado):
+const MISMO_EVENTO = Symbol.for("mi-app.listo");
+console.log(EVENTO_LISTO === MISMO_EVENTO); // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Enum-like con symbols — más seguro que string enums
+const Estado = Object.freeze({
+  PENDIENTE: Symbol("pendiente"),
+  ACTIVO: Symbol("activo"),
+  CANCELADO: Symbol("cancelado"),
+} as const);
+
+type Estado = typeof Estado[keyof typeof Estado];
+
+interface Pedido {
+  id: number;
+  estado: Estado;
+}
+
+function procesarPedido(pedido: Pedido): string {
+  switch (pedido.estado) {
+    case Estado.PENDIENTE: return "Procesando...";
+    case Estado.ACTIVO:    return "En camino";
+    case Estado.CANCELADO: return "Cancelado";
+    default:
+      // TypeScript detecta casos no manejados en el switch
+      const _exhaustivo: never = pedido.estado;
+      throw new Error("Estado desconocido");
+  }
+}
+
+const pedido: Pedido = { id: 42, estado: Estado.ACTIVO };
+console.log(procesarPedido(pedido)); // "En camino"
+
+// Nadie puede asignar un estado incorrecto
+// const invalido: Pedido = { id: 1, estado: Symbol("activo") }; // ❌ Error de tipo`
+    }
+  ]}
+  output={`En camino\nfalse\ntrue`}
+/>
+
+</Section>
+
+<Section id="claves-de-objeto" title="Symbols como claves de objeto — propiedades no enumerables">
+
+Las propiedades Symbol en un objeto son invisibles para la mayoría de las operaciones de enumeración: `for...in`, `Object.keys()`, `JSON.stringify()` las ignoran.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const METADATA = Symbol("metadata");
+const VALIDADO = Symbol("validado");
+
+const usuario = {
+  nombre: "Ana",
+  email: "ana@ejemplo.com",
+  [METADATA]: { creadoEn: new Date(), version: 1 },
+  [VALIDADO]: true,
+};
+
+// Las propiedades Symbol NO aparecen en enumeración normal
+console.log(Object.keys(usuario));        // ["nombre", "email"] — sin símbolos
+console.log(JSON.stringify(usuario));      // {"nombre":"Ana","email":"ana@ejemplo.com"}
+for (const clave in usuario) {
+  console.log(clave); // "nombre", "email" — no los símbolos
+}
+
+// Para acceder a ellas debes tener el símbolo
+console.log(usuario[METADATA]); // { creadoEn: ..., version: 1 }
+console.log(usuario[VALIDADO]); // true
+
+// Para listar claves Symbol explícitamente
+console.log(Object.getOwnPropertySymbols(usuario)); // [Symbol(metadata), Symbol(validado)]
+
+// Reflect.ownKeys — devuelve TODAS las claves, incluyendo symbols
+console.log(Reflect.ownKeys(usuario)); // ["nombre", "email", Symbol(metadata), Symbol(validado)]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const METADATA: unique symbol = Symbol("metadata");
+const VALIDADO: unique symbol = Symbol("validado");
+
+interface MetaDatos {
+  creadoEn: Date;
+  version: number;
+}
+
+// TypeScript permite anotar propiedades symbol con computed property types
+interface UsuarioConMeta {
+  nombre: string;
+  email: string;
+  [METADATA]: MetaDatos;
+  [VALIDADO]: boolean;
+}
+
+const usuario: UsuarioConMeta = {
+  nombre: "Ana",
+  email: "ana@ejemplo.com",
+  [METADATA]: { creadoEn: new Date(), version: 1 },
+  [VALIDADO]: true,
+};
+
+// Acceso tipado
+const meta: MetaDatos = usuario[METADATA];
+console.log(meta.version); // 1
+
+const validado: boolean = usuario[VALIDADO];
+console.log(validado); // true
+
+// JSON.stringify los omite — ideal para metadata interna
+const json = JSON.stringify(usuario);
+console.log(json); // {"nombre":"Ana","email":"ana@ejemplo.com"}`
+    }
+  ]}
+  output={`["nombre", "email"]\n{"nombre":"Ana","email":"ana@ejemplo.com"}\nnombre\nemail\n{ creadoEn: ..., version: 1 }\ntrue`}
+/>
+
+</Section>
+
+<Section id="well-known-symbols" title="Well-known symbols — personalizar el comportamiento del lenguaje">
+
+JavaScript tiene un conjunto de symbols predefinidos en `Symbol.*` que permiten sobrescribir comportamientos internos del lenguaje.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Symbol.iterator — hace un objeto iterable con for...of
+class Rango {
+  constructor(inicio, fin) {
+    this.inicio = inicio;
+    this.fin = fin;
+  }
+
+  [Symbol.iterator]() {
+    let actual = this.inicio;
+    const fin = this.fin;
+    return {
+      next() {
+        return actual <= fin
+          ? { value: actual++, done: false }
+          : { value: undefined, done: true };
+      },
+    };
+  }
+}
+
+console.log([...new Rango(1, 5)]); // [1, 2, 3, 4, 5]
+
+// Symbol.toPrimitive — controla la conversión a primitivo
+class Moneda {
+  constructor(cantidad, divisa = "MXN") {
+    this.cantidad = cantidad;
+    this.divisa = divisa;
+  }
+
+  [Symbol.toPrimitive](hint) {
+    if (hint === "number") return this.cantidad;
+    if (hint === "string") return \`\${this.cantidad} \${this.divisa}\`;
+    return this.cantidad; // "default"
+  }
+}
+
+const precio = new Moneda(150);
+console.log(+precio);            // 150 (hint: "number")
+console.log(\`Precio: \${precio}\`); // "Precio: 150 MXN" (hint: "string")
+console.log(precio + 0);         // 150 (hint: "default")
+
+// Symbol.hasInstance — personaliza instanceof
+class ColeccionPar {
+  static [Symbol.hasInstance](instancia) {
+    return Array.isArray(instancia) && instancia.length % 2 === 0;
+  }
+}
+
+console.log([1, 2, 3, 4] instanceof ColeccionPar); // true
+console.log([1, 2, 3] instanceof ColeccionPar);     // false`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Symbol.iterator tipado
+class Rango implements Iterable<number> {
+  constructor(
+    private readonly inicio: number,
+    private readonly fin: number,
+  ) {}
+
+  [Symbol.iterator](): Iterator<number> {
+    let actual = this.inicio;
+    const fin = this.fin;
+    return {
+      next(): IteratorResult<number> {
+        return actual <= fin
+          ? { value: actual++, done: false }
+          : { value: undefined as unknown as number, done: true };
+      },
+    };
+  }
+}
+
+console.log([...new Rango(1, 5)]); // [1, 2, 3, 4, 5]
+
+// Symbol.toPrimitive tipado
+class Moneda {
+  constructor(
+    private readonly cantidad: number,
+    private readonly divisa: string = "MXN"
+  ) {}
+
+  [Symbol.toPrimitive](hint: "number" | "string" | "default"): number | string {
+    if (hint === "number") return this.cantidad;
+    if (hint === "string") return \`\${this.cantidad} \${this.divisa}\`;
+    return this.cantidad;
+  }
+}
+
+const precio = new Moneda(150);
+console.log(\`Precio: \${precio}\`); // "Precio: 150 MXN"
+console.log(+precio);             // 150`
+    }
+  ]}
+  output={`[1, 2, 3, 4, 5]\n150\nPrecio: 150 MXN\n150\ntrue\nfalse`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Usa Symbol para crear propiedades privadas en un objeto", diff: "med", minutes: 10 },
+    { num: "02", name: "Implementa Symbol.toPrimitive en una clase Vector2D", diff: "hard", minutes: 15 },
+    { num: "03", name: "Usa Symbol.iterator para hacer un objeto árbol iterable", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

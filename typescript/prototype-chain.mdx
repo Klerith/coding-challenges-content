@@ -1,0 +1,402 @@
+---
+title: "Prototype chain: la herencia <em>real</em> de JavaScript"
+short: "Prototype chain"
+chapter: "13"
+num: "03"
+chapterTitle: "Conceptos profundos de JavaScript"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Las clases de JavaScript son syntactic sugar. Por debajo, todo se basa en prototype chain — una cadena de objetos enlazados. Entenderla te da el control real del lenguaje."
+pro: true
+---
+
+<Section id="todo-tiene-prototype" title="Todo en JS tiene un prototype">
+
+Cada objeto en JavaScript tiene un vínculo interno a otro objeto llamado su **prototype**. Este vínculo crea una cadena que termina en `Object.prototype` — el progenitor de todo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Todos los objetos tienen prototype
+const persona = { nombre: "Ana" };
+
+// Object.getPrototypeOf() — la forma correcta de leer el prototype
+console.log(Object.getPrototypeOf(persona) === Object.prototype); // true
+
+// Object.prototype es el final de la cadena
+console.log(Object.getPrototypeOf(Object.prototype)); // null
+
+// Los arrays también tienen cadena de prototypes
+const numeros = [1, 2, 3];
+console.log(Object.getPrototypeOf(numeros) === Array.prototype);  // true
+console.log(Object.getPrototypeOf(Array.prototype) === Object.prototype); // true
+
+// Por eso los arrays tienen .toString() aunque no lo defines tú:
+// numeros → Array.prototype → Object.prototype → null
+console.log(numeros.toString()); // "1,2,3"
+
+// hasOwnProperty — verificar si la propiedad es propia vs heredada
+console.log(persona.hasOwnProperty("nombre")); // true
+console.log(persona.hasOwnProperty("toString")); // false — heredada`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Persona {
+  nombre: string;
+}
+
+const persona: Persona = { nombre: "Ana" };
+
+console.log(Object.getPrototypeOf(persona) === Object.prototype); // true
+console.log(Object.getPrototypeOf(Object.prototype)); // null
+
+const numeros: number[] = [1, 2, 3];
+console.log(Object.getPrototypeOf(numeros) === Array.prototype);   // true
+console.log(Object.getPrototypeOf(Array.prototype) === Object.prototype); // true
+
+console.log(numeros.toString()); // "1,2,3"
+
+// TypeScript sabe que hasOwnProperty existe gracias a Object.prototype
+console.log(persona.hasOwnProperty("nombre"));  // true
+console.log(persona.hasOwnProperty("toString")); // false`
+    }
+  ]}
+  output={`true\nnull\ntrue\ntrue\n1,2,3\ntrue\nfalse`}
+/>
+
+</Section>
+
+<Section id="proto-vs-prototype" title="__proto__ vs prototype — instancia vs constructor">
+
+La confusión más común: `__proto__` pertenece a las **instancias**; `prototype` pertenece a las **funciones constructoras**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "La distinción clave",
+      code: `function Animal(nombre) {
+  this.nombre = nombre;
+}
+
+// 'prototype' está en la función constructora
+Animal.prototype.hablar = function() {
+  return \`\${this.nombre} hace un sonido\`;
+};
+
+const gato = new Animal("Michi");
+
+// '__proto__' está en la instancia — apunta al prototype del constructor
+console.log(gato.__proto__ === Animal.prototype); // true
+console.log(Object.getPrototypeOf(gato) === Animal.prototype); // true (forma moderna)
+
+// La instancia tiene sus propias propiedades
+console.log(gato.hasOwnProperty("nombre")); // true
+console.log(gato.hasOwnProperty("hablar")); // false — está en el prototype
+
+console.log(gato.hablar()); // "Michi hace un sonido"
+
+// El objeto constructor también tiene su propio prototype
+console.log(typeof Animal.prototype); // "object"
+console.log(Animal.prototype.constructor === Animal); // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Animal {
+  nombre: string;
+
+  constructor(nombre: string) {
+    this.nombre = nombre;
+  }
+
+  hablar(): string {
+    return \`\${this.nombre} hace un sonido\`;
+  }
+}
+
+const gato = new Animal("Michi");
+
+// TypeScript compila clases a funciones constructoras con prototypes
+console.log(Object.getPrototypeOf(gato) === Animal.prototype); // true
+
+console.log(gato.hasOwnProperty("nombre")); // true
+console.log(gato.hasOwnProperty("hablar")); // false — en prototype
+
+console.log(gato.hablar()); // "Michi hace un sonido"
+
+// El método 'hablar' está compartido entre todas las instancias
+const perro = new Animal("Fido");
+console.log(Object.getPrototypeOf(gato) === Object.getPrototypeOf(perro)); // true`
+    }
+  ]}
+  output={`true\ntrue\ntrue\nfalse\nMichi hace un sonido\nobject\ntrue`}
+/>
+
+<Callout variant="warn" title="Evita __proto__">
+`__proto__` es una propiedad legacy. Usa `Object.getPrototypeOf(obj)` para leer y `Object.setPrototypeOf(obj, proto)` para cambiar el prototype. Mutar `__proto__` directamente es una operación lenta y peligrosa.
+</Callout>
+
+</Section>
+
+<Section id="busqueda-en-cadena" title="Búsqueda en la cadena de prototype">
+
+Cuando accedes a una propiedad, JavaScript la busca en el objeto primero, luego sube por la cadena hasta encontrarla o llegar a `null`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "La búsqueda paso a paso",
+      code: `function Vehiculo(tipo) {
+  this.tipo = tipo;
+}
+Vehiculo.prototype.describir = function() {
+  return \`Soy un \${this.tipo}\`;
+};
+Vehiculo.prototype.categoria = "transporte";
+
+function Auto(marca, tipo) {
+  Vehiculo.call(this, tipo); // llamar al constructor padre
+  this.marca = marca;
+}
+// Establecer la cadena de prototype
+Auto.prototype = Object.create(Vehiculo.prototype);
+Auto.prototype.constructor = Auto;
+
+Auto.prototype.tocar_bocina = function() {
+  return "¡Beep beep!";
+};
+
+const miAuto = new Auto("Toyota", "sedán");
+
+// Búsqueda: miAuto → Auto.prototype → Vehiculo.prototype → Object.prototype → null
+console.log(miAuto.marca);         // "Toyota" — propio
+console.log(miAuto.tocar_bocina()); // "¡Beep beep!" — en Auto.prototype
+console.log(miAuto.describir());   // "Soy un sedán" — en Vehiculo.prototype
+console.log(miAuto.categoria);     // "transporte" — en Vehiculo.prototype
+console.log(miAuto.toString());    // en Object.prototype
+
+// instanceof recorre la cadena
+console.log(miAuto instanceof Auto);    // true
+console.log(miAuto instanceof Vehiculo); // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Vehiculo {
+  tipo: string;
+  categoria: string = "transporte";
+
+  constructor(tipo: string) {
+    this.tipo = tipo;
+  }
+
+  describir(): string {
+    return \`Soy un \${this.tipo}\`;
+  }
+}
+
+class Auto extends Vehiculo {
+  marca: string;
+
+  constructor(marca: string, tipo: string) {
+    super(tipo);
+    this.marca = marca;
+  }
+
+  tocarBocina(): string {
+    return "¡Beep beep!";
+  }
+}
+
+const miAuto = new Auto("Toyota", "sedán");
+
+console.log(miAuto.marca);          // "Toyota"
+console.log(miAuto.tocarBocina());  // "¡Beep beep!"
+console.log(miAuto.describir());    // "Soy un sedán"
+console.log(miAuto.categoria);      // "transporte"
+
+console.log(miAuto instanceof Auto);     // true
+console.log(miAuto instanceof Vehiculo); // true`
+    }
+  ]}
+  output={`Toyota\n¡Beep beep!\nSoy un sedán\ntransporte\n[object Object]\ntrue\ntrue`}
+/>
+
+</Section>
+
+<Section id="object-create" title="Object.create() — prototype explícito">
+
+`Object.create(proto)` crea un nuevo objeto con el prototype que tú especificas. Es la forma más directa y explícita de configurar la cadena.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Object.create()",
+      code: `// Objeto base con métodos compartidos
+const animalesBase = {
+  respirar() {
+    return \`\${this.nombre} respira\`;
+  },
+  dormir() {
+    return \`\${this.nombre} duerme\`;
+  },
+};
+
+// Crear un objeto que herede de animalesBase
+const perro = Object.create(animalesBase);
+perro.nombre = "Fido";
+perro.ladrar = function() {
+  return \`\${this.nombre} dice: ¡Woof!\`;
+};
+
+console.log(perro.respirar()); // "Fido respira" — heredado
+console.log(perro.ladrar());   // "Fido dice: ¡Woof!" — propio
+
+// Object.create(null) — objeto SIN prototype (útil para diccionarios puros)
+const diccionario = Object.create(null);
+diccionario.clave = "valor";
+// diccionario.hasOwnProperty // ❌ no existe — no tiene Object.prototype
+console.log("clave" in diccionario); // true
+
+// Verificar
+console.log(Object.getPrototypeOf(perro) === animalesBase); // true
+console.log(Object.getPrototypeOf(diccionario)); // null`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface AnimalBase {
+  nombre: string;
+  respirar(): string;
+  dormir(): string;
+}
+
+const animalesBase: Omit<AnimalBase, "nombre"> & ThisType<AnimalBase> = {
+  respirar() {
+    return \`\${this.nombre} respira\`;
+  },
+  dormir() {
+    return \`\${this.nombre} duerme\`;
+  },
+};
+
+interface Perro extends AnimalBase {
+  ladrar(): string;
+}
+
+const perro = Object.create(animalesBase) as Perro;
+perro.nombre = "Fido";
+perro.ladrar = function(): string {
+  return \`\${this.nombre} dice: ¡Woof!\`;
+};
+
+console.log(perro.respirar()); // "Fido respira"
+console.log(perro.ladrar());   // "Fido dice: ¡Woof!"
+
+console.log(Object.getPrototypeOf(perro) === animalesBase); // true`
+    }
+  ]}
+  output={`Fido respira\nFido dice: ¡Woof!\ntrue\nnull\ntrue`}
+/>
+
+</Section>
+
+<Section id="clases-sugar" title="Las clases ES6 son syntactic sugar">
+
+Las clases de ES6 son una sintaxis más limpia sobre los mismos prototypes. El JavaScript generado es idéntico en comportamiento.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Clase vs Prototype",
+      code: `// Con clases ES6 (syntactic sugar)
+class Figura {
+  constructor(color) {
+    this.color = color;
+  }
+
+  describir() {
+    return \`Figura de color \${this.color}\`;
+  }
+}
+
+class Circulo extends Figura {
+  constructor(color, radio) {
+    super(color);
+    this.radio = radio;
+  }
+
+  area() {
+    return Math.PI * this.radio ** 2;
+  }
+}
+
+const c = new Circulo("rojo", 5);
+console.log(c.describir()); // "Figura de color rojo"
+console.log(c.area().toFixed(2)); // "78.54"
+
+// Por debajo, ES5 equivalente:
+// Circulo.prototype es un objeto cuyo __proto__ es Figura.prototype
+console.log(Object.getPrototypeOf(Circulo.prototype) === Figura.prototype); // true
+console.log(c instanceof Figura); // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Figura {
+  constructor(public color: string) {}
+
+  describir(): string {
+    return \`Figura de color \${this.color}\`;
+  }
+}
+
+class Circulo extends Figura {
+  constructor(color: string, public radio: number) {
+    super(color);
+  }
+
+  area(): number {
+    return Math.PI * this.radio ** 2;
+  }
+}
+
+const c = new Circulo("rojo", 5);
+console.log(c.describir());         // "Figura de color rojo"
+console.log(c.area().toFixed(2));   // "78.54"
+
+// TypeScript compila class a funciones constructoras con prototypes
+// La cadena es idéntica a la versión manual
+console.log(Object.getPrototypeOf(Circulo.prototype) === Figura.prototype); // true
+console.log(c instanceof Figura); // true`
+    }
+  ]}
+  output={`Figura de color rojo\n78.54\ntrue\ntrue`}
+/>
+
+<Callout variant="tip" title="Usa clases, entiende prototypes">
+En código moderno, usa la sintaxis de clases — es más legible y menos propensa a errores. Entiende los prototypes para debuggear comportamientos extraños, manipular objetos a bajo nivel y entender cómo funciona el lenguaje realmente.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Traza la cadena de prototype de un array", diff: "med", minutes: 10 },
+    { num: "02", name: "Implementa herencia con Object.create() sin clases", diff: "hard", minutes: 15 },
+    { num: "03", name: "Agrega un método a Array.prototype (y por qué no hacerlo en producción)", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

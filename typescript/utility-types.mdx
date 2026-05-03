@@ -1,0 +1,332 @@
+---
+title: "Utility types: <em>tipos genéricos</em> predefinidos"
+short: "Utility types"
+chapter: "12"
+num: "01"
+chapterTitle: "TypeScript avanzado"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "TypeScript incluye un conjunto de tipos genéricos predefinidos que transforman otros tipos. Dominarlos elimina toneladas de código repetitivo y hace tus definiciones de tipo expresivas y precisas."
+pro: true
+---
+
+<Section id="que-son" title="¿Qué son los utility types?">
+
+Los **utility types** son tipos genéricos que vienen en la biblioteca estándar de TypeScript y transforman tipos existentes en nuevos tipos. En lugar de redefinir manualmente variantes de una interfaz, los usas para derivarlos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+  password: string;
+  createdAt: Date;
+}
+
+// Sin utility types — debes redefinir a mano
+interface UsuarioEditable {
+  nombre?: string;
+  email?: string;
+  password?: string;
+}
+
+// Con utility types — se deriva del original automáticamente
+type UsuarioEditableAuto = Partial<Omit<Usuario, "id" | "createdAt">>;
+
+// Ambos son equivalentes, pero el segundo se mantiene sincronizado
+// con la interfaz Usuario automáticamente.`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="partial-required" title="Partial y Required">
+
+`Partial<T>` hace todas las propiedades opcionales. `Required<T>` hace todas las propiedades obligatorias, incluso las que tenían `?`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Configuracion {
+  tema: string;
+  idioma: string;
+  notificaciones: boolean;
+  limiteItems?: number;
+}
+
+// Partial — útil para endpoints PATCH donde solo envías lo que cambias
+type PatchConfiguracion = Partial<Configuracion>;
+// { tema?: string; idioma?: string; notificaciones?: boolean; limiteItems?: number }
+
+function actualizarConfig(id: number, cambios: PatchConfiguracion): void {
+  // Aplica solo las propiedades enviadas
+  console.log(\`Actualizando config \${id}\`, cambios);
+}
+
+actualizarConfig(1, { tema: "oscuro" });          // válido
+actualizarConfig(1, { idioma: "es", limiteItems: 20 }); // válido
+actualizarConfig(1, {});                           // válido — no envías nada
+
+// Required — útil cuando tienes defaults y quieres el objeto completo
+type ConfiguracionCompleta = Required<Configuracion>;
+// { tema: string; idioma: string; notificaciones: boolean; limiteItems: number }
+
+const configDefault: ConfiguracionCompleta = {
+  tema: "oscuro",
+  idioma: "es",
+  notificaciones: true,
+  limiteItems: 20, // ← ahora es obligatorio
+};`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="pick-omit" title="Pick y Omit">
+
+`Pick<T, K>` selecciona un subconjunto de propiedades. `Omit<T, K>` excluye propiedades específicas. Son complementarios.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Producto {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  stock: number;
+  costo: number;        // campo interno — no exponer en API pública
+  proveedorId: number;  // campo interno — no exponer en API pública
+}
+
+// Pick — solo las propiedades que necesitas para la vista de lista
+type ProductoResumen = Pick<Producto, "id" | "nombre" | "precio">;
+// { id: number; nombre: string; precio: number }
+
+// Omit — todo excepto los campos internos
+type ProductoPublico = Omit<Producto, "costo" | "proveedorId">;
+// { id: number; nombre: string; descripcion: string; precio: number; stock: number }
+
+// Caso real: DTO para crear (sin id porque lo genera la DB)
+type CrearProductoDTO = Omit<Producto, "id">;
+
+function crearProducto(dto: CrearProductoDTO): Producto {
+  return { id: Math.random(), ...dto };
+}
+
+// Caso real: solo proyectar los campos de un SELECT
+type ProductoCard = Pick<Producto, "id" | "nombre" | "precio" | "descripcion">;
+
+const tarjeta: ProductoCard = {
+  id: 1,
+  nombre: "Teclado mecánico",
+  precio: 89.99,
+  descripcion: "Cherry MX Red, RGB",
+};
+console.log(tarjeta.nombre); // "Teclado mecánico"`
+    }
+  ]}
+  output={`Teclado mecánico`}
+/>
+
+</Section>
+
+<Section id="record" title="Record — diccionario tipado">
+
+`Record<K, V>` construye un tipo de objeto donde las claves son del tipo `K` y los valores del tipo `V`. Mucho más expresivo que `{ [key: string]: V }`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Mapa de códigos HTTP a su descripción
+type CodigoHTTP = 200 | 301 | 400 | 401 | 403 | 404 | 500;
+
+const httpMessages: Record<CodigoHTTP, string> = {
+  200: "OK",
+  301: "Moved Permanently",
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  500: "Internal Server Error",
+  // Si olvidas un código, TypeScript lo detecta
+};
+
+// Cachés y mapas de entidades
+interface Articulo {
+  id: number;
+  titulo: string;
+}
+
+// Acceso O(1) por id — clave string, valor Articulo
+const cacheArticulos: Record<string, Articulo> = {};
+
+function guardarEnCache(articulo: Articulo): void {
+  cacheArticulos[articulo.id.toString()] = articulo;
+}
+
+// Record con union de strings — muy común para i18n
+type Locale = "es" | "en" | "fr";
+type Traducciones = Record<Locale, string>;
+
+const bienvenida: Traducciones = {
+  es: "Bienvenido",
+  en: "Welcome",
+  fr: "Bienvenue",
+};
+
+console.log(bienvenida["es"]); // "Bienvenido"
+console.log(httpMessages[404]); // "Not Found"`
+    }
+  ]}
+  output={`Bienvenido\nNot Found`}
+/>
+
+</Section>
+
+<Section id="returntype-parameters-awaited" title="ReturnType, Parameters y Awaited">
+
+Estos utility types **extraen información de tipos de funciones** — especialmente útiles cuando trabajas con funciones externas o APIs async cuyo tipo no controlas directamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ReturnType<T> — extrae el tipo que retorna una función
+function crearSesion(userId: number) {
+  return {
+    token: "jwt-abc123",
+    expira: new Date(),
+    userId,
+  };
+}
+
+// Sin tener que definir manualmente el tipo
+type Sesion = ReturnType<typeof crearSesion>;
+// { token: string; expira: Date; userId: number }
+
+function usarSesion(sesion: Sesion): void {
+  console.log(\`Token: \${sesion.token}\`);
+}
+
+// Parameters<T> — extrae los parámetros como una tupla
+function enviarEmail(para: string, asunto: string, cuerpo: string): void {
+  console.log(\`Email a \${para}: \${asunto}\`);
+}
+
+type ParamsEmail = Parameters<typeof enviarEmail>;
+// [para: string, asunto: string, cuerpo: string]
+
+// Útil para crear wrappers que reenvíen los mismos parámetros
+function enviarEmailConLog(...args: ParamsEmail): void {
+  console.log("Enviando email...");
+  enviarEmail(...args);
+}
+
+// Awaited<T> — desenvuelve el tipo de una Promise (recursivamente)
+async function fetchUsuario(id: number): Promise<{ id: number; nombre: string }> {
+  return { id, nombre: "Ana" };
+}
+
+type UsuarioFetched = Awaited<ReturnType<typeof fetchUsuario>>;
+// { id: number; nombre: string } — sin Promise<...>
+
+// Combinado para manejar respuestas de APIs externas
+type RespuestaAPI = Awaited<ReturnType<typeof fetchUsuario>>;
+const usuario: RespuestaAPI = { id: 1, nombre: "Luis" };
+console.log(usuario.nombre); // "Luis"`
+    }
+  ]}
+  output={`Luis`}
+/>
+
+</Section>
+
+<Section id="nonnullable-exclude-extract" title="NonNullable, Exclude y Extract">
+
+Estos tres utility types **manipulan union types** — filtran, excluyen o extraen miembros de una unión.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// NonNullable<T> — elimina null y undefined de una union
+type ValorONulo = string | number | null | undefined;
+type ValorSiempre = NonNullable<ValorONulo>;
+// string | number
+
+// Útil para garantizar que un valor ya fue verificado
+function procesarValor(val: string | null): string {
+  // En algún punto validaste que no es null
+  const seguro: NonNullable<typeof val> = val!;
+  return seguro.toUpperCase();
+}
+
+// Exclude<T, U> — de la union T, quita los tipos que son asignables a U
+type Primitivo = string | number | boolean | null | undefined;
+type SoloDefinido = Exclude<Primitivo, null | undefined>;
+// string | number | boolean
+
+type SinBooleans = Exclude<string | number | boolean, boolean>;
+// string | number
+
+// Extract<T, U> — de la union T, SOLO los tipos asignables a U
+type Mixto = string | number | (() => void) | Date;
+type SoloFunciones = Extract<Mixto, Function>;
+// () => void
+
+type SoloStringONumber = Extract<Mixto, string | number>;
+// string | number
+
+// Caso real: filtrar una unión de eventos
+type EventoSistema =
+  | { tipo: "click"; x: number; y: number }
+  | { tipo: "keydown"; key: string }
+  | { tipo: "scroll"; delta: number }
+  | { tipo: "focus" };
+
+type EventosTeclado = Extract<EventoSistema, { tipo: "keydown" }>;
+// { tipo: "keydown"; key: string }
+
+const evento: EventosTeclado = { tipo: "keydown", key: "Enter" };
+console.log(evento.key); // "Enter"`
+    }
+  ]}
+  output={`Enter`}
+/>
+
+<Callout variant="tip" title="Implementación interna">
+`Exclude<T, U>` se implementa como `T extends U ? never : T`. `Extract<T, U>` es `T extends U ? T : never`. Cuando llegues a conditional types entenderás exactamente cómo funcionan por dentro.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Usa Partial para un formulario de edición de perfil", diff: "easy", minutes: 8 },
+    { num: "02", name: "Crea un DTO sin campos sensibles con Omit", diff: "med", minutes: 10 },
+    { num: "03", name: "Record para un mapa de rutas con sus configuraciones", diff: "med", minutes: 10 },
+    { num: "04", name: "ReturnType y Awaited para inferir tipos de API calls", diff: "hard", minutes: 15 },
+    { num: "05", name: "Combina Pick + Partial para un update tipo PATCH", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

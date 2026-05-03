@@ -1,0 +1,374 @@
+---
+title: "async/await: código asíncrono que <em>parece síncrono</em>"
+short: "async / await"
+chapter: "06"
+num: "03"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "async/await es azúcar sintáctica sobre Promises. No cambia cómo funciona el motor — solo cambia cómo lo escribes. El resultado es código asíncrono que se lee como código síncrono."
+pro: false
+---
+
+<Section id="async-funciones" title="async convierte cualquier función en una Promise">
+
+Añadir `async` delante de una función garantiza que siempre retorna una Promise, sin importar qué retorne adentro:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sin async — retorna el valor directamente
+function obtenerNombre() {
+  return "Ana";
+}
+console.log(obtenerNombre()); // "Ana"
+
+// Con async — retorna una Promise que envuelve el valor
+async function obtenerNombreAsync() {
+  return "Ana";
+}
+console.log(obtenerNombreAsync()); // Promise { 'Ana' }
+
+// Para acceder al valor, necesitas .then() o await
+obtenerNombreAsync().then(nombre => {
+  console.log(nombre); // "Ana"
+});
+
+// Una función async que lanza — retorna Promise rechazada
+async function fallar() {
+  throw new Error("Algo salió mal");
+}
+
+fallar().catch(err => console.error(err.message)); // Algo salió mal`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Sin async — retorna el valor directamente
+function obtenerNombre(): string {
+  return "Ana";
+}
+console.log(obtenerNombre()); // "Ana"
+
+// Con async — retorna una Promise que envuelve el valor
+async function obtenerNombreAsync(): Promise<string> {
+  return "Ana";
+}
+console.log(obtenerNombreAsync()); // Promise { 'Ana' }
+
+// Para acceder al valor, necesitas .then() o await
+obtenerNombreAsync().then((nombre: string) => {
+  console.log(nombre); // "Ana"
+});
+
+// Una función async que lanza — retorna Promise rechazada
+async function fallar(): Promise<never> {
+  throw new Error("Algo salió mal");
+}
+
+fallar().catch((err: Error) => console.error(err.message)); // Algo salió mal`
+    }
+  ]}
+  output={`"Ana"\nPromise { 'Ana' }\nAna\nAlgo salió mal`}
+/>
+
+</Section>
+
+<Section id="await-pausa" title="await pausa hasta que la Promise resuelve">
+
+`await` solo puede usarse dentro de funciones `async`. Pausa la ejecución de esa función hasta que la Promise completa:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function esperar(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function simularApi(endpoint) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (endpoint === "/usuarios") {
+        resolve(["Ana", "Pedro", "María"]);
+      } else {
+        reject(new Error(\`Endpoint desconocido: \${endpoint}\`));
+      }
+    }, 300);
+  });
+}
+
+async function cargarUsuarios() {
+  console.log("Iniciando carga...");
+  await esperar(100); // pausa real de 100ms
+
+  const usuarios = await simularApi("/usuarios");
+  console.log("Usuarios:", usuarios);
+
+  const total = usuarios.length;
+  console.log("Total:", total);
+
+  return total;
+}
+
+cargarUsuarios().then(total => {
+  console.log("Función completada, total:", total);
+});`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function esperar(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function simularApi(endpoint: string): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (endpoint === "/usuarios") {
+        resolve(["Ana", "Pedro", "María"]);
+      } else {
+        reject(new Error(\`Endpoint desconocido: \${endpoint}\`));
+      }
+    }, 300);
+  });
+}
+
+async function cargarUsuarios(): Promise<number> {
+  console.log("Iniciando carga...");
+  await esperar(100);
+
+  const usuarios: string[] = await simularApi("/usuarios");
+  console.log("Usuarios:", usuarios);
+
+  const total = usuarios.length;
+  console.log("Total:", total);
+
+  return total;
+}
+
+cargarUsuarios().then((total: number) => {
+  console.log("Función completada, total:", total);
+});`
+    }
+  ]}
+  output={`Iniciando carga...\nUsuarios: ["Ana", "Pedro", "María"]\nTotal: 3\nFunción completada, total: 3`}
+/>
+
+</Section>
+
+<Section id="try-catch" title="Manejo de errores con try/catch">
+
+Los errores de Promises rechazadas se capturan con `try/catch` — igual que los errores síncronos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function buscarProducto(id) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const productos = { 1: "Laptop", 2: "Mouse" };
+      const producto = productos[id];
+
+      if (!producto) {
+        reject(new Error(\`Producto \${id} no encontrado\`));
+      } else {
+        resolve({ id, nombre: producto });
+      }
+    }, 200);
+  });
+}
+
+async function mostrarProducto(id) {
+  try {
+    const producto = await buscarProducto(id);
+    console.log("Encontrado:", producto.nombre);
+  } catch (err) {
+    console.error("Error al buscar:", err.message);
+  } finally {
+    console.log("Búsqueda completada");
+  }
+}
+
+mostrarProducto(1);
+// Encontrado: Laptop
+// Búsqueda completada
+
+mostrarProducto(99);
+// Error al buscar: Producto 99 no encontrado
+// Búsqueda completada`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Producto = { id: number; nombre: string };
+
+function buscarProducto(id: number): Promise<Producto> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const productos: Record<number, string> = { 1: "Laptop", 2: "Mouse" };
+      const nombre = productos[id];
+
+      if (!nombre) {
+        reject(new Error(\`Producto \${id} no encontrado\`));
+      } else {
+        resolve({ id, nombre });
+      }
+    }, 200);
+  });
+}
+
+async function mostrarProducto(id: number): Promise<void> {
+  try {
+    const producto = await buscarProducto(id);
+    console.log("Encontrado:", producto.nombre);
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error("Error al buscar:", err.message);
+    }
+  } finally {
+    console.log("Búsqueda completada");
+  }
+}
+
+mostrarProducto(1);
+// Encontrado: Laptop
+// Búsqueda completada
+
+mostrarProducto(99);
+// Error al buscar: Producto 99 no encontrado
+// Búsqueda completada`
+    }
+  ]}
+  output={`Encontrado: Laptop\nBúsqueda completada\nError al buscar: Producto 99 no encontrado\nBúsqueda completada`}
+/>
+
+<Callout variant="warn" title="No olvides el try/catch">
+Una función `async` sin `try/catch` que lanza un error produce una Promise rechazada no capturada. En Node.js esto termina el proceso. En el browser, muestra una advertencia en consola.
+</Callout>
+
+</Section>
+
+<Section id="comparacion" title="Promise.then() vs async/await">
+
+Son equivalentes — async/await es solo una forma diferente de escribir el mismo código:
+
+<CompareTable
+  headers={["Aspecto", "Promise .then()", "async / await"]}
+  rows={[
+    [
+      "Legibilidad",
+      { kind: "bad", value: "Callbacks anidados en .then()" },
+      { kind: "good", value: "Flujo lineal de arriba a abajo" }
+    ],
+    [
+      "Manejo de errores",
+      { kind: "bad", value: ".catch() al final de la cadena" },
+      { kind: "good", value: "try/catch estándar" }
+    ],
+    [
+      "Variables intermedias",
+      { kind: "bad", value: "Hay que pasar por el scope del .then()" },
+      { kind: "good", value: "Variables locales normales" }
+    ],
+    [
+      "Depuración",
+      { kind: "bad", value: "Breakpoints en callbacks son confusos" },
+      { kind: "good", value: "Step-through normal como código síncrono" }
+    ],
+    [
+      "Resultado",
+      { kind: "good", value: "Idéntico en ambos casos" },
+      { kind: "good", value: "Idéntico en ambos casos" }
+    ],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Mismo código, distinta legibilidad",
+      code: `function obtenerDatos(id) {
+  return Promise.resolve({ id, valor: id * 10 });
+}
+
+// Con .then() — todo en callbacks
+function procesarConThen(id) {
+  return obtenerDatos(id)
+    .then(datos => {
+      const doble = datos.valor * 2;
+      return obtenerDatos(doble);
+    })
+    .then(datosFinal => {
+      return \`ID: \${datosFinal.id}, valor: \${datosFinal.valor}\`;
+    });
+}
+
+// Con async/await — flujo lineal
+async function procesarConAwait(id) {
+  const datos = await obtenerDatos(id);
+  const doble = datos.valor * 2;
+  const datosFinal = await obtenerDatos(doble);
+  return \`ID: \${datosFinal.id}, valor: \${datosFinal.valor}\`;
+}
+
+procesarConAwait(3).then(console.log); // ID: 60, valor: 600`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Datos = { id: number; valor: number };
+
+function obtenerDatos(id: number): Promise<Datos> {
+  return Promise.resolve({ id, valor: id * 10 });
+}
+
+// Con .then() — todo en callbacks
+function procesarConThen(id: number): Promise<string> {
+  return obtenerDatos(id)
+    .then((datos: Datos) => {
+      const doble = datos.valor * 2;
+      return obtenerDatos(doble);
+    })
+    .then((datosFinal: Datos) => {
+      return \`ID: \${datosFinal.id}, valor: \${datosFinal.valor}\`;
+    });
+}
+
+// Con async/await — flujo lineal
+async function procesarConAwait(id: number): Promise<string> {
+  const datos = await obtenerDatos(id);
+  const doble = datos.valor * 2;
+  const datosFinal = await obtenerDatos(doble);
+  return \`ID: \${datosFinal.id}, valor: \${datosFinal.valor}\`;
+}
+
+procesarConAwait(3).then(console.log); // ID: 60, valor: 600`
+    }
+  ]}
+  output={`ID: 60, valor: 600`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte .then()/.catch() a async/await", diff: "easy", minutes: 5 },
+    { num: "02", name: "Función async que obtiene y transforma datos", diff: "med", minutes: 8 },
+    { num: "03", name: "Manejo de errores con try/catch en async", diff: "med", minutes: 8 },
+    { num: "04", name: "Múltiples awaits secuenciales vs paralelos", diff: "med", minutes: 10 },
+    { num: "05", name: "API wrapper con tipos TypeScript", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

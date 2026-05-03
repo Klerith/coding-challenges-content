@@ -1,0 +1,486 @@
+---
+title: "fetch y APIs: conecta tu app con <em>el mundo</em>"
+short: "fetch y APIs"
+chapter: "06"
+num: "07"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "fetch es la API nativa del browser y Node.js para hacer peticiones HTTP. Es la base de cualquier app que consuma datos externos — y combinada con async/await, el código queda limpio y legible."
+pro: false
+---
+
+<Section id="fetch-basico" title="fetch — la API nativa para HTTP">
+
+`fetch` devuelve una Promise que resuelve con un objeto `Response`. Necesitas un segundo `await` para obtener el cuerpo:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// fetch devuelve una Promise<Response>
+// response.json() devuelve otra Promise con el cuerpo parseado
+async function obtenerPost(id) {
+  const respuesta = await fetch(
+    \`https://jsonplaceholder.typicode.com/posts/\${id}\`
+  );
+  const post = await respuesta.json();
+  console.log(post.title);
+}
+
+obtenerPost(1);
+// "sunt aut facere repellat provident..."
+
+// La Response también tiene .text(), .blob(), .arrayBuffer()
+async function obtenerTexto(url) {
+  const respuesta = await fetch(url);
+  const texto = await respuesta.text();
+  return texto;
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Post = {
+  id: number;
+  userId: number;
+  title: string;
+  body: string;
+};
+
+async function obtenerPost(id: number): Promise<Post> {
+  const respuesta: Response = await fetch(
+    \`https://jsonplaceholder.typicode.com/posts/\${id}\`
+  );
+  const post: Post = await respuesta.json();
+  console.log(post.title);
+  return post;
+}
+
+obtenerPost(1);
+// "sunt aut facere repellat provident..."`
+    }
+  ]}
+  output={`sunt aut facere repellat provident...`}
+/>
+
+<Callout variant="info" title="fetch no lanza por errores HTTP">
+`fetch` solo rechaza la Promise si hay un error de red (sin conexión, CORS). Un status 404 o 500 resuelve la Promise con `response.ok === false`. Siempre verifica `response.ok`.
+</Callout>
+
+</Section>
+
+<Section id="get-request" title="GET: obtener datos de una API">
+
+El patrón completo para un GET con manejo de errores:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `async function obtenerUsuarios() {
+  const respuesta = await fetch("https://jsonplaceholder.typicode.com/users");
+
+  if (!respuesta.ok) {
+    throw new Error(\`Error HTTP \${respuesta.status}: \${respuesta.statusText}\`);
+  }
+
+  const usuarios = await respuesta.json();
+
+  // Transformar los datos al formato que necesitamos
+  return usuarios.map(usuario => ({
+    id: usuario.id,
+    nombre: usuario.name,
+    email: usuario.email,
+    ciudad: usuario.address.city,
+  }));
+}
+
+async function mostrarUsuarios() {
+  try {
+    const usuarios = await obtenerUsuarios();
+    usuarios.forEach(u => {
+      console.log(\`\${u.nombre} — \${u.ciudad}\`);
+    });
+  } catch (err) {
+    console.error("Error al cargar usuarios:", err.message);
+  }
+}
+
+mostrarUsuarios();`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type UsuarioApi = {
+  id: number;
+  name: string;
+  email: string;
+  address: { city: string };
+};
+
+type UsuarioResumen = {
+  id: number;
+  nombre: string;
+  email: string;
+  ciudad: string;
+};
+
+async function obtenerUsuarios(): Promise<UsuarioResumen[]> {
+  const respuesta = await fetch("https://jsonplaceholder.typicode.com/users");
+
+  if (!respuesta.ok) {
+    throw new Error(\`Error HTTP \${respuesta.status}: \${respuesta.statusText}\`);
+  }
+
+  const usuarios: UsuarioApi[] = await respuesta.json();
+
+  return usuarios.map(usuario => ({
+    id: usuario.id,
+    nombre: usuario.name,
+    email: usuario.email,
+    ciudad: usuario.address.city,
+  }));
+}
+
+async function mostrarUsuarios(): Promise<void> {
+  try {
+    const usuarios = await obtenerUsuarios();
+    usuarios.forEach(u => {
+      console.log(\`\${u.nombre} — \${u.ciudad}\`);
+    });
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error("Error al cargar usuarios:", err.message);
+    }
+  }
+}
+
+mostrarUsuarios();`
+    }
+  ]}
+  output={`Leanne Graham — Gwenborough\nErvin Howell — Wisokyburgh\n...`}
+/>
+
+</Section>
+
+<Section id="post-request" title="POST: enviar datos a una API">
+
+Para enviar datos, necesitas configurar el método, los headers y el body:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `async function crearPost(titulo, contenido, autorId) {
+  const respuesta = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      // Authorization: \`Bearer \${token}\`  // si la API requiere auth
+    },
+    body: JSON.stringify({
+      title: titulo,
+      body: contenido,
+      userId: autorId,
+    }),
+  });
+
+  if (!respuesta.ok) {
+    const errorBody = await respuesta.text();
+    throw new Error(\`Error \${respuesta.status}: \${errorBody}\`);
+  }
+
+  const postCreado = await respuesta.json();
+  console.log("Post creado con ID:", postCreado.id); // 101
+  return postCreado;
+}
+
+crearPost("Mi primer post", "Contenido del post", 1);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type NuevoPost = {
+  titulo: string;
+  contenido: string;
+  autorId: number;
+};
+
+type PostCreado = NuevoPost & { id: number };
+
+async function crearPost(datos: NuevoPost): Promise<PostCreado> {
+  const respuesta = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: datos.titulo,
+      body: datos.contenido,
+      userId: datos.autorId,
+    }),
+  });
+
+  if (!respuesta.ok) {
+    const errorBody = await respuesta.text();
+    throw new Error(\`Error \${respuesta.status}: \${errorBody}\`);
+  }
+
+  const postCreado: PostCreado = await respuesta.json();
+  console.log("Post creado con ID:", postCreado.id); // 101
+  return postCreado;
+}
+
+crearPost({ titulo: "Mi primer post", contenido: "Contenido", autorId: 1 });`
+    }
+  ]}
+  output={`Post creado con ID: 101`}
+/>
+
+</Section>
+
+<Section id="manejo-errores-http" title="Manejo de errores HTTP">
+
+Los errores HTTP tienen semántica — un 404 no es lo mismo que un 500. Tu código debe distinguirlos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class ErrorHttp extends Error {
+  constructor(status, mensaje) {
+    super(mensaje);
+    this.name = "ErrorHttp";
+    this.status = status;
+  }
+}
+
+async function peticionSegura(url, opciones = {}) {
+  let respuesta;
+
+  try {
+    respuesta = await fetch(url, opciones);
+  } catch (err) {
+    // Error de red: sin conexión, CORS, DNS
+    throw new Error(\`Error de red: \${err.message}\`);
+  }
+
+  if (respuesta.status === 401) {
+    throw new ErrorHttp(401, "No autenticado — inicia sesión");
+  }
+
+  if (respuesta.status === 403) {
+    throw new ErrorHttp(403, "Sin permisos para este recurso");
+  }
+
+  if (respuesta.status === 404) {
+    throw new ErrorHttp(404, "Recurso no encontrado");
+  }
+
+  if (respuesta.status >= 500) {
+    throw new ErrorHttp(respuesta.status, "Error interno del servidor");
+  }
+
+  if (!respuesta.ok) {
+    throw new ErrorHttp(respuesta.status, respuesta.statusText);
+  }
+
+  return respuesta.json();
+}
+
+async function probar() {
+  try {
+    const datos = await peticionSegura("https://api.ejemplo.com/recurso/999");
+    console.log(datos);
+  } catch (err) {
+    if (err instanceof ErrorHttp && err.status === 404) {
+      console.log("El recurso no existe — mostrando estado vacío");
+    } else {
+      console.error("Error inesperado:", err.message);
+    }
+  }
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class ErrorHttp extends Error {
+  constructor(
+    public readonly status: number,
+    mensaje: string
+  ) {
+    super(mensaje);
+    this.name = "ErrorHttp";
+  }
+}
+
+async function peticionSegura<T>(
+  url: string,
+  opciones: RequestInit = {}
+): Promise<T> {
+  let respuesta: Response;
+
+  try {
+    respuesta = await fetch(url, opciones);
+  } catch (err) {
+    const mensaje = err instanceof Error ? err.message : String(err);
+    throw new Error(\`Error de red: \${mensaje}\`);
+  }
+
+  if (respuesta.status === 401) throw new ErrorHttp(401, "No autenticado");
+  if (respuesta.status === 403) throw new ErrorHttp(403, "Sin permisos");
+  if (respuesta.status === 404) throw new ErrorHttp(404, "Recurso no encontrado");
+  if (respuesta.status >= 500) throw new ErrorHttp(respuesta.status, "Error del servidor");
+  if (!respuesta.ok) throw new ErrorHttp(respuesta.status, respuesta.statusText);
+
+  return respuesta.json() as Promise<T>;
+}
+
+async function probar(): Promise<void> {
+  try {
+    const datos = await peticionSegura<{ id: number }>(
+      "https://api.ejemplo.com/recurso/999"
+    );
+    console.log(datos);
+  } catch (err) {
+    if (err instanceof ErrorHttp && err.status === 404) {
+      console.log("El recurso no existe — mostrando estado vacío");
+    } else if (err instanceof Error) {
+      console.error("Error inesperado:", err.message);
+    }
+  }
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="tipado-respuestas" title="Tipado de respuestas en TypeScript">
+
+Las interfaces de API te dan autocompletado y detección de errores en tiempo de compilación:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Tipos que mapean la estructura real de la API
+type PaginaRespuesta<T> = {
+  data: T[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  hayMas: boolean;
+};
+
+type Producto = {
+  id: number;
+  nombre: string;
+  precio: number;
+  stock: number;
+  categoriaId: number;
+};
+
+// Cliente HTTP tipado y reutilizable
+class ClienteApi {
+  constructor(private readonly baseUrl: string) {}
+
+  async get<T>(ruta: string): Promise<T> {
+    const respuesta = await fetch(\`\${this.baseUrl}\${ruta}\`);
+    if (!respuesta.ok) {
+      throw new Error(\`GET \${ruta} falló con \${respuesta.status}\`);
+    }
+    return respuesta.json() as Promise<T>;
+  }
+
+  async post<TBody, TRespuesta>(ruta: string, cuerpo: TBody): Promise<TRespuesta> {
+    const respuesta = await fetch(\`\${this.baseUrl}\${ruta}\`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+    if (!respuesta.ok) {
+      throw new Error(\`POST \${ruta} falló con \${respuesta.status}\`);
+    }
+    return respuesta.json() as Promise<TRespuesta>;
+  }
+}
+
+const api = new ClienteApi("https://api.tienda.com");
+
+async function cargarProductos(pagina: number): Promise<void> {
+  // TypeScript infiere el tipo correcto gracias al genérico
+  const resultado = await api.get<PaginaRespuesta<Producto>>(
+    \`/productos?pagina=\${pagina}\`
+  );
+  // resultado.data es Producto[] — autocompletado completo
+  resultado.data.forEach(p => {
+    console.log(\`\${p.nombre}: $\${p.precio}\`);
+  });
+}`
+    },
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sin tipos — la misma lógica sin anotaciones
+class ClienteApi {
+  constructor(baseUrl) {
+    this.baseUrl = baseUrl;
+  }
+
+  async get(ruta) {
+    const respuesta = await fetch(\`\${this.baseUrl}\${ruta}\`);
+    if (!respuesta.ok) {
+      throw new Error(\`GET \${ruta} falló con \${respuesta.status}\`);
+    }
+    return respuesta.json();
+  }
+
+  async post(ruta, cuerpo) {
+    const respuesta = await fetch(\`\${this.baseUrl}\${ruta}\`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+    if (!respuesta.ok) {
+      throw new Error(\`POST \${ruta} falló con \${respuesta.status}\`);
+    }
+    return respuesta.json();
+  }
+}
+
+const api = new ClienteApi("https://api.tienda.com");
+
+async function cargarProductos(pagina) {
+  const resultado = await api.get(\`/productos?pagina=\${pagina}\`);
+  resultado.data.forEach(p => {
+    console.log(\`\${p.nombre}: $\${p.precio}\`);
+  });
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Obtén datos de una API pública con fetch", diff: "easy", minutes: 5 },
+    { num: "02", name: "Envía un POST con JSON y maneja la respuesta", diff: "med", minutes: 8 },
+    { num: "03", name: "Maneja errores HTTP (404, 500) correctamente", diff: "med", minutes: 8 },
+    { num: "04", name: "Crea un cliente HTTP genérico tipado", diff: "hard", minutes: 15 },
+    { num: "05", name: "Implementa caché simple de requests", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,384 @@
+---
+title: "Destructuring avanzado: extrae, renombra y anida"
+short: "Destructuring avanzado"
+chapter: "08"
+num: "03"
+chapterTitle: "Arrays y objetos avanzados"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El destructuring te permite extraer múltiples valores de un objeto o array en una sola línea. Dominarlo — con renombrado, defaults y anidamiento — elimina mucho código repetitivo."
+pro: false
+---
+
+<Section id="objetos-basico" title="Destructuring de objetos — básico y con renombrado">
+
+La sintaxis `{ propiedad }` extrae el valor de un objeto a una variable del mismo nombre. Si quieres una variable con nombre diferente, usa `{ propiedad: nuevoNombre }`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Destructuring de objetos",
+      code: `const usuario = {
+  id: 42,
+  nombre: "Ana García",
+  email: "ana@ejemplo.com",
+  ciudad: "Madrid",
+};
+
+// Extracción básica — variable = nombre de la propiedad
+const { nombre, email } = usuario;
+console.log(nombre); // "Ana García"
+console.log(email);  // "ana@ejemplo.com"
+
+// Renombrado — propiedad : nuevaVariable
+const { nombre: nombreCompleto, ciudad: ubicacion } = usuario;
+console.log(nombreCompleto); // "Ana García"
+console.log(ubicacion);      // "Madrid"
+
+// Útil cuando el nombre de la propiedad colisiona con algo existente
+const nombre = "variable existente";
+const { nombre: nombreUsuario } = usuario; // sin conflicto
+console.log(nombreUsuario); // "Ana García"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+  ciudad: string;
+}
+
+const usuario: Usuario = {
+  id: 42,
+  nombre: "Ana García",
+  email: "ana@ejemplo.com",
+  ciudad: "Madrid",
+};
+
+// TypeScript infiere los tipos de las variables
+const { nombre, email } = usuario;
+// nombre: string, email: string
+
+// Con renombrado — el tipo se mantiene
+const { nombre: nombreCompleto, ciudad: ubicacion } = usuario;
+// nombreCompleto: string, ubicacion: string
+
+// También funciona en la firma de funciones
+function mostrarUsuario({ nombre, ciudad }: Usuario): string {
+  return \`\${nombre} vive en \${ciudad}\`;
+}
+
+console.log(mostrarUsuario(usuario)); // "Ana García vive en Madrid"`
+    }
+  ]}
+  output={`Ana García\nana@ejemplo.com\nAna García\nMadrid`}
+/>
+
+</Section>
+
+<Section id="defaults" title="Destructuring con valores por defecto">
+
+Si la propiedad no existe o es `undefined`, puedes asignar un valor por defecto con `= valor`. Nota: el default solo se aplica para `undefined`, no para `null` o `false`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Valores por defecto",
+      code: `const config = {
+  host: "localhost",
+  puerto: 3000,
+  // 'modo' no existe en este objeto
+};
+
+// 'modo' no existe → usa el valor por defecto
+const { host, puerto, modo = "desarrollo" } = config;
+console.log(host);   // "localhost"
+console.log(puerto); // 3000
+console.log(modo);   // "desarrollo"
+
+// Default con renombrado: propiedad : nuevoNombre = default
+const opciones = { timeout: undefined, reintentos: null };
+
+const {
+  timeout: tiempoLimite = 5000,
+  reintentos = 3,           // null NO activa el default
+} = opciones;
+
+console.log(tiempoLimite); // 5000 — undefined activa el default
+console.log(reintentos);   // null — null NO activa el default`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface OpcionesConexion {
+  host?: string;
+  puerto?: number;
+  ssl?: boolean;
+  timeout?: number;
+}
+
+function conectar(opciones: OpcionesConexion = {}): string {
+  const {
+    host = "localhost",
+    puerto = 5432,
+    ssl = false,
+    timeout = 10000,
+  } = opciones;
+
+  return \`\${ssl ? "ssl" : "tcp"}://\${host}:\${puerto} (timeout: \${timeout}ms)\`;
+}
+
+console.log(conectar({}));
+// "tcp://localhost:5432 (timeout: 10000ms)"
+
+console.log(conectar({ host: "bd.ejemplo.com", ssl: true }));
+// "ssl://bd.ejemplo.com:5432 (timeout: 10000ms)"`
+    }
+  ]}
+  output={`localhost\n3000\ndesarrollo\n5000\nnull`}
+/>
+
+</Section>
+
+<Section id="arrays" title="Destructuring de arrays — posición, ignorar elementos, rest">
+
+Con arrays el destructuring se basa en la **posición**, no en el nombre. Puedes saltar elementos con comas vacías y capturar el resto con `...resto`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Destructuring de arrays",
+      code: `const coordenadas = [40.4168, -3.7038, 650]; // lat, lng, altitud
+
+// Extrae por posición
+const [latitud, longitud] = coordenadas;
+console.log(latitud);  // 40.4168
+console.log(longitud); // -3.7038
+
+// Ignora elementos con coma vacía
+const [, , altitud] = coordenadas;
+console.log(altitud); // 650
+
+// Rest — captura los restantes en un array
+const numeros = [1, 2, 3, 4, 5];
+const [primero, segundo, ...resto] = numeros;
+console.log(primero); // 1
+console.log(segundo); // 2
+console.log(resto);   // [3, 4, 5]
+
+// Intercambio de variables sin variable temporal
+let a = 10, b = 20;
+[a, b] = [b, a];
+console.log(a, b); // 20 10`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript infiere los tipos en tuplas
+const punto: [number, number, number] = [40.4168, -3.7038, 650];
+
+const [latitud, longitud, altitud] = punto;
+// latitud: number, longitud: number, altitud: number
+
+// Tupla con tipos heterogéneos
+type Entrada = [string, number, boolean];
+const entrada: Entrada = ["Ana", 25, true];
+const [nombreEntrada, edadEntrada, activoEntrada] = entrada;
+// nombreEntrada: string, edadEntrada: number, activoEntrada: boolean
+
+console.log(\`\${nombreEntrada}, \${edadEntrada} años, activo: \${activoEntrada}\`);
+// "Ana, 25 años, activo: true"
+
+// Rest en arrays tipados
+const [cabeza, ...cola]: number[] = [10, 20, 30, 40];
+console.log(cabeza); // 10
+console.log(cola);   // [20, 30, 40]`
+    }
+  ]}
+  output={`40.4168\n-3.7038\n650\n1\n2\n[3, 4, 5]\n20 10`}
+/>
+
+</Section>
+
+<Section id="anidado" title="Destructuring anidado — objetos dentro de objetos">
+
+Puedes desestructurar en profundidad directamente en la misma expresión. Con más de dos niveles el código puede volverse difícil de leer — en ese caso es mejor extraer en pasos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Destructuring anidado",
+      code: `const pedido = {
+  id: "PED-001",
+  cliente: {
+    nombre: "Carlos López",
+    contacto: {
+      email: "carlos@ejemplo.com",
+      telefono: "555-0100",
+    },
+  },
+  items: [
+    { producto: "Teclado", cantidad: 1 },
+    { producto: "Mouse", cantidad: 2 },
+  ],
+};
+
+// Anidado — llega hasta el email directamente
+const {
+  id,
+  cliente: {
+    nombre: nombreCliente,
+    contacto: { email: emailCliente },
+  },
+  items: [primerItem],
+} = pedido;
+
+console.log(id);           // "PED-001"
+console.log(nombreCliente); // "Carlos López"
+console.log(emailCliente); // "carlos@ejemplo.com"
+console.log(primerItem);   // { producto: "Teclado", cantidad: 1 }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Pedido {
+  id: string;
+  cliente: {
+    nombre: string;
+    contacto: {
+      email: string;
+      telefono: string;
+    };
+  };
+  items: Array<{ producto: string; cantidad: number }>;
+}
+
+const pedido: Pedido = {
+  id: "PED-001",
+  cliente: {
+    nombre: "Carlos López",
+    contacto: { email: "carlos@ejemplo.com", telefono: "555-0100" },
+  },
+  items: [{ producto: "Teclado", cantidad: 1 }],
+};
+
+// TypeScript valida la estructura al hacer destructuring anidado
+const {
+  cliente: { nombre, contacto: { email } },
+  items: [{ producto }],
+} = pedido;
+
+console.log(nombre);   // "Carlos López"
+console.log(email);    // "carlos@ejemplo.com"
+console.log(producto); // "Teclado"`
+    }
+  ]}
+  output={`PED-001\nCarlos López\ncarlos@ejemplo.com\n{ producto: "Teclado", cantidad: 1 }`}
+/>
+
+<Callout variant="tip" title="Destructuring anidado con profundidad">
+Más de dos niveles de anidamiento dificultan la lectura. Considera desestructurar en pasos o usar variables intermedias para mantener el código comprensible.
+</Callout>
+
+</Section>
+
+<Section id="parametros" title="Destructuring en parámetros de función">
+
+El caso de uso más común en el día a día: recibir un objeto como parámetro y extraer directamente las propiedades que necesitas, sin acceder con puntos dentro del cuerpo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Destructuring en parámetros",
+      code: `// Sin destructuring — más verboso
+function crearSaludo(usuario) {
+  return \`Hola, \${usuario.nombre}. Tienes \${usuario.puntos} puntos.\`;
+}
+
+// Con destructuring en el parámetro — más limpio
+function crearSaludoV2({ nombre, puntos, ciudad = "ubicación desconocida" }) {
+  return \`Hola, \${nombre} de \${ciudad}. Tienes \${puntos} puntos.\`;
+}
+
+const usuario = { nombre: "Ana", puntos: 1500, ciudad: "Madrid" };
+const usuarioSinCiudad = { nombre: "Carlos", puntos: 800 };
+
+console.log(crearSaludoV2(usuario));
+// "Hola, Ana de Madrid. Tienes 1500 puntos."
+
+console.log(crearSaludoV2(usuarioSinCiudad));
+// "Hola, Carlos de ubicación desconocida. Tienes 800 puntos."
+
+// En callbacks de array methods
+const usuarios = [
+  { nombre: "Ana", activo: true },
+  { nombre: "Carlos", activo: false },
+];
+
+const nombresActivos = usuarios
+  .filter(({ activo }) => activo)
+  .map(({ nombre }) => nombre);
+
+console.log(nombresActivos); // ["Ana"]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface OpcionesTarjeta {
+  titulo: string;
+  descripcion: string;
+  precio: number;
+  destacado?: boolean;
+  etiqueta?: string;
+}
+
+// TypeScript valida que el objeto pasado tenga las propiedades requeridas
+function renderizarTarjeta({
+  titulo,
+  descripcion,
+  precio,
+  destacado = false,
+  etiqueta = "Estándar",
+}: OpcionesTarjeta): string {
+  const prefijo = destacado ? "⭐ " : "";
+  return \`[\${etiqueta}] \${prefijo}\${titulo} — \${descripcion} ($\${precio})\`;
+}
+
+console.log(
+  renderizarTarjeta({
+    titulo: "Plan Pro",
+    descripcion: "Acceso ilimitado",
+    precio: 29,
+    destacado: true,
+  })
+);
+// "[Estándar] ⭐ Plan Pro — Acceso ilimitado ($29)"`
+    }
+  ]}
+  output={`Hola, Ana de Madrid. Tienes 1500 puntos.\nHola, Carlos de ubicación desconocida. Tienes 800 puntos.\n["Ana"]`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Extrae 3 propiedades de un objeto con destructuring", diff: "easy", minutes: 3 },
+    { num: "02", name: "Renombra propiedades al desestructurar", diff: "easy", minutes: 5 },
+    { num: "03", name: "Desestructura con defaults para campos opcionales", diff: "med", minutes: 8 },
+    { num: "04", name: "Desestructura objetos anidados", diff: "med", minutes: 8 },
+    { num: "05", name: "Función que acepta objeto y destructura en parámetros", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

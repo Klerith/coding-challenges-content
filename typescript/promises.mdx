@@ -1,0 +1,366 @@
+---
+title: "Promises: manejo de asincronía <em>sin anidación</em>"
+short: "Promises"
+chapter: "06"
+num: "02"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Una Promise representa un valor que aún no existe pero existirá en el futuro — o fallará. Resuelven el callback hell con una API encadenable, legible y componible."
+pro: false
+---
+
+<Section id="tres-estados" title="Los tres estados de una Promise">
+
+Una Promise siempre está en uno de tres estados — y solo puede transicionar hacia adelante:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// pending → fulfilled
+const promesaExitosa = new Promise((resolve) => {
+  setTimeout(() => resolve("datos cargados"), 500);
+});
+
+// pending → rejected
+const promesaFallida = new Promise((_, reject) => {
+  setTimeout(() => reject(new Error("Timeout de red")), 500);
+});
+
+// Ya resuelta (settled inmediatamente)
+const yaResuelta = Promise.resolve(42);
+const yaRechazada = Promise.reject(new Error("Fallo inmediato"));
+
+// Inspección visual del estado
+console.log(promesaExitosa); // Promise { <pending> }
+
+promesaExitosa.then(valor => {
+  console.log(valor); // "datos cargados"
+});`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// pending → fulfilled
+const promesaExitosa: Promise<string> = new Promise((resolve) => {
+  setTimeout(() => resolve("datos cargados"), 500);
+});
+
+// pending → rejected
+const promesaFallida: Promise<never> = new Promise((_, reject) => {
+  setTimeout(() => reject(new Error("Timeout de red")), 500);
+});
+
+// Ya resuelta (settled inmediatamente)
+const yaResuelta: Promise<number> = Promise.resolve(42);
+const yaRechazada: Promise<never> = Promise.reject(new Error("Fallo inmediato"));
+
+// Inspección visual del estado
+console.log(promesaExitosa); // Promise { <pending> }
+
+promesaExitosa.then((valor: string) => {
+  console.log(valor); // "datos cargados"
+});`
+    }
+  ]}
+  output={`Promise { <pending> }\ndatos cargados`}
+/>
+
+<Callout variant="info" title="Una Promise solo puede resolver una vez">
+Una vez que una Promise pasa a `fulfilled` o `rejected`, su estado es permanente. Llamar a `resolve` o `reject` más de una vez no tiene efecto.
+</Callout>
+
+</Section>
+
+<Section id="crear-promises" title="Crear Promises con new Promise()">
+
+El constructor recibe una función ejecutora con dos argumentos: `resolve` y `reject`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Patrón: envolver APIs de callback en una Promise
+function esperar(ms) {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(), ms);
+  });
+}
+
+function obtenerTemperatura(ciudad) {
+  return new Promise((resolve, reject) => {
+    if (!ciudad) {
+      reject(new Error("Se requiere una ciudad"));
+      return;
+    }
+
+    // Simulación de llamada a API
+    setTimeout(() => {
+      const temperaturas = { Madrid: 24, Lima: 18, Buenos_Aires: 22 };
+      const temp = temperaturas[ciudad];
+
+      if (temp === undefined) {
+        reject(new Error(\`Ciudad no encontrada: \${ciudad}\`));
+      } else {
+        resolve({ ciudad, temperatura: temp, unidad: "°C" });
+      }
+    }, 300);
+  });
+}
+
+obtenerTemperatura("Madrid")
+  .then(datos => console.log(\`\${datos.ciudad}: \${datos.temperatura}\${datos.unidad}\`));
+// Madrid: 24°C`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type DatosClima = { ciudad: string; temperatura: number; unidad: string };
+
+function esperar(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(), ms);
+  });
+}
+
+function obtenerTemperatura(ciudad: string): Promise<DatosClima> {
+  return new Promise((resolve, reject) => {
+    if (!ciudad) {
+      reject(new Error("Se requiere una ciudad"));
+      return;
+    }
+
+    setTimeout(() => {
+      const temperaturas: Record<string, number> = {
+        Madrid: 24,
+        Lima: 18,
+        Buenos_Aires: 22,
+      };
+      const temp = temperaturas[ciudad];
+
+      if (temp === undefined) {
+        reject(new Error(\`Ciudad no encontrada: \${ciudad}\`));
+      } else {
+        resolve({ ciudad, temperatura: temp, unidad: "°C" });
+      }
+    }, 300);
+  });
+}
+
+obtenerTemperatura("Madrid")
+  .then((datos: DatosClima) => {
+    console.log(\`\${datos.ciudad}: \${datos.temperatura}\${datos.unidad}\`);
+  });
+// Madrid: 24°C`
+    }
+  ]}
+  output={`Madrid: 24°C`}
+/>
+
+</Section>
+
+<Section id="then-catch-finally" title="Consumir con .then(), .catch(), .finally()">
+
+Cada método retorna una nueva Promise, lo que permite encadenar operaciones:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function cargarDatos(url) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (url.includes("error")) {
+        reject(new Error("Servidor no disponible"));
+      } else {
+        resolve({ usuarios: ["Ana", "Pedro", "María"] });
+      }
+    }, 200);
+  });
+}
+
+// .then() — se ejecuta si la promise resuelve
+// .catch() — captura cualquier error en la cadena
+// .finally() — siempre se ejecuta, con o sin error
+cargarDatos("https://api.ejemplo.com/usuarios")
+  .then(datos => {
+    console.log("Usuarios:", datos.usuarios);
+    return datos.usuarios.length;
+  })
+  .then(total => {
+    console.log("Total:", total);
+  })
+  .catch(err => {
+    console.error("Error:", err.message);
+  })
+  .finally(() => {
+    console.log("Petición finalizada");
+  });`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type RespuestaUsuarios = { usuarios: string[] };
+
+function cargarDatos(url: string): Promise<RespuestaUsuarios> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (url.includes("error")) {
+        reject(new Error("Servidor no disponible"));
+      } else {
+        resolve({ usuarios: ["Ana", "Pedro", "María"] });
+      }
+    }, 200);
+  });
+}
+
+cargarDatos("https://api.ejemplo.com/usuarios")
+  .then((datos: RespuestaUsuarios) => {
+    console.log("Usuarios:", datos.usuarios);
+    return datos.usuarios.length;
+  })
+  .then((total: number) => {
+    console.log("Total:", total);
+  })
+  .catch((err: Error) => {
+    console.error("Error:", err.message);
+  })
+  .finally(() => {
+    console.log("Petición finalizada");
+  });`
+    }
+  ]}
+  output={`Usuarios: ["Ana", "Pedro", "María"]\nTotal: 3\nPetición finalizada`}
+/>
+
+</Section>
+
+<Section id="encadenamiento" title="Encadenamiento de promesas">
+
+Cada `.then()` retorna una nueva Promise con el valor que retornes. Esto permite transformar datos en pasos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function obtenerIdUsuario(nombre) {
+  return Promise.resolve({ nombre, id: 42 });
+}
+
+function obtenerPerfilPorId(id) {
+  return Promise.resolve({ id, nivel: "avanzado", puntos: 1500 });
+}
+
+function calcularRango(perfil) {
+  return Promise.resolve({
+    ...perfil,
+    rango: perfil.puntos >= 1000 ? "Oro" : "Plata",
+  });
+}
+
+// Encadenamiento limpio — sin pirámide
+obtenerIdUsuario("Ana")
+  .then(usuario => obtenerPerfilPorId(usuario.id))
+  .then(perfil => calcularRango(perfil))
+  .then(resultado => {
+    console.log(\`\${resultado.id}: \${resultado.rango} (\${resultado.puntos} pts)\`);
+  })
+  .catch(err => console.error(err.message));
+// 42: Oro (1500 pts)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type UsuarioBasico = { nombre: string; id: number };
+type Perfil = { id: number; nivel: string; puntos: number };
+type PerfilConRango = Perfil & { rango: string };
+
+function obtenerIdUsuario(nombre: string): Promise<UsuarioBasico> {
+  return Promise.resolve({ nombre, id: 42 });
+}
+
+function obtenerPerfilPorId(id: number): Promise<Perfil> {
+  return Promise.resolve({ id, nivel: "avanzado", puntos: 1500 });
+}
+
+function calcularRango(perfil: Perfil): Promise<PerfilConRango> {
+  return Promise.resolve({
+    ...perfil,
+    rango: perfil.puntos >= 1000 ? "Oro" : "Plata",
+  });
+}
+
+obtenerIdUsuario("Ana")
+  .then((usuario) => obtenerPerfilPorId(usuario.id))
+  .then((perfil) => calcularRango(perfil))
+  .then((resultado) => {
+    console.log(\`\${resultado.id}: \${resultado.rango} (\${resultado.puntos} pts)\`);
+  })
+  .catch((err: Error) => console.error(err.message));
+// 42: Oro (1500 pts)`
+    }
+  ]}
+  output={`42: Oro (1500 pts)`}
+/>
+
+<Callout variant="tip" title="Siempre retorna desde .then()">
+Si olvidas el `return` dentro de un `.then()`, el siguiente en la cadena recibe `undefined`. Retornar una Promise aplana automáticamente la cadena.
+</Callout>
+
+</Section>
+
+<Section id="callbacks-vs-promises" title="Callbacks vs Promises">
+
+<CompareTable
+  headers={["Aspecto", "Callbacks", "Promises"]}
+  rows={[
+    [
+      "Legibilidad",
+      { kind: "bad", value: "Se anidan — pirámide de doom" },
+      { kind: "good", value: "Se encadenan linealmente" }
+    ],
+    [
+      "Manejo de errores",
+      { kind: "bad", value: "Manual en cada callback (err, data)" },
+      { kind: "good", value: "Un solo .catch() para toda la cadena" }
+    ],
+    [
+      "Composición",
+      { kind: "bad", value: "Difícil combinar múltiples operaciones" },
+      { kind: "good", value: "Promise.all, .race, .allSettled" }
+    ],
+    [
+      "Depuración",
+      { kind: "bad", value: "Stack traces confusos" },
+      { kind: "good", value: "Errores propagados con contexto" }
+    ],
+    [
+      "APIs nativas",
+      { kind: "good", value: "Event listeners, streams (Node)" },
+      { kind: "good", value: "fetch, Web APIs modernas" }
+    ],
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Envuelve setTimeout en una Promise", diff: "easy", minutes: 5 },
+    { num: "02", name: "Encadena 3 promesas de transformación de datos", diff: "med", minutes: 8 },
+    { num: "03", name: "Maneja errores con catch en una cadena", diff: "easy", minutes: 5 },
+    { num: "04", name: "Crea una función retry con Promise", diff: "hard", minutes: 15 },
+    { num: "05", name: "Implementa un delay() reutilizable con Promise", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

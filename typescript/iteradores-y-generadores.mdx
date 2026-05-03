@@ -1,0 +1,494 @@
+---
+title: "Iteradores y generadores: secuencias <em>bajo demanda</em>"
+short: "Iteradores y generadores"
+chapter: "11"
+num: "03"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "advanced"
+readingMinutes: 11
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El protocolo iterador define cómo JavaScript recorre cualquier colección. Las funciones generadoras (function*) producen iteradores de forma declarativa y habilitan secuencias potencialmente infinitas, lazy evaluation, y pipelines de transformación eficientes."
+pro: true
+---
+
+<Section id="protocolo-iterador" title="El protocolo iterador — value, done y Symbol.iterator">
+
+Un **iterador** es cualquier objeto con un método `next()` que devuelve `{ value, done }`. Un **iterable** es cualquier objeto con `[Symbol.iterator]()` que devuelve un iterador. `for...of` y el spread operator usan este protocolo internamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Implementar un iterador manualmente (para entender el protocolo)
+function crearContador(inicio, fin) {
+  let actual = inicio;
+
+  return {
+    // El iterador tiene next()
+    next() {
+      if (actual <= fin) {
+        return { value: actual++, done: false };
+      }
+      return { value: undefined, done: true };
+    },
+    // Para que sea iterable también (funcione con for...of)
+    [Symbol.iterator]() {
+      return this;
+    },
+  };
+}
+
+const contador = crearContador(1, 3);
+console.log(contador.next()); // { value: 1, done: false }
+console.log(contador.next()); // { value: 2, done: false }
+console.log(contador.next()); // { value: 3, done: false }
+console.log(contador.next()); // { value: undefined, done: true }
+
+// Como también es iterable, funciona con for...of
+for (const n of crearContador(1, 5)) {
+  process.stdout.write(\`\${n} \`);
+}
+// 1 2 3 4 5
+
+// Y con spread
+console.log([...crearContador(1, 5)]); // [1, 2, 3, 4, 5]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// El protocolo tipado en TypeScript
+interface Iterador<T> {
+  next(): { value: T; done: false } | { value: undefined; done: true };
+}
+
+interface Iterable<T> {
+  [Symbol.iterator](): Iterador<T>;
+}
+
+// Implementación tipada
+function crearContador(inicio: number, fin: number): IterableIterator<number> {
+  let actual = inicio;
+
+  return {
+    next(): IteratorResult<number> {
+      if (actual <= fin) {
+        return { value: actual++, done: false };
+      }
+      return { value: undefined as unknown as number, done: true };
+    },
+    [Symbol.iterator]() {
+      return this;
+    },
+  };
+}
+
+const contador = crearContador(1, 3);
+console.log(contador.next()); // { value: 1, done: false }
+
+for (const n of crearContador(1, 5)) {
+  process.stdout.write(\`\${n} \`);
+}
+// 1 2 3 4 5`
+    }
+  ]}
+  output={`{ value: 1, done: false }\n{ value: 2, done: false }\n{ value: 3, done: false }\n{ value: undefined, done: true }\n1 2 3 4 5\n[1, 2, 3, 4, 5]`}
+/>
+
+</Section>
+
+<Section id="iterables-nativos" title="Objetos iterables — arrays, strings, Map y Set ya lo implementan">
+
+Todos los tipos de colección nativos implementan el protocolo iterador. Puedes usarlos directamente con `for...of`, spread, y destructuring.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// String — itera por caracteres Unicode (no bytes)
+const emoji = "hola 🎉";
+for (const char of emoji) {
+  process.stdout.write(char + " ");
+}
+// h o l a   🎉  (emoji como unidad, no dividido en surrogates)
+
+// Map — itera en orden de inserción como [clave, valor]
+const mapa = new Map([["a", 1], ["b", 2], ["c", 3]]);
+const [[primeraClave, primerValor]] = mapa;
+console.log(primeraClave, primerValor); // a 1
+
+// Set — itera en orden de inserción
+const conjunto = new Set([10, 20, 30]);
+const [primero, , tercero] = conjunto; // destructuring
+console.log(primero, tercero); // 10 30
+
+// Puedes obtener el iterador manualmente con [Symbol.iterator]()
+const iter = [1, 2, 3][Symbol.iterator]();
+console.log(iter.next()); // { value: 1, done: false }
+console.log(iter.next()); // { value: 2, done: false }
+
+// Arguments también es iterable
+function sumarTodos(...args) {
+  return [...args].reduce((acc, n) => acc + n, 0);
+}
+console.log(sumarTodos(1, 2, 3, 4)); // 10`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript conoce los tipos de los iterables nativos
+
+// Entries de objeto — NO es iterable directamente (usa Object.entries)
+const config = { host: "localhost", puerto: 3000 };
+for (const [clave, valor] of Object.entries(config)) {
+  // clave: string, valor: string | number — inferido
+  console.log(\`\${clave} = \${valor}\`);
+}
+
+// Map tipado — desestructuración con tipos
+const conteos = new Map<string, number>([["a", 1], ["b", 2]]);
+for (const [letra, count] of conteos) {
+  // letra: string, count: number — inferido
+  console.log(\`\${letra}: \${count}\`);
+}
+
+// Función que acepta cualquier iterable
+function primerosDe<T>(iterable: Iterable<T>, n: number): T[] {
+  const resultado: T[] = [];
+  for (const valor of iterable) {
+    resultado.push(valor);
+    if (resultado.length === n) break;
+  }
+  return resultado;
+}
+
+const set = new Set([10, 20, 30, 40, 50]);
+console.log(primerosDe(set, 3)); // [10, 20, 30]`
+    }
+  ]}
+  output={`h o l a   🎉\na 1\n10 30\n{ value: 1, done: false }\n[10, 20, 30]`}
+/>
+
+</Section>
+
+<Section id="iteradores-custom" title="Iteradores custom — implementar Symbol.iterator en una clase">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Clase Range iterable — equivalente al range() de Python
+class Range {
+  constructor(inicio, fin, paso = 1) {
+    this.inicio = inicio;
+    this.fin = fin;
+    this.paso = paso;
+  }
+
+  [Symbol.iterator]() {
+    let actual = this.inicio;
+    const { fin, paso } = this;
+
+    return {
+      next() {
+        if (actual < fin) {
+          const value = actual;
+          actual += paso;
+          return { value, done: false };
+        }
+        return { value: undefined, done: true };
+      },
+    };
+  }
+}
+
+// Uso natural con for...of
+for (const n of new Range(0, 10, 2)) {
+  process.stdout.write(\`\${n} \`);
+}
+// 0 2 4 6 8
+
+// Funciona con spread, destructuring, Array.from
+console.log([...new Range(1, 6)]);        // [1, 2, 3, 4, 5]
+console.log(Array.from(new Range(0, 4))); // [0, 1, 2, 3]
+const [a, b, c] = new Range(10, 20, 3);
+console.log(a, b, c); // 10 13 16`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Range implements Iterable<number> {
+  constructor(
+    private readonly inicio: number,
+    private readonly fin: number,
+    private readonly paso: number = 1,
+  ) {}
+
+  [Symbol.iterator](): Iterator<number> {
+    let actual = this.inicio;
+    const { fin, paso } = this;
+
+    return {
+      next(): IteratorResult<number> {
+        if (actual < fin) {
+          const value = actual;
+          actual += paso;
+          return { value, done: false };
+        }
+        return { value: undefined as unknown as number, done: true };
+      },
+    };
+  }
+}
+
+for (const n of new Range(0, 10, 2)) {
+  process.stdout.write(\`\${n} \`);
+}
+// 0 2 4 6 8
+
+const valores = [...new Range(1, 6)];
+console.log(valores); // [1, 2, 3, 4, 5]`
+    }
+  ]}
+  output={`0 2 4 6 8\n[1, 2, 3, 4, 5]\n[0, 1, 2, 3]\n10 13 16`}
+/>
+
+</Section>
+
+<Section id="generadores" title="Funciones generadoras — function* y yield">
+
+Los generadores son la forma declarativa de crear iteradores. `function*` define un generador; `yield` produce valores de uno en uno, pausando la ejecución hasta que se llame `next()` de nuevo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Función generadora — mismo resultado que crearContador pero más simple
+function* contarHasta(n) {
+  for (let i = 1; i <= n; i++) {
+    yield i; // Pausa aquí, devuelve { value: i, done: false }
+             // Reanuda desde aquí en la siguiente llamada a next()
+  }
+  // Al salir del loop: { value: undefined, done: true }
+}
+
+// Los generadores son iterables directamente
+for (const n of contarHasta(5)) {
+  process.stdout.write(\`\${n} \`);
+}
+// 1 2 3 4 5
+
+console.log([...contarHasta(3)]); // [1, 2, 3]
+
+// Secuencia infinita — sin límite (lazy: solo calcula lo que pides)
+function* fibonacciInfinito() {
+  let [a, b] = [0, 1];
+  while (true) {
+    yield a;
+    [a, b] = [b, a + b];
+  }
+}
+
+// Tomar los primeros 8 de una secuencia infinita
+function* tomar(iterable, n) {
+  let i = 0;
+  for (const valor of iterable) {
+    if (i++ >= n) break;
+    yield valor;
+  }
+}
+
+console.log([...tomar(fibonacciInfinito(), 8)]);
+// [0, 1, 1, 2, 3, 5, 8, 13]
+
+// yield* — delegar a otro generador o iterable
+function* concatenar(...iterables) {
+  for (const iterable of iterables) {
+    yield* iterable; // Equivalente a: for (const x of iterable) yield x;
+  }
+}
+
+console.log([...concatenar([1, 2], [3, 4], [5])]); // [1, 2, 3, 4, 5]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript infiere el tipo de retorno: Generator<number, void, undefined>
+function* contarHasta(n: number): Generator<number> {
+  for (let i = 1; i <= n; i++) {
+    yield i;
+  }
+}
+
+// Secuencia infinita tipada
+function* fibonacciInfinito(): Generator<number> {
+  let [a, b] = [0, 1];
+  while (true) {
+    yield a;
+    [a, b] = [b, a + b];
+  }
+}
+
+// Generador genérico — tomar N elementos de cualquier iterable
+function* tomar<T>(iterable: Iterable<T>, n: number): Generator<T> {
+  let i = 0;
+  for (const valor of iterable) {
+    if (i++ >= n) break;
+    yield valor;
+  }
+}
+
+const primerFib: number[] = [...tomar(fibonacciInfinito(), 8)];
+console.log(primerFib); // [0, 1, 1, 2, 3, 5, 8, 13]
+
+// yield* con tipo inferido
+function* concatenar<T>(...iterables: Iterable<T>[]): Generator<T> {
+  for (const iterable of iterables) {
+    yield* iterable;
+  }
+}
+
+const resultado = [...concatenar([1, 2], [3, 4], [5])];
+console.log(resultado); // [1, 2, 3, 4, 5]`
+    }
+  ]}
+  output={`1 2 3 4 5\n[1, 2, 3]\n[0, 1, 1, 2, 3, 5, 8, 13]\n[1, 2, 3, 4, 5]`}
+/>
+
+</Section>
+
+<Section id="casos-de-uso" title="Casos de uso — secuencias infinitas, lazy evaluation, pipelines">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Pipeline de transformación",
+      code: `// Pipeline lazy con generadores — solo procesa lo necesario
+function* filtrar(iterable, predicado) {
+  for (const valor of iterable) {
+    if (predicado(valor)) yield valor;
+  }
+}
+
+function* mapear(iterable, transformar) {
+  for (const valor of iterable) {
+    yield transformar(valor);
+  }
+}
+
+function* tomar(iterable, n) {
+  let i = 0;
+  for (const valor of iterable) {
+    if (i++ >= n) break;
+    yield valor;
+  }
+}
+
+// Números pares al cuadrado — de una secuencia potencialmente infinita
+function* numerosNaturales() {
+  let n = 1;
+  while (true) yield n++;
+}
+
+const pipeline = tomar(
+  mapear(
+    filtrar(numerosNaturales(), n => n % 2 === 0),
+    n => n * n
+  ),
+  5
+);
+
+console.log([...pipeline]); // [4, 16, 36, 64, 100]
+// Solo calculó los primeros 10 números naturales — lazy evaluation ✅
+
+// Generador de IDs únicos
+function* generadorId(prefijo = "id") {
+  let n = 1;
+  while (true) {
+    yield \`\${prefijo}-\${String(n++).padStart(4, "0")}\`;
+  }
+}
+
+const ids = generadorId("USR");
+console.log(ids.next().value); // "USR-0001"
+console.log(ids.next().value); // "USR-0002"
+console.log(ids.next().value); // "USR-0003"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function* filtrar<T>(
+  iterable: Iterable<T>,
+  predicado: (valor: T) => boolean
+): Generator<T> {
+  for (const valor of iterable) {
+    if (predicado(valor)) yield valor;
+  }
+}
+
+function* mapear<T, U>(
+  iterable: Iterable<T>,
+  transformar: (valor: T) => U
+): Generator<U> {
+  for (const valor of iterable) {
+    yield transformar(valor);
+  }
+}
+
+function* tomar<T>(iterable: Iterable<T>, n: number): Generator<T> {
+  let i = 0;
+  for (const valor of iterable) {
+    if (i++ >= n) break;
+    yield valor;
+  }
+}
+
+function* naturales(): Generator<number> {
+  let n = 1;
+  while (true) yield n++;
+}
+
+const pipeline = tomar(
+  mapear(
+    filtrar(naturales(), n => n % 2 === 0),
+    n => n * n
+  ),
+  5
+);
+
+console.log([...pipeline]); // [4, 16, 36, 64, 100]
+
+function* generadorId(prefijo = "id"): Generator<string> {
+  let n = 1;
+  while (true) {
+    yield \`\${prefijo}-\${String(n++).padStart(4, "0")}\`;
+  }
+}
+
+const ids = generadorId("USR");
+console.log(ids.next().value); // "USR-0001"
+console.log(ids.next().value); // "USR-0002"`
+    }
+  ]}
+  output={`[4, 16, 36, 64, 100]\nUSR-0001\nUSR-0002\nUSR-0003`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa un rango iterable Range(inicio, fin, paso)", diff: "med", minutes: 10 },
+    { num: "02", name: "Generador de Fibonacci infinito con tomar(n)", diff: "med", minutes: 10 },
+    { num: "03", name: "Generador como pipeline de transformación lazy", diff: "hard", minutes: 15 },
+    { num: "04", name: "Convierte un árbol en iterable depth-first", diff: "hard", minutes: 20 },
+  ]}
+/>
+</Section>

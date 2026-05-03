@@ -1,0 +1,399 @@
+---
+title: "WeakMap y WeakSet: referencias débiles <em>sin memory leaks</em>"
+short: "WeakMap y WeakSet"
+chapter: "11"
+num: "02"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "advanced"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Map y Set mantienen referencias fuertes a sus claves, lo que puede producir memory leaks cuando los objetos-clave ya no se necesitan. WeakMap y WeakSet resuelven exactamente ese problema: sus claves son referencias débiles que el garbage collector puede liberar automáticamente."
+pro: true
+---
+
+<Section id="problema-referencias" title="El problema de las referencias — memory leaks con Map normal">
+
+Un `Map` ordinario mantiene una referencia **fuerte** a sus claves. Mientras el Map exista, el objeto-clave nunca puede ser recolectado por el garbage collector, incluso si nada más en el programa lo referencia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript — el leak",
+      code: `// Simulación de caché con Map — puede producir leak
+const cache = new Map();
+
+function procesarElemento(elemento) {
+  if (cache.has(elemento)) {
+    return cache.get(elemento);
+  }
+
+  const resultado = { ...elemento, procesado: true, timestamp: Date.now() };
+  cache.set(elemento, resultado); // ← Map mantiene referencia fuerte a 'elemento'
+  return resultado;
+}
+
+// Creamos 10,000 elementos temporales
+for (let i = 0; i < 10_000; i++) {
+  const elementoTemporal = { id: i, datos: new Array(1000).fill(i) };
+  procesarElemento(elementoTemporal);
+  // elementoTemporal "sale de scope" aquí...
+  // PERO el Map sigue referenciándolo — nunca se libera la memoria ❌
+}
+
+// Solución manual: hay que limpiar explícitamente
+// cache.delete(elemento); // Tedioso y propenso a olvidos
+// cache.clear();          // Nuclear — borra todo
+
+console.log(cache.size); // 10000 objetos en memoria aunque nadie los usa`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript — el mismo problema tipado",
+      code: `interface Elemento {
+  id: number;
+  datos: number[];
+}
+
+interface ResultadoProcesado {
+  id: number;
+  datos: number[];
+  procesado: boolean;
+  timestamp: number;
+}
+
+// Map<Elemento, ResultadoProcesado> mantiene referencias fuertes
+const cache = new Map<Elemento, ResultadoProcesado>();
+
+function procesarElemento(elemento: Elemento): ResultadoProcesado {
+  if (cache.has(elemento)) {
+    return cache.get(elemento)!;
+  }
+
+  const resultado: ResultadoProcesado = {
+    ...elemento,
+    procesado: true,
+    timestamp: Date.now(),
+  };
+
+  cache.set(elemento, resultado); // referencia fuerte — leak potencial
+  return resultado;
+}
+
+// Los objetos temporales nunca se liberan de memoria
+for (let i = 0; i < 10_000; i++) {
+  const temporal: Elemento = { id: i, datos: new Array(1000).fill(i) };
+  procesarElemento(temporal);
+}
+
+console.log(cache.size); // 10000 — todos en memoria`
+    }
+  ]}
+  output={`10000 — todos en memoria`}
+/>
+
+</Section>
+
+<Section id="weakmap" title="WeakMap — claves débiles con garbage collection automático">
+
+`WeakMap` funciona como `Map` pero sus claves deben ser **objetos** y las referencias son débiles. Cuando el objeto-clave ya no tiene otras referencias, el garbage collector lo libera junto con su entrada en el WeakMap.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// WeakMap resuelve el leak
+const cache = new WeakMap();
+
+function procesarElemento(elemento) {
+  if (cache.has(elemento)) {
+    return cache.get(elemento);
+  }
+
+  const resultado = { ...elemento, procesado: true, timestamp: Date.now() };
+  cache.set(elemento, resultado);
+  // ✅ Cuando 'elemento' ya no tenga otras referencias, el GC lo libera
+  // Y su entrada en WeakMap desaparece automáticamente
+  return resultado;
+}
+
+// Los elementos temporales SÍ pueden ser recolectados
+for (let i = 0; i < 10_000; i++) {
+  const temporal = { id: i, datos: new Array(1000).fill(i) };
+  procesarElemento(temporal);
+  // Al terminar la iteración, 'temporal' pierde referencias externas
+  // El GC puede liberar el objeto y su entrada en el WeakMap
+}
+
+// Restricciones importantes de WeakMap:
+// 1. Las claves DEBEN ser objetos (no primitivos)
+// cache.set("string", "valor"); // ❌ TypeError
+// cache.set(42, "valor");       // ❌ TypeError
+// cache.set({}, "valor");       // ✅
+
+// 2. No es iterable — no puedes hacer for...of, keys(), values()
+// 3. No tiene .size — no sabes cuántos elementos tiene
+console.log(cache.has({ id: 0 })); // false — distintas referencias de objeto`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Elemento {
+  id: number;
+  datos: number[];
+}
+
+interface ResultadoProcesado {
+  id: number;
+  datos: number[];
+  procesado: boolean;
+  timestamp: number;
+}
+
+// WeakMap<object, Valor> — la clave DEBE ser object
+const cache = new WeakMap<Elemento, ResultadoProcesado>();
+
+function procesarElemento(elemento: Elemento): ResultadoProcesado {
+  const cached = cache.get(elemento);
+  if (cached !== undefined) return cached;
+
+  const resultado: ResultadoProcesado = {
+    ...elemento,
+    procesado: true,
+    timestamp: Date.now(),
+  };
+
+  cache.set(elemento, resultado); // referencia débil — GC puede limpiar
+  return resultado;
+}
+
+// TypeScript previene claves primitivas en tiempo de compilación
+// cache.set("string", resultado); // ❌ Error de tipo
+// cache.set(42, resultado);       // ❌ Error de tipo
+
+// Las entradas se limpian solas cuando el GC actúa
+for (let i = 0; i < 10_000; i++) {
+  const temporal: Elemento = { id: i, datos: new Array(1000).fill(i) };
+  procesarElemento(temporal);
+}`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="WeakMap no es iterable — y es intencional">
+No puedes listar las claves, valores ni entradas de un WeakMap. Esta limitación es deliberada: si pudieras iterar, el motor JavaScript tendría que impedir el garbage collection para garantizar la consistencia de la iteración, deshaciendo el beneficio principal.
+</Callout>
+
+</Section>
+
+<Section id="casos-uso-weakmap" title="Casos de uso — metadatos privados y caché sin leak">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Caso 1: Metadatos privados asociados a instancias
+const metadatos = new WeakMap();
+
+class ComponenteUI {
+  constructor(elemento) {
+    // Guardamos estado privado sin modificar el objeto DOM
+    metadatos.set(elemento, {
+      listeners: [],
+      estado: "inactivo",
+      creado: Date.now(),
+    });
+  }
+
+  activar(elemento) {
+    const meta = metadatos.get(elemento);
+    if (meta) {
+      meta.estado = "activo";
+    }
+  }
+
+  destruir(elemento) {
+    const meta = metadatos.get(elemento);
+    if (meta) {
+      meta.listeners.forEach(fn => elemento.removeEventListener("click", fn));
+    }
+    // Al eliminar el elemento del DOM, el GC limpia el WeakMap automáticamente
+    elemento.remove();
+  }
+}
+
+// Caso 2: Memoización sin leak para funciones que reciben objetos
+const resultadosMemo = new WeakMap();
+
+function calcularHash(objeto) {
+  if (resultadosMemo.has(objeto)) {
+    return resultadosMemo.get(objeto);
+  }
+  const hash = JSON.stringify(objeto).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  resultadosMemo.set(objeto, hash);
+  return hash;
+}
+
+const config = { host: "localhost", puerto: 3000 };
+console.log(calcularHash(config)); // 1234
+console.log(calcularHash(config)); // 1234 (desde caché, sin recalcular)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Patrón de datos privados con WeakMap — alternativa a campos #privados
+interface MetaDatos {
+  contador: number;
+  creado: Date;
+  historial: string[];
+}
+
+const privado = new WeakMap<object, MetaDatos>();
+
+class Sesion {
+  constructor(readonly id: string) {
+    privado.set(this, {
+      contador: 0,
+      creado: new Date(),
+      historial: [],
+    });
+  }
+
+  registrarAccion(accion: string): void {
+    const meta = privado.get(this)!;
+    meta.contador++;
+    meta.historial.push(\`[\${new Date().toISOString()}] \${accion}\`);
+  }
+
+  obtenerEstadisticas(): { contador: number; creado: Date } {
+    const meta = privado.get(this)!;
+    return { contador: meta.contador, creado: meta.creado };
+  }
+}
+
+const sesion = new Sesion("abc-123");
+sesion.registrarAccion("login");
+sesion.registrarAccion("ver-perfil");
+console.log(sesion.obtenerEstadisticas());
+// { contador: 2, creado: Date... }
+
+// Los metadatos son inaccesibles desde fuera
+// privado.get(sesion) — solo posible dentro del módulo`
+    }
+  ]}
+  output={`1234\n1234\n{ contador: 2, creado: Date... }`}
+/>
+
+</Section>
+
+<Section id="weakset" title="WeakSet — objetos únicos con referencia débil">
+
+`WeakSet` es a `Set` lo que `WeakMap` es a `Map`: almacena objetos únicos con referencias débiles. No admite primitivos ni iteración.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// WeakSet para rastrear objetos ya procesados
+const yaEnviados = new WeakSet();
+
+async function enviarNotificacion(usuario) {
+  // Evitar envíos duplicados sin modificar el objeto usuario
+  if (yaEnviados.has(usuario)) {
+    console.log(\`Notificación ya enviada a \${usuario.nombre}\`);
+    return;
+  }
+
+  await fetch("/api/notificaciones", {
+    method: "POST",
+    body: JSON.stringify({ destinatario: usuario.id }),
+  });
+
+  yaEnviados.add(usuario); // Marcar como enviado
+  console.log(\`Notificación enviada a \${usuario.nombre}\`);
+}
+
+const ana = { id: 1, nombre: "Ana" };
+const luis = { id: 2, nombre: "Luis" };
+
+await enviarNotificacion(ana);  // "Notificación enviada a Ana"
+await enviarNotificacion(ana);  // "Notificación ya enviada a Ana"
+await enviarNotificacion(luis); // "Notificación enviada a Luis"
+
+// Cuando 'ana' ya no sea referenciada en otro lugar, el GC la libera
+// y su entrada en yaEnviados desaparece automáticamente
+
+// WeakSet API — solo 3 métodos:
+// .add(objeto)     — añadir
+// .has(objeto)     — verificar
+// .delete(objeto)  — eliminar`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+}
+
+// WeakSet<object> — solo objetos como miembros
+const yaProcessados = new WeakSet<Usuario>();
+
+function procesarUsuario(usuario: Usuario): void {
+  if (yaProcessados.has(usuario)) {
+    console.log(\`\${usuario.nombre} ya fue procesado\`);
+    return;
+  }
+
+  // Lógica de procesamiento...
+  console.log(\`Procesando: \${usuario.nombre}\`);
+  yaProcessados.add(usuario);
+}
+
+// Circular reference detection usando WeakSet
+function clonarProfundo<T>(objeto: T, visto = new WeakSet()): T {
+  if (objeto === null || typeof objeto !== "object") return objeto;
+
+  if (visto.has(objeto as object)) {
+    throw new Error("Referencia circular detectada");
+  }
+
+  visto.add(objeto as object);
+
+  if (Array.isArray(objeto)) {
+    return objeto.map(item => clonarProfundo(item, visto)) as T;
+  }
+
+  const clon = {} as T;
+  for (const [clave, valor] of Object.entries(objeto as object)) {
+    (clon as Record<string, unknown>)[clave] = clonarProfundo(valor, visto);
+  }
+  return clon;
+}
+
+const original = { a: 1, b: { c: 2 } };
+const clon = clonarProfundo(original);
+console.log(clon); // { a: 1, b: { c: 2 } }`
+    }
+  ]}
+  output={`Procesando: Ana\nAna ya fue procesado\n{ a: 1, b: { c: 2 } }`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Usa WeakMap para metadata privada de objetos DOM", diff: "med", minutes: 10 },
+    { num: "02", name: "Detecta objetos ya procesados con WeakSet", diff: "med", minutes: 10 },
+    { num: "03", name: "¿Por qué este código con Map produce leak? — análisis y corrección", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

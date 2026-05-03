@@ -1,0 +1,317 @@
+---
+title: "Clases: el <em>blueprint</em> para crear objetos"
+short: "Clases"
+chapter: "09"
+num: "01"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Las clases son plantillas para crear objetos con propiedades y comportamiento. Encapsulan datos y lógica en una unidad reutilizable."
+pro: false
+---
+
+<Section id="que-es-una-clase" title="¿Qué es una clase?">
+
+Una clase es un **blueprint** — un molde — para crear objetos. Define qué propiedades tendrán y qué pueden hacer:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Sin clases: crear objetos manualmente
+const perro1 = { nombre: "Rex", raza: "Labrador" };
+const perro2 = { nombre: "Luna", raza: "Beagle" };
+
+// Con clases: un molde reutilizable
+class Perro {
+  // Las propiedades y métodos van aquí
+}
+
+const perro3 = new Perro();
+console.log(perro3); // Perro {}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Sin clases: objetos manuales
+const perro1 = { nombre: "Rex", raza: "Labrador" };
+const perro2 = { nombre: "Luna", raza: "Beagle" };
+
+// Con clases: un molde reutilizable
+class Perro {
+  // Las propiedades y métodos van aquí
+}
+
+const perro3 = new Perro();
+console.log(perro3); // Perro {}`
+    }
+  ]}
+  output={`Perro {}`}
+/>
+
+<Callout variant="info" title="Clases son azúcar sintáctica">
+En JavaScript, las clases son una forma más clara de escribir funciones constructoras y prototipos. Bajo el capó, el mecanismo de herencia por prototipo sigue siendo el mismo.
+</Callout>
+
+</Section>
+
+<Section id="constructor" title="Constructor: inicializar propiedades">
+
+El método `constructor` se ejecuta automáticamente cuando usas `new`. Es donde inicializas las propiedades del objeto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Persona {
+  constructor(nombre, edad) {
+    this.nombre = nombre;
+    this.edad = edad;
+  }
+}
+
+const ana = new Persona("Ana", 28);
+const carlos = new Persona("Carlos", 35);
+
+console.log(ana.nombre);   // "Ana"
+console.log(carlos.edad);  // 35`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Persona {
+  nombre: string;
+  edad: number;
+
+  constructor(nombre: string, edad: number) {
+    this.nombre = nombre;
+    this.edad = edad;
+  }
+}
+
+const ana = new Persona("Ana", 28);
+const carlos = new Persona("Carlos", 35);
+
+console.log(ana.nombre);   // "Ana"
+console.log(carlos.edad);  // 35`
+    }
+  ]}
+  output={`Ana\n35`}
+/>
+
+<Callout variant="tip" title="Shorthand en TypeScript">
+TypeScript permite declarar y asignar propiedades directamente en los parámetros del constructor usando modificadores de acceso: `constructor(public nombre: string, public edad: number) {}`. Esto elimina la necesidad de declarar las propiedades por separado.
+</Callout>
+
+</Section>
+
+<Section id="metodos" title="Métodos: funciones dentro de la clase">
+
+Los métodos definen el comportamiento de los objetos. Se escriben directamente dentro del cuerpo de la clase, sin la palabra `function`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Persona {
+  constructor(nombre, edad) {
+    this.nombre = nombre;
+    this.edad = edad;
+  }
+
+  saludar() {
+    return \`Hola, soy \${this.nombre}\`;
+  }
+
+  esMayorDeEdad() {
+    return this.edad >= 18;
+  }
+
+  cumpleanos() {
+    this.edad++;
+    return \`¡Feliz cumpleaños \${this.nombre}! Ahora tienes \${this.edad} años.\`;
+  }
+}
+
+const ana = new Persona("Ana", 28);
+console.log(ana.saludar());         // "Hola, soy Ana"
+console.log(ana.esMayorDeEdad());   // true
+console.log(ana.cumpleanos());      // "¡Feliz cumpleaños Ana! Ahora tienes 29 años."`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Persona {
+  nombre: string;
+  edad: number;
+
+  constructor(nombre: string, edad: number) {
+    this.nombre = nombre;
+    this.edad = edad;
+  }
+
+  saludar(): string {
+    return \`Hola, soy \${this.nombre}\`;
+  }
+
+  esMayorDeEdad(): boolean {
+    return this.edad >= 18;
+  }
+
+  cumpleanos(): string {
+    this.edad++;
+    return \`¡Feliz cumpleaños \${this.nombre}! Ahora tienes \${this.edad} años.\`;
+  }
+}
+
+const ana = new Persona("Ana", 28);
+console.log(ana.saludar());         // "Hola, soy Ana"
+console.log(ana.esMayorDeEdad());   // true
+console.log(ana.cumpleanos());      // "¡Feliz cumpleaños Ana! Ahora tienes 29 años."`
+    }
+  ]}
+  output={`Hola, soy Ana\ntrue\n¡Feliz cumpleaños Ana! Ahora tienes 29 años.`}
+/>
+
+</Section>
+
+<Section id="new" title="new: crear instancias">
+
+La palabra `new` crea una nueva **instancia** de la clase — un objeto independiente con sus propias propiedades:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Crear múltiples instancias",
+      code: `class Producto {
+  constructor(nombre, precio) {
+    this.nombre = nombre;
+    this.precio = precio;
+    this.descuento = 0;
+  }
+
+  aplicarDescuento(porcentaje) {
+    this.descuento = porcentaje;
+    return this;  // retornar this permite encadenar métodos
+  }
+
+  precioFinal() {
+    return this.precio * (1 - this.descuento / 100);
+  }
+}
+
+const laptop = new Producto("Laptop", 1200);
+const mouse = new Producto("Mouse", 25);
+
+laptop.aplicarDescuento(10);
+
+console.log(laptop.precioFinal()); // 1080
+console.log(mouse.precioFinal());  // 25 (sin descuento)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Producto {
+  nombre: string;
+  precio: number;
+  descuento: number;
+
+  constructor(nombre: string, precio: number) {
+    this.nombre = nombre;
+    this.precio = precio;
+    this.descuento = 0;
+  }
+
+  aplicarDescuento(porcentaje: number): this {
+    this.descuento = porcentaje;
+    return this;
+  }
+
+  precioFinal(): number {
+    return this.precio * (1 - this.descuento / 100);
+  }
+}
+
+const laptop = new Producto("Laptop", 1200);
+const mouse = new Producto("Mouse", 25);
+
+laptop.aplicarDescuento(10);
+
+console.log(laptop.precioFinal()); // 1080
+console.log(mouse.precioFinal());  // 25`
+    }
+  ]}
+  output={`1080\n25`}
+/>
+
+Cada instancia tiene su propio espacio en memoria. Modificar `laptop` no afecta a `mouse`.
+
+</Section>
+
+<Section id="propiedades-typescript" title="Propiedades en TypeScript">
+
+En TypeScript, las propiedades deben declararse **antes** del constructor con sus tipos. Esto da autocompletado y verificación en tiempo de compilación:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Declaración explícita vs shorthand",
+      code: `// Forma explícita (declarar + asignar en constructor)
+class Rectangulo {
+  ancho: number;
+  alto: number;
+
+  constructor(ancho: number, alto: number) {
+    this.ancho = ancho;
+    this.alto = alto;
+  }
+}
+
+// Forma corta (shorthand con modificadores de acceso)
+class RectanguloCorto {
+  constructor(
+    public ancho: number,
+    public alto: number
+  ) {}
+}
+
+// Ambas son equivalentes
+const r1 = new Rectangulo(10, 5);
+const r2 = new RectanguloCorto(10, 5);
+
+console.log(r1.ancho); // 10
+console.log(r2.alto);  // 5
+
+// TypeScript detecta errores de tipo en compilación
+// const r3 = new Rectangulo("diez", 5); // ❌ Error: string no es number`
+    }
+  ]}
+  output={`10\n5`}
+/>
+
+<Callout variant="warn" title="Propiedades sin inicializar">
+Si declaras una propiedad en TypeScript pero no la inicializas en el constructor, obtendrás un error: `Property 'x' has no initializer`. Usa `!` para indicar que la inicializarás manualmente, o dale un valor por defecto.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea una clase Animal con nombre y sonido", diff: "easy", minutes: 5 },
+    { num: "02", name: "Clase Rectangulo con area() y perimetro()", diff: "easy", minutes: 8 },
+    { num: "03", name: "Clase Pila (stack) con push, pop y peek", diff: "med", minutes: 10 },
+    { num: "04", name: "Clase Banco con cuentas y transferencias", diff: "hard", minutes: 15 },
+    { num: "05", name: "Añade validación en el constructor con throw", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,310 @@
+---
+title: "Discriminated unions: <em>pattern matching</em> type-safe"
+short: "Discriminated unions"
+chapter: "12"
+num: "06"
+chapterTitle: "TypeScript avanzado"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Las discriminated unions son el mecanismo más elegante de TypeScript para modelar estados, variantes y resultados. Una propiedad discriminante permite al compilador saber exactamente con qué tipo estás trabajando en cada rama."
+pro: true
+---
+
+<Section id="que-es" title="¿Qué es una discriminated union?">
+
+Una **discriminated union** es una union de tipos donde cada miembro comparte una propiedad con un valor literal distinto — el **discriminante**. TypeScript usa ese campo para estrechar el tipo automáticamente en cada rama.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Cada miembro tiene "tipo" como campo discriminante
+interface Circulo {
+  tipo: "circulo";   // ← literal único
+  radio: number;
+}
+
+interface Rectangulo {
+  tipo: "rectangulo"; // ← literal único
+  ancho: number;
+  alto: number;
+}
+
+interface Triangulo {
+  tipo: "triangulo";  // ← literal único
+  base: number;
+  altura: number;
+}
+
+type Forma = Circulo | Rectangulo | Triangulo;
+
+// TypeScript estrecha el tipo según el discriminante
+function calcularArea(forma: Forma): number {
+  if (forma.tipo === "circulo") {
+    // Aquí TypeScript sabe: forma es Circulo
+    return Math.PI * forma.radio ** 2;
+  }
+
+  if (forma.tipo === "rectangulo") {
+    // Aquí TypeScript sabe: forma es Rectangulo
+    return forma.ancho * forma.alto;
+  }
+
+  // Aquí TypeScript sabe: forma es Triangulo
+  return (forma.base * forma.altura) / 2;
+}
+
+console.log(calcularArea({ tipo: "circulo", radio: 5 }));       // 78.54
+console.log(calcularArea({ tipo: "rectangulo", ancho: 4, alto: 6 })); // 24`
+    }
+  ]}
+  output={`78.53981633974483\n24`}
+/>
+
+</Section>
+
+<Section id="exhaustive" title="Exhaustive checking con never — el compilador te avisa">
+
+Cuando usas un `switch` sobre el discriminante, puedes forzar que TypeScript te avise si olvidas manejar algún caso. La técnica usa `never` — si el tipo llega al caso `default`, hay un error de compilación.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Forma2 = Circulo | Rectangulo | Triangulo;
+
+// Función de verificación de exhaustividad
+function verificarExhaustivo(valor: never): never {
+  throw new Error(\`Caso no manejado: \${JSON.stringify(valor)}\`);
+}
+
+function describirForma(forma: Forma2): string {
+  switch (forma.tipo) {
+    case "circulo":
+      return \`Círculo con radio \${forma.radio}\`;
+    case "rectangulo":
+      return \`Rectángulo \${forma.ancho}×\${forma.alto}\`;
+    case "triangulo":
+      return \`Triángulo base \${forma.base} altura \${forma.altura}\`;
+    default:
+      // Si agregas una nueva Forma sin manejarla aquí,
+      // TypeScript falla en compilación:
+      // "Argument of type '...' is not assignable to parameter of type 'never'"
+      return verificarExhaustivo(forma);
+  }
+}
+
+console.log(describirForma({ tipo: "circulo", radio: 3 }));
+// "Círculo con radio 3"
+
+// Alternativa con retorno explícito de never en el tipo de la función
+// para asegurar que NUNCA se llega al final sin retornar:
+function areaExhaustiva(forma: Forma2): number {
+  switch (forma.tipo) {
+    case "circulo":    return Math.PI * forma.radio ** 2;
+    case "rectangulo": return forma.ancho * forma.alto;
+    case "triangulo":  return (forma.base * forma.altura) / 2;
+    // Si hay un nuevo caso sin manejar, TypeScript dice:
+    // Function lacks ending return statement and return type does not include 'undefined'
+  }
+}`
+    }
+  ]}
+  output={`Círculo con radio 3`}
+/>
+
+<Callout variant="tip" title="assertNever como utilidad de proyecto">
+Es buena práctica tener una función `assertNever(x: never): never` en un archivo de utilidades. La llamas en el `default` de cada switch exhaustivo. Si el código compila, tienes cobertura total de la union.
+</Callout>
+
+</Section>
+
+<Section id="pattern-matching" title="Pattern matching con switch sobre el discriminante">
+
+El `switch` sobre el discriminante es el patrón más limpio para manejar discriminated unions con múltiples casos y lógica por caso.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Estado de carga de datos — patrón muy común en frontends
+interface Cargando {
+  estado: "cargando";
+}
+
+interface Exitoso<T> {
+  estado: "exitoso";
+  datos: T;
+}
+
+interface Fallido {
+  estado: "fallido";
+  error: string;
+  codigo: number;
+}
+
+type EstadoPeticion<T> = Cargando | Exitoso<T> | Fallido;
+
+interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+}
+
+function renderizar(estado: EstadoPeticion<Usuario>): string {
+  switch (estado.estado) {
+    case "cargando":
+      return "⏳ Cargando...";
+
+    case "exitoso":
+      // TypeScript sabe: estado.datos existe y es Usuario
+      return \`✅ Bienvenido, \${estado.datos.nombre}\`;
+
+    case "fallido":
+      // TypeScript sabe: estado.error y estado.codigo existen
+      return \`❌ Error \${estado.codigo}: \${estado.error}\`;
+  }
+}
+
+const cargando: EstadoPeticion<Usuario> = { estado: "cargando" };
+const exitoso: EstadoPeticion<Usuario>  = {
+  estado: "exitoso",
+  datos: { id: 1, nombre: "Ana", email: "ana@ejemplo.com" },
+};
+const fallido: EstadoPeticion<Usuario>  = {
+  estado: "fallido",
+  error: "No autorizado",
+  codigo: 401,
+};
+
+console.log(renderizar(cargando)); // ⏳ Cargando...
+console.log(renderizar(exitoso));  // ✅ Bienvenido, Ana
+console.log(renderizar(fallido));  // ❌ Error 401: No autorizado`
+    }
+  ]}
+  output={`⏳ Cargando...\n✅ Bienvenido, Ana\n❌ Error 401: No autorizado`}
+/>
+
+</Section>
+
+<Section id="casos-de-uso" title="Casos de uso — estados de UI, resultados y eventos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ── Resultado tipo Result<T, E> ────────────────────────────────────
+type Result<T, E = Error> =
+  | { ok: true;  valor: T }
+  | { ok: false; error: E };
+
+function dividir(a: number, b: number): Result<number, string> {
+  if (b === 0) return { ok: false, error: "División por cero" };
+  return { ok: true, valor: a / b };
+}
+
+const r1 = dividir(10, 2);
+const r2 = dividir(10, 0);
+
+if (r1.ok) console.log(r1.valor);  // 5
+if (!r2.ok) console.log(r2.error); // "División por cero"
+
+// ── Sistema de eventos tipados ──────────────────────────────────────
+interface EventoUsuarioCreado {
+  tipo: "usuario:creado";
+  payload: { id: number; nombre: string; email: string };
+}
+
+interface EventoUsuarioEliminado {
+  tipo: "usuario:eliminado";
+  payload: { id: number };
+}
+
+interface EventoSesionIniciada {
+  tipo: "sesion:iniciada";
+  payload: { userId: number; ip: string; timestamp: Date };
+}
+
+type EventoSistema =
+  | EventoUsuarioCreado
+  | EventoUsuarioEliminado
+  | EventoSesionIniciada;
+
+type HandlerEvento = (evento: EventoSistema) => void;
+
+function procesarEvento(evento: EventoSistema): void {
+  switch (evento.tipo) {
+    case "usuario:creado":
+      console.log(\`Nuevo usuario: \${evento.payload.nombre}\`);
+      break;
+    case "usuario:eliminado":
+      console.log(\`Usuario \${evento.payload.id} eliminado\`);
+      break;
+    case "sesion:iniciada":
+      console.log(\`Sesión de \${evento.payload.userId} desde \${evento.payload.ip}\`);
+      break;
+  }
+}
+
+procesarEvento({ tipo: "usuario:creado", payload: { id: 1, nombre: "Ana", email: "a@b.com" } });
+procesarEvento({ tipo: "sesion:iniciada", payload: { userId: 1, ip: "192.168.1.1", timestamp: new Date() } });`
+    }
+  ]}
+  output={`Nuevo usuario: Ana\nSesión de 1 desde 192.168.1.1`}
+/>
+
+</Section>
+
+<Section id="vs-enums" title="Comparación con enums — ventajas de discriminated unions">
+
+<CompareTable
+  headers={["Criterio", "enum de TypeScript", "Discriminated union"]}
+  rows={[
+    [
+      { value: "Narrowing automático" },
+      { kind: "bad", value: "Requiere comparar manualmente" },
+      { kind: "good", value: "TypeScript estrecha el tipo automáticamente" },
+    ],
+    [
+      { value: "Propiedades por variante" },
+      { kind: "bad", value: "Todos los valores en un solo tipo — se mezclan" },
+      { kind: "good", value: "Cada variante tiene sus propias propiedades" },
+    ],
+    [
+      { value: "Extensibilidad" },
+      { kind: "bad", value: "Difícil agregar propiedades por valor de enum" },
+      { kind: "good", value: "Agrega un nuevo miembro a la union" },
+    ],
+    [
+      { value: "Exhaustive checking" },
+      { kind: "bad", value: "Sin soporte nativo" },
+      { kind: "good", value: "Con never en default del switch" },
+    ],
+    [
+      { value: "Debugging" },
+      { kind: "bad", value: "Valores numéricos opacos en enums numéricos" },
+      { kind: "good", value: "Strings literales — legibles en logs y devtools" },
+    ],
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Modela estados de carga: Loading | Success | Error", diff: "easy", minutes: 8 },
+    { num: "02", name: "Switch exhaustivo sobre una union de formas geométricas", diff: "med", minutes: 10 },
+    { num: "03", name: "Implementa Result<T, E> con discriminated union", diff: "med", minutes: 12 },
+    { num: "04", name: "Sistema de eventos tipados con discriminated unions y handlers", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,343 @@
+---
+title: "Map y Set: colecciones modernas <em>más allá de los arrays</em>"
+short: "Map y Set"
+chapter: "11"
+num: "01"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["js", "ts"]
+exercises: 5
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Map y Set son colecciones nativas de ES6 que resuelven limitaciones reales de los objetos y arrays: Map permite claves de cualquier tipo con orden garantizado, Set almacena valores únicos automáticamente. Úsalos cuando un array o un objeto simple no es suficiente."
+pro: false
+---
+
+<Section id="map" title="Map — diccionario con cualquier tipo de clave">
+
+A diferencia de un objeto plano, `Map` acepta **cualquier valor como clave**: objetos, funciones, números, `null`. Además mantiene el orden de inserción.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Crear un Map
+const inventario = new Map();
+
+// set(clave, valor) — añade o actualiza
+inventario.set("manzana", 50);
+inventario.set("naranja", 30);
+inventario.set("mango", 15);
+
+// Las claves pueden ser CUALQUIER tipo
+const claveObjeto = { id: 1 };
+const claveFuncion = () => {};
+const mapaEspecial = new Map();
+mapaEspecial.set(claveObjeto, "soy un objeto clave");
+mapaEspecial.set(claveFuncion, "soy una función clave");
+mapaEspecial.set(42, "soy un número clave");
+mapaEspecial.set(null, "soy null clave");
+
+console.log(mapaEspecial.get(claveObjeto)); // "soy un objeto clave"
+console.log(mapaEspecial.get(42));          // "soy un número clave"
+
+// Inicializar con pares [clave, valor]
+const precios = new Map([
+  ["manzana", 1.5],
+  ["naranja", 0.8],
+  ["mango", 2.0],
+]);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Map<ClaveType, ValorType>
+const inventario = new Map<string, number>();
+
+inventario.set("manzana", 50);
+inventario.set("naranja", 30);
+inventario.set("mango", 15);
+
+// Claves de tipo objeto
+interface Producto {
+  id: number;
+  nombre: string;
+}
+
+const stockPorProducto = new Map<Producto, number>();
+const manzana: Producto = { id: 1, nombre: "Manzana" };
+const naranja: Producto = { id: 2, nombre: "Naranja" };
+
+stockPorProducto.set(manzana, 100);
+stockPorProducto.set(naranja, 80);
+
+console.log(stockPorProducto.get(manzana)); // 100
+
+// Inicializar con tuplas
+const precios = new Map<string, number>([
+  ["manzana", 1.5],
+  ["naranja", 0.8],
+  ["mango", 2.0],
+]);`
+    }
+  ]}
+  output={`soy un objeto clave\nsoy un número clave\n100`}
+/>
+
+</Section>
+
+<Section id="operaciones-map" title="Operaciones de Map — set, get, has, delete, size">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const sesiones = new Map([
+  ["usuario-1", { activa: true, inicio: new Date("2026-01-01") }],
+  ["usuario-2", { activa: false, inicio: new Date("2026-01-02") }],
+]);
+
+// get — obtener valor por clave (undefined si no existe)
+console.log(sesiones.get("usuario-1")); // { activa: true, ... }
+console.log(sesiones.get("usuario-99")); // undefined
+
+// has — verificar si existe la clave
+console.log(sesiones.has("usuario-1")); // true
+console.log(sesiones.has("usuario-99")); // false
+
+// Patrón seguro: verificar antes de usar
+if (sesiones.has("usuario-1")) {
+  const sesion = sesiones.get("usuario-1");
+  console.log(\`Sesión activa: \${sesion.activa}\`);
+}
+
+// delete — eliminar una entrada
+sesiones.delete("usuario-2");
+console.log(sesiones.size); // 1
+
+// size — número de entradas
+console.log(sesiones.size); // 1
+
+// clear — vaciar el Map completo
+sesiones.clear();
+console.log(sesiones.size); // 0`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Sesion {
+  activa: boolean;
+  inicio: Date;
+}
+
+const sesiones = new Map<string, Sesion>([
+  ["usuario-1", { activa: true, inicio: new Date("2026-01-01") }],
+  ["usuario-2", { activa: false, inicio: new Date("2026-01-02") }],
+]);
+
+// get devuelve T | undefined — TypeScript te obliga a verificar
+const sesion = sesiones.get("usuario-1");
+if (sesion !== undefined) {
+  console.log(\`Activa: \${sesion.activa}\`); // TypeScript sabe que sesion es Sesion aquí
+}
+
+// has + get (patrón común en TS)
+function obtenerSesion(id: string): Sesion {
+  if (!sesiones.has(id)) {
+    throw new Error(\`Sesión \${id} no encontrada\`);
+  }
+  return sesiones.get(id)!; // ! porque ya verificamos con has
+}
+
+sesiones.delete("usuario-2");
+console.log(sesiones.size); // 1`
+    }
+  ]}
+  output={`{ activa: true, inicio: 2026-01-01 }\nundefined\ntrue\nfalse\nActiva: true\n1`}
+/>
+
+</Section>
+
+<Section id="iterar-map" title="Iterar un Map — for...of, entries(), keys(), values()">
+
+Map mantiene el orden de inserción y es directamente iterable.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `const puntuaciones = new Map([
+  ["Ana", 95],
+  ["Luis", 87],
+  ["María", 92],
+]);
+
+// for...of con desestructuración — la forma más común
+for (const [nombre, puntos] of puntuaciones) {
+  console.log(\`\${nombre}: \${puntos} pts\`);
+}
+// Ana: 95 pts
+// Luis: 87 pts
+// María: 92 pts
+
+// entries() — iterador de [clave, valor]
+const entradas = [...puntuaciones.entries()];
+console.log(entradas); // [["Ana", 95], ["Luis", 87], ["María", 92]]
+
+// keys() — solo las claves
+const nombres = [...puntuaciones.keys()];
+console.log(nombres); // ["Ana", "Luis", "María"]
+
+// values() — solo los valores
+const puntos = [...puntuaciones.values()];
+console.log(puntos); // [95, 87, 92]
+
+// Convertir Map a Object (cuando necesitas JSON.stringify)
+const obj = Object.fromEntries(puntuaciones);
+console.log(JSON.stringify(obj)); // {"Ana":95,"Luis":87,"María":92}
+
+// Convertir Object a Map
+const mapaDesdeObj = new Map(Object.entries(obj));`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const puntuaciones = new Map<string, number>([
+  ["Ana", 95],
+  ["Luis", 87],
+  ["María", 92],
+]);
+
+// Tipado automático en desestructuración
+for (const [nombre, puntos] of puntuaciones) {
+  // nombre: string, puntos: number — inferido
+  console.log(\`\${nombre}: \${puntos} pts\`);
+}
+
+// Transformar con map sobre entries
+const ranking = [...puntuaciones.entries()]
+  .sort(([, a], [, b]) => b - a)
+  .map(([nombre, pts], i) => \`\${i + 1}. \${nombre} — \${pts}\`);
+
+console.log(ranking);
+// ["1. Ana — 95", "2. María — 92", "3. Luis — 87"]
+
+// Object.fromEntries preserva los tipos en TS
+const obj: Record<string, number> = Object.fromEntries(puntuaciones);`
+    }
+  ]}
+  output={`Ana: 95 pts\nLuis: 87 pts\nMaría: 92 pts\n["1. Ana — 95", "2. María — 92", "3. Luis — 87"]`}
+/>
+
+</Section>
+
+<Section id="set" title="Set — colección de valores únicos">
+
+`Set` almacena valores sin duplicados. La verificación de unicidad es automática y usa el algoritmo SameValueZero (como `===` pero `NaN === NaN`).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Set básico
+const etiquetas = new Set(["js", "ts", "node", "js", "ts"]);
+console.log(etiquetas.size); // 3 — duplicados eliminados
+console.log([...etiquetas]); // ["js", "ts", "node"]
+
+// add — añadir elemento (ignorado si ya existe)
+etiquetas.add("react");
+etiquetas.add("js"); // ya existe — sin efecto
+console.log(etiquetas.size); // 4
+
+// has — verificar existencia
+console.log(etiquetas.has("react")); // true
+console.log(etiquetas.has("vue"));   // false
+
+// delete — eliminar
+etiquetas.delete("node");
+console.log([...etiquetas]); // ["js", "ts", "react"]
+
+// El caso de uso más común: deduplicar arrays
+const visitas = [1, 3, 2, 1, 4, 3, 2, 5];
+const visitasUnicas = [...new Set(visitas)];
+console.log(visitasUnicas); // [1, 3, 2, 4, 5]
+
+// NaN se trata como único (a diferencia de ===)
+const conNaN = new Set([NaN, NaN, 1]);
+console.log(conNaN.size); // 2 — solo un NaN`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Set<T>
+const etiquetas = new Set<string>(["js", "ts", "node", "js"]);
+console.log(etiquetas.size); // 3
+
+etiquetas.add("react");
+console.log([...etiquetas]); // ["js", "ts", "node", "react"]
+
+// Set de objetos — usa identidad de referencia
+interface Tag {
+  id: number;
+  nombre: string;
+}
+
+const tagSet = new Set<Tag>();
+const tagJS = { id: 1, nombre: "JS" };
+tagSet.add(tagJS);
+tagSet.add(tagJS);           // misma referencia — ignorado
+tagSet.add({ id: 1, nombre: "JS" }); // distinta referencia — se agrega
+
+console.log(tagSet.size); // 2 — objetos distintos aunque iguales en valor
+
+// Deduplicar con tipo
+function unicos<T>(arr: T[]): T[] {
+  return [...new Set(arr)];
+}
+
+const numeros = unicos([1, 2, 2, 3, 3, 3]);
+console.log(numeros); // [1, 2, 3]`
+    }
+  ]}
+  output={`3\n["js", "ts", "node"]\ntrue\nfalse\n[1, 3, 2, 4, 5]`}
+/>
+
+</Section>
+
+<Section id="comparacion-map-object" title="Operaciones de Set y comparación Map vs Object">
+
+<CompareTable
+  headers={["Aspecto", "Map", "Object"]}
+  rows={[
+    ["Tipo de clave", "Cualquier tipo (objeto, función, número)", "Solo string o Symbol"],
+    ["Orden garantizado", "Sí — orden de inserción", "Sí en V8 (no en spec para todas las claves)"],
+    ["Tamaño", "`map.size` (O(1))", "`Object.keys(obj).length` (O(n))"],
+    ["Iteración", "Directamente iterable con `for...of`", "Necesita `Object.entries/keys/values`"],
+    ["Prototipo", "Sin propiedades heredadas", "Hereda de `Object.prototype`"],
+    ["JSON", "No directo — usar `Object.fromEntries`", "Directo con `JSON.stringify`"],
+    ["Caso de uso", "Diccionario dinámico, claves no-string", "Configuración, datos estáticos, JSON"],
+  ]}
+/>
+
+<Callout variant="tip" title="¿Map u Object?">
+Usa Map cuando: las claves no son siempre strings, añades/eliminas entradas frecuentemente, o necesitas iterar en orden. Usa Object cuando: representas datos estructurados fijos, necesitas JSON, o usas destructuring.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Cuenta frecuencias de palabras con Map", diff: "easy", minutes: 8 },
+    { num: "02", name: "Elimina duplicados de un array con Set", diff: "easy", minutes: 5 },
+    { num: "03", name: "Invierte un Map (clave→valor, valor→clave)", diff: "med", minutes: 10 },
+    { num: "04", name: "Intersección y diferencia de dos Sets", diff: "med", minutes: 10 },
+    { num: "05", name: "Caché LRU simple con Map", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

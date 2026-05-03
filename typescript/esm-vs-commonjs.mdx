@@ -1,0 +1,329 @@
+---
+title: "ESM vs CommonJS: los dos sistemas de <em>módulos en Node.js</em>"
+short: "ESM vs CommonJS"
+chapter: "10"
+num: "04"
+chapterTitle: "Módulos"
+difficulty: "advanced"
+readingMinutes: 9
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Node.js soporta dos sistemas de módulos: CommonJS (el original, con require/module.exports) y ESM (el estándar web, con import/export). Entender sus diferencias y cómo interoperar es esencial para cualquier proyecto Node.js serio."
+pro: true
+---
+
+<Section id="commonjs" title="CommonJS — el sistema original de Node.js">
+
+CommonJS fue diseñado por la comunidad Node.js en 2009 antes de que existiera un estándar de módulos en JavaScript. Es síncrono y todavía domina el ecosistema de paquetes npm.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "CommonJS (.cjs)",
+      code: `// utils.cjs — módulo CommonJS
+const path = require("path"); // require es síncrono
+
+function resolverRuta(base, relativa) {
+  return path.resolve(base, relativa);
+}
+
+function formatearBytes(bytes) {
+  const unidades = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  while (bytes >= 1024 && i < unidades.length - 1) {
+    bytes /= 1024;
+    i++;
+  }
+  return \`\${bytes.toFixed(2)} \${unidades[i]}\`;
+}
+
+// Una sola exportación: module.exports es un objeto
+module.exports = { resolverRuta, formatearBytes };
+
+// También puedes asignar directamente
+// module.exports = resolverRuta; // solo exporta la función
+
+// --- Uso en otro archivo ---
+const { resolverRuta, formatearBytes } = require("./utils.cjs");
+console.log(formatearBytes(1536)); // "1.50 KB"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript (CJS output)",
+      code: `// tsconfig.json: "module": "commonjs"
+// TypeScript compila import/export → require/module.exports
+
+// utils.ts — escribes ESM syntax
+export function resolverRuta(base: string, relativa: string): string {
+  const path = require("path");
+  return path.resolve(base, relativa);
+}
+
+export function formatearBytes(bytes: number): string {
+  const unidades = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  while (bytes >= 1024 && i < unidades.length - 1) {
+    bytes /= 1024;
+    i++;
+  }
+  return \`\${bytes.toFixed(2)} \${unidades[i]}\`;
+}
+
+// TypeScript compila esto a:
+// Object.defineProperty(exports, "__esModule", { value: true });
+// exports.formatearBytes = formatearBytes;
+// exports.resolverRuta = resolverRuta;`
+    }
+  ]}
+  output={`1.50 KB`}
+/>
+
+</Section>
+
+<Section id="esm" title="ESM — el estándar moderno">
+
+ES Modules es el sistema oficial de JavaScript desde ES2015. Es estático (analizable en tiempo de compilación), asíncrono, y habilita tree-shaking real.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "ESM (.mjs)",
+      code: `// utils.mjs — módulo ESM puro
+import { resolve } from "node:path"; // prefijo node: recomendado en ESM
+
+export function resolverRuta(base, relativa) {
+  return resolve(base, relativa);
+}
+
+export function formatearBytes(bytes) {
+  const unidades = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  while (bytes >= 1024 && i < unidades.length - 1) {
+    bytes /= 1024;
+    i++;
+  }
+  return \`\${bytes.toFixed(2)} \${unidades[i]}\`;
+}
+
+// ESM tiene acceso a variables especiales equivalentes a CJS
+// __filename y __dirname NO existen en ESM — usar:
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Top-level await — SOLO disponible en ESM
+const config = await fetch("/api/config").then(r => r.json());
+console.log(config);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript (ESM output)",
+      code: `// tsconfig.json: "module": "NodeNext" o "ESNext"
+// package.json: "type": "module"
+
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+export function resolverRuta(base: string, relativa: string): string {
+  return resolve(base, relativa);
+}
+
+export function formatearBytes(bytes: number): string {
+  const unidades = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  while (bytes >= 1024 && i < unidades.length - 1) {
+    bytes /= 1024;
+    i++;
+  }
+  return \`\${bytes.toFixed(2)} \${unidades[i]}\`;
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Top-level await en ESM
+const VERSION = await fetch("https://api.ejemplo.com/version")
+  .then(r => r.text())
+  .catch(() => "desconocida");`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="diferencias" title="Diferencias clave">
+
+<CompareTable
+  headers={["Aspecto", "CommonJS (CJS)", "ESM"]}
+  rows={[
+    ["Sintaxis", "`require()` / `module.exports`", "`import` / `export`"],
+    ["Evaluación", "Síncrona — bloquea hasta cargar", "Asíncrona — no bloquea"],
+    ["Análisis", "Dinámico — en runtime", "Estático — en parse time"],
+    ["Top-level await", "No disponible", "Sí, disponible"],
+    ["Tree-shaking", "Limitado — bundlers lo infieren", "Nativo — exportaciones estáticas"],
+    ["`__dirname`", "Variable global disponible", "Usar `import.meta.url`"],
+    ["Extensión por defecto", "`.js` (con `type` ausente)", "`.js` (con `\"type\": \"module\"`)"],
+    ["Ecosistema npm", "Mayoría de paquetes", "Creciente, muchos puros-ESM"],
+  ]}
+/>
+
+<Callout variant="info" title="Tree-shaking: por qué importa">
+Con ESM, el bundler sabe exactamente qué exportaciones se usan antes de ejecutar el código. Puede eliminar el código no usado (dead code elimination). Con CJS, `require` puede llamarse condicionalmente y el bundler no puede garantizar qué se usa.
+</Callout>
+
+</Section>
+
+<Section id="interoperabilidad" title="Interoperabilidad — cómo mezclar CJS y ESM">
+
+El escenario más común: tu código usa ESM pero una dependencia npm es solo CJS (o viceversa).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Interop en Node.js",
+      code: `// ✅ ESM puede importar CJS con import estático
+// Node.js adapta module.exports como default export
+import lodash from "lodash"; // lodash es CJS
+const { chunk } = lodash;
+console.log(chunk([1, 2, 3, 4, 5], 2)); // [[1,2],[3,4],[5]]
+
+// ✅ ESM puede importar CJS con named imports (con advertencia)
+// Funciona para exports simples pero puede fallar con exports dinámicos
+import { chunk as chunk2 } from "lodash";
+
+// ✅ CJS puede importar ESM con dynamic import (asíncrono)
+// Los módulos ESM puros NO se pueden importar con require()
+async function cargarModuloESM() {
+  // require("./modulo.mjs") ← ❌ Error
+  const modulo = await import("./modulo.mjs"); // ✅
+  return modulo;
+}
+
+// ❌ ESM NO puede importar JSON directamente (aún experimental)
+// import datos from "./config.json"; // Requiere --experimental-json-modules
+
+// ✅ Alternativa con fs
+import { readFileSync } from "node:fs";
+const config = JSON.parse(readFileSync("./config.json", "utf8"));`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript — configuración",
+      code: `// tsconfig.json para proyectos ESM con Node.js
+// {
+//   "compilerOptions": {
+//     "module": "NodeNext",       // o "Node16"
+//     "moduleResolution": "NodeNext",
+//     "target": "ES2022",
+//     "esModuleInterop": true,    // permite import defaultName from 'cjs-module'
+//     "allowSyntheticDefaultImports": true
+//   }
+// }
+
+// Con esModuleInterop=true puedes importar CJS como default
+import lodash from "lodash"; // TypeScript añade el shim necesario
+import { chunk } from "lodash"; // También funciona
+
+// Para módulos sin tipos, instala @types/...
+// pnpm add -D @types/lodash
+
+// Importar y usar createRequire para CJS desde ESM
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+
+// Ahora puedes usar require en ESM para módulos que lo necesitan
+const paqueteCJS = require("./legacy-module.cjs");`
+    }
+  ]}
+  output={`[[1,2],[3,4],[5]]`}
+/>
+
+</Section>
+
+<Section id="package-json" title="package.json — type y extensiones .mjs/.cjs">
+
+Node.js determina el sistema de módulos de cada archivo según estas reglas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Configuración",
+      code: `// package.json — "type" controla el default
+{
+  "name": "mi-paquete",
+  "version": "1.0.0",
+  "type": "module",     // Todos los .js son ESM
+  // "type": "commonjs" // Todos los .js son CJS (default histórico)
+}
+
+// Las extensiones siempre tienen prioridad:
+// .mjs → siempre ESM, sin importar "type"
+// .cjs → siempre CJS, sin importar "type"
+
+// Publicar un paquete dual (CJS + ESM):
+// package.json con exports field:
+{
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",  // Para ESM consumers
+      "require": "./dist/index.cjs"  // Para CJS consumers
+    }
+  },
+  "main": "./dist/index.cjs",        // Fallback para Node.js antiguo
+  "module": "./dist/index.mjs"       // Hint para bundlers (Webpack, Vite)
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript + tsconfig",
+      code: `// Para proyectos ESM puros con TypeScript:
+
+// package.json
+// {
+//   "type": "module",
+//   "scripts": { "build": "tsc" }
+// }
+
+// tsconfig.json
+// {
+//   "compilerOptions": {
+//     "module": "NodeNext",
+//     "moduleResolution": "NodeNext",
+//     "outDir": "./dist"
+//   }
+// }
+
+// IMPORTANTE: En TypeScript con NodeNext debes importar con extensión .js
+// aunque el archivo fuente sea .ts — TypeScript lo resuelve correctamente
+import { formatearBytes } from "./utils.js"; // ← .js aunque el fuente sea .ts
+
+// Para librerías duales, usa una herramienta como tsup:
+// tsup src/index.ts --format cjs,esm --dts
+// Genera: dist/index.js (CJS), dist/index.mjs (ESM), dist/index.d.ts
+
+console.log(formatearBytes(2048)); // "2.00 KB"`
+    }
+  ]}
+  output={`2.00 KB`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte un archivo CJS a ESM puro", diff: "easy", minutes: 5 },
+    { num: "02", name: "Configura package.json y tsconfig para ESM en Node.js", diff: "med", minutes: 10 },
+    { num: "03", name: "Importa un módulo CJS desde un archivo ESM", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

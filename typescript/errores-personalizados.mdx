@@ -1,0 +1,317 @@
+---
+title: "Errores personalizados: semántica y control total"
+short: "Errores personalizados"
+chapter: "07"
+num: "04"
+chapterTitle: "Manejo de errores"
+difficulty: "advanced"
+readingMinutes: 9
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los errores personalizados te permiten comunicar exactamente qué salió mal, agregar campos como statusCode o field, y aprovechar el type narrowing de TypeScript en cada catch."
+pro: false
+---
+
+<Section id="por-que" title="Por qué crear errores personalizados">
+
+`new Error("Usuario no encontrado")` funciona, pero un `catch` no puede distinguirlo de cualquier otro error genérico. Con errores personalizados puedes usar `instanceof` para ramificar la lógica, agregar campos tipados como `statusCode` o `field`, y comunicar intención con el nombre de la clase.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "El problema sin errores personalizados",
+      code: `// ❌ Sin errores personalizados: todos los errores se ven igual
+async function obtenerUsuario(id: string): Promise<void> {
+  if (!id) throw new Error("ID requerido");
+  // ¿Cómo saber en el catch si fue "no encontrado" o "permisos"?
+  throw new Error("Usuario no encontrado");
+}
+
+try {
+  await obtenerUsuario("");
+} catch (error) {
+  if (error instanceof Error) {
+    // Tenemos que comparar strings — frágil y propenso a typos
+    if (error.message === "Usuario no encontrado") {
+      // responder con 404
+    } else if (error.message === "ID requerido") {
+      // responder con 400
+    }
+  }
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="extender-error" title="Extender Error en TypeScript">
+
+Para crear un error personalizado, extiendes la clase `Error` y defines un `name` para que sea identificable en logs.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Clase de error personalizada",
+      code: `class NotFoundError extends Error {
+  // 'name' identifica la clase en logs y en error.name
+  name = "NotFoundError" as const;
+
+  constructor(recurso: string, id: string | number) {
+    super(\`\${recurso} con id "\${id}" no encontrado\`);
+    // Necesario en TypeScript cuando extiendes clases nativas
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+class UnauthorizedError extends Error {
+  name = "UnauthorizedError" as const;
+
+  constructor(accion: string) {
+    super(\`No tienes permisos para: \${accion}\`);
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+// Uso
+function obtenerPedido(id: number, usuarioEsAdmin: boolean) {
+  if (!usuarioEsAdmin) throw new UnauthorizedError("ver pedidos");
+  if (id <= 0) throw new NotFoundError("Pedido", id);
+  return { id, total: 99.99 };
+}
+
+try {
+  obtenerPedido(1, false);
+} catch (error) {
+  if (error instanceof UnauthorizedError) {
+    console.log("401:", error.message);
+  } else if (error instanceof NotFoundError) {
+    console.log("404:", error.message);
+  }
+}`
+    }
+  ]}
+  output={`401: No tienes permisos para: ver pedidos`}
+/>
+
+<Callout variant="warn" title="Object.setPrototypeOf — no lo omitas">
+Sin `Object.setPrototypeOf(this, new.target.prototype)`, `instanceof` falla cuando el código se transpila a ES5. Es una línea boilerplate obligatoria cuando extiendes clases nativas en TypeScript.
+</Callout>
+
+</Section>
+
+<Section id="propiedades" title="Agregar propiedades personalizadas">
+
+Los errores personalizados brillan cuando llevan datos extra: el campo que falló, el código HTTP, el código interno de error para logs.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Errores con campos extra",
+      code: `class ValidationError extends Error {
+  name = "ValidationError" as const;
+  readonly field: string;
+  readonly code: string;
+
+  constructor(field: string, message: string, code = "VALIDATION_ERROR") {
+    super(message);
+    this.field = field;
+    this.code = code;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+class ApiError extends Error {
+  name = "ApiError" as const;
+  readonly statusCode: number;
+  readonly endpoint: string;
+
+  constructor(statusCode: number, endpoint: string, message: string) {
+    super(message);
+    this.statusCode = statusCode;
+    this.endpoint = endpoint;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+// Validación de formulario con errores descriptivos
+interface FormularioRegistro {
+  email: string;
+  password: string;
+  edad: number;
+}
+
+function validarRegistro(datos: FormularioRegistro): void {
+  if (!datos.email.includes("@")) {
+    throw new ValidationError("email", "El email no es válido", "INVALID_EMAIL");
+  }
+  if (datos.password.length < 8) {
+    throw new ValidationError(
+      "password",
+      "La contraseña debe tener al menos 8 caracteres",
+      "PASSWORD_TOO_SHORT"
+    );
+  }
+  if (datos.edad < 18) {
+    throw new ValidationError("edad", "Debes tener al menos 18 años", "UNDERAGE");
+  }
+}
+
+try {
+  validarRegistro({ email: "no-es-email", password: "abc", edad: 16 });
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log(\`Campo "\${error.field}" inválido: \${error.message} [\${error.code}]\`);
+  }
+}`
+    }
+  ]}
+  output={`Campo "email" inválido: El email no es válido [INVALID_EMAIL]`}
+/>
+
+</Section>
+
+<Section id="instanceof-narrowing" title="instanceof y type narrowing automático">
+
+Una de las mayores ventajas de los errores personalizados en TypeScript es que `instanceof` hace narrowing automático: dentro del bloque `if`, TypeScript sabe exactamente qué tipo es y te da acceso a todas sus propiedades.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Type narrowing con instanceof",
+      code: `class DatabaseError extends Error {
+  name = "DatabaseError" as const;
+  readonly query: string;
+  readonly errno: number;
+
+  constructor(query: string, errno: number, message: string) {
+    super(message);
+    this.query = query;
+    this.errno = errno;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+// Función que puede lanzar distintos tipos
+function ejecutarOperacion(tipo: string): string {
+  if (tipo === "db") {
+    throw new DatabaseError(
+      "SELECT * FROM usuarios",
+      1045,
+      "Acceso denegado al servidor de base de datos"
+    );
+  }
+  if (tipo === "validacion") {
+    throw new ValidationError("nombre", "El nombre es requerido");
+  }
+  return "operación completada";
+}
+
+function manejarOperacion(tipo: string): void {
+  try {
+    const resultado = ejecutarOperacion(tipo);
+    console.log(resultado);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      // TypeScript sabe que error tiene .query y .errno
+      console.log(\`Error DB [\${error.errno}]: \${error.message}\`);
+      console.log(\`Query fallida: \${error.query}\`);
+    } else if (error instanceof ValidationError) {
+      // TypeScript sabe que error tiene .field y .code
+      console.log(\`Validación en "\${error.field}": \${error.message}\`);
+    } else if (error instanceof Error) {
+      console.log("Error inesperado:", error.message);
+    }
+  }
+}
+
+manejarOperacion("db");
+manejarOperacion("validacion");`
+    }
+  ]}
+  output={`Error DB [1045]: Acceso denegado al servidor de base de datos\nQuery fallida: SELECT * FROM usuarios\nValidación en "nombre": El nombre es requerido`}
+/>
+
+</Section>
+
+<Section id="apis-result" title="Errores personalizados en APIs — patrón Result vs throw">
+
+En APIs HTTP, los errores personalizados se traducen directamente a códigos de respuesta. El patrón `Result<T, E>` es una alternativa a `throw` que hace explícito en la firma que la operación puede fallar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Patrón Result<T, E>",
+      code: `// Tipo Result: éxito o error, sin excepciones
+type Result<T, E extends Error = Error> =
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+function crearResultadoOk<T>(value: T): Result<T, never> {
+  return { ok: true, value };
+}
+
+function crearResultadoError<E extends Error>(error: E): Result<never, E> {
+  return { ok: false, error };
+}
+
+// Función que retorna Result en lugar de lanzar
+async function encontrarUsuario(
+  id: string
+): Promise<Result<{ id: string; nombre: string }, NotFoundError | ValidationError>> {
+  if (!id) {
+    return crearResultadoError(new ValidationError("id", "El ID es requerido"));
+  }
+  if (id === "999") {
+    return crearResultadoError(new NotFoundError("Usuario", id));
+  }
+  return crearResultadoOk({ id, nombre: "Ana García" });
+}
+
+// El caller maneja explícitamente los dos caminos
+async function main() {
+  const resultado = await encontrarUsuario("999");
+
+  if (!resultado.ok) {
+    const { error } = resultado;
+    if (error instanceof NotFoundError) {
+      console.log("404:", error.message);
+    } else if (error instanceof ValidationError) {
+      console.log("400:", error.message);
+    }
+    return;
+  }
+
+  // TypeScript sabe que resultado.value existe aquí
+  console.log("Usuario:", resultado.value.nombre);
+}
+
+main();`
+    }
+  ]}
+  output={`404: Usuario con id "999" no encontrado`}
+/>
+
+<Callout variant="tip" title="¿throw o Result?">
+Usa `throw` para errores inesperados (bugs, fallos de infraestructura). Usa `Result` cuando el fallo es parte del flujo normal: búsquedas que pueden no encontrar nada, validaciones de formularios, parsing de input del usuario.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea un NotFoundError con statusCode 404", diff: "easy", minutes: 8 },
+    { num: "02", name: "Implementa ValidationError con campo y mensaje", diff: "med", minutes: 10 },
+    { num: "03", name: "Cadena de errores personalizados en una API", diff: "hard", minutes: 15 },
+    { num: "04", name: "Patrón Result<T, E> alternativo a throw", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

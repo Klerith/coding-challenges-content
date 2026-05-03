@@ -1,0 +1,323 @@
+---
+title: "Optional chaining y nullish coalescing: acceso seguro"
+short: "?. y ??"
+chapter: "08"
+num: "05"
+chapterTitle: "Arrays y objetos avanzados"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El operador ?. accede a propiedades sin explotar si el valor es null o undefined. El operador ?? asigna un valor por defecto solo cuando el valor es null o undefined — no para 0, '' o false."
+pro: false
+---
+
+<Section id="optional-chaining" title="Optional chaining ?. — accede sin explotar">
+
+Cuando accedes a `objeto.propiedad.subPropiedad` y `propiedad` es `null` o `undefined`, JavaScript lanza un `TypeError`. El operador `?.` cortocircuita y devuelve `undefined` en lugar de lanzar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "?. básico",
+      code: `const usuario = {
+  nombre: "Ana",
+  direccion: {
+    ciudad: "Madrid",
+    codigoPostal: "28001",
+  },
+};
+
+const usuarioSinDireccion = { nombre: "Carlos" };
+
+// Sin ?.  — TypeError si 'direccion' no existe
+// console.log(usuarioSinDireccion.direccion.ciudad); // 💥 Error
+
+// Con ?. — devuelve undefined sin explotar
+console.log(usuario.direccion?.ciudad);            // "Madrid"
+console.log(usuarioSinDireccion.direccion?.ciudad); // undefined
+
+// Cadenas de ?. — se detiene en el primer null/undefined
+const config = null;
+console.log(config?.servidor?.host?.puerto); // undefined (no explota)
+
+// Resultado con fallback usando ||
+const ciudad = usuarioSinDireccion.direccion?.ciudad || "Ciudad desconocida";
+console.log(ciudad); // "Ciudad desconocida"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Direccion {
+  ciudad: string;
+  codigoPostal: string;
+}
+
+interface Usuario {
+  nombre: string;
+  direccion?: Direccion; // propiedad opcional
+}
+
+const usuario: Usuario = {
+  nombre: "Ana",
+  direccion: { ciudad: "Madrid", codigoPostal: "28001" },
+};
+
+const sinDireccion: Usuario = { nombre: "Carlos" };
+
+// TypeScript sabe que direccion puede ser undefined
+// Sin ?., te advertiría de un posible error
+const ciudad1 = usuario.direccion?.ciudad;       // string | undefined
+const ciudad2 = sinDireccion.direccion?.ciudad;  // undefined
+
+console.log(ciudad1); // "Madrid"
+console.log(ciudad2); // undefined`
+    }
+  ]}
+  output={`Madrid\nundefined\nundefined\nCiudad desconocida`}
+/>
+
+</Section>
+
+<Section id="metodos" title="?. con métodos — objeto?.metodo()">
+
+También funciona con llamadas a métodos. Si el objeto es `null` o `undefined`, no se llama al método y el resultado es `undefined`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "?. con métodos",
+      code: `const procesador = {
+  transformar: (texto) => texto.toUpperCase(),
+};
+
+const procesadorInactivo = null;
+
+// Llama el método solo si el objeto existe
+console.log(procesador?.transformar("hola"));          // "HOLA"
+console.log(procesadorInactivo?.transformar("hola"));  // undefined — sin error
+
+// Muy útil con callbacks opcionales
+function ejecutarTarea(tarea, alCompletar) {
+  const resultado = tarea();
+  alCompletar?.(resultado); // Solo llama si alCompletar existe
+  return resultado;
+}
+
+const res = ejecutarTarea(
+  () => 42,
+  (r) => console.log("Completado:", r)
+);
+// "Completado: 42"
+
+const resSilencioso = ejecutarTarea(() => 99);
+// Sin output — alCompletar era undefined`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Formateador {
+  formatear: (valor: number) => string;
+}
+
+function mostrarPrecio(
+  precio: number,
+  formateador?: Formateador
+): string {
+  // Si formateador es undefined, ?.formatear() devuelve undefined
+  return formateador?.formatear(precio) ?? \`$\${precio}\`;
+}
+
+const euroFormateador: Formateador = {
+  formatear: (n) => \`€\${n.toFixed(2)}\`,
+};
+
+console.log(mostrarPrecio(29.99, euroFormateador)); // "€29.99"
+console.log(mostrarPrecio(29.99));                  // "$29.99"`
+    }
+  ]}
+  output={`HOLA\nundefined\nCompletado: 42`}
+/>
+
+</Section>
+
+<Section id="arrays-chaining" title="?. con arrays — array?.[0]">
+
+Para acceder a índices de arrays de forma segura, usa la sintaxis `array?.[indice]`. Los corchetes son necesarios porque `array?.0` no es sintaxis válida.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "?. con arrays",
+      code: `const respuesta = {
+  datos: {
+    usuarios: ["Ana", "Carlos", "Bea"],
+  },
+};
+
+const respuestaVacia = { datos: null };
+
+// Acceso seguro al primer elemento
+console.log(respuesta.datos?.usuarios?.[0]);       // "Ana"
+console.log(respuestaVacia.datos?.usuarios?.[0]);  // undefined
+
+// Caso real: respuesta de API que puede venir vacía
+function obtenerPrimerResultado(respuestaAPI) {
+  return respuestaAPI?.resultados?.[0]?.titulo ?? "Sin resultados";
+}
+
+console.log(obtenerPrimerResultado({
+  resultados: [{ titulo: "JavaScript avanzado" }],
+}));
+// "JavaScript avanzado"
+
+console.log(obtenerPrimerResultado({ resultados: [] }));
+// "Sin resultados"
+
+console.log(obtenerPrimerResultado(null));
+// "Sin resultados"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Resultado {
+  titulo: string;
+  url: string;
+}
+
+interface RespuestaAPI {
+  resultados?: Resultado[];
+  total?: number;
+}
+
+function obtenerPrimerResultado(resp: RespuestaAPI | null): string {
+  return resp?.resultados?.[0]?.titulo ?? "Sin resultados";
+}
+
+const conResultados: RespuestaAPI = {
+  resultados: [{ titulo: "TypeScript avanzado", url: "/ts" }],
+};
+
+console.log(obtenerPrimerResultado(conResultados)); // "TypeScript avanzado"
+console.log(obtenerPrimerResultado({ resultados: [] })); // "Sin resultados"
+console.log(obtenerPrimerResultado(null));           // "Sin resultados"`
+    }
+  ]}
+  output={`Ana\nundefined\nJavaScript avanzado\nSin resultados\nSin resultados`}
+/>
+
+</Section>
+
+<Section id="nullish-coalescing" title="Nullish coalescing ?? — valor por defecto preciso">
+
+El operador `||` da el valor derecho si el izquierdo es **falsy** (incluye `0`, `""`, `false`). El operador `??` es más preciso: solo activa el valor derecho si el izquierdo es `null` o `undefined`.
+
+<CompareTable
+  headers={["Valor", "con ||", "con ??", "¿Cuál es correcto?"]}
+  rows={[
+    [
+      { value: 'undefined' },
+      { kind: "good", value: "usa el default" },
+      { kind: "good", value: "usa el default" },
+      { value: "Ambos iguales" }
+    ],
+    [
+      { value: 'null' },
+      { kind: "good", value: "usa el default" },
+      { kind: "good", value: "usa el default" },
+      { value: "Ambos iguales" }
+    ],
+    [
+      { value: '0' },
+      { kind: "bad", value: "usa el default ❌" },
+      { kind: "good", value: "usa el 0 ✅" },
+      { value: "?? es correcto" }
+    ],
+    [
+      { value: '""' },
+      { kind: "bad", value: "usa el default ❌" },
+      { kind: "good", value: 'usa "" ✅' },
+      { value: "?? es correcto" }
+    ],
+    [
+      { value: 'false' },
+      { kind: "bad", value: "usa el default ❌" },
+      { kind: "good", value: "usa false ✅" },
+      { value: "?? es correcto" }
+    ],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "|| vs ??",
+      code: `// Configuración de un gráfico
+const config = {
+  mostrarEjes: false,  // false es un valor válido
+  opacidad: 0,         // 0 es un valor válido
+  titulo: "",          // string vacío puede ser intencional
+};
+
+// ❌ Con || — trata 0, false y "" como "sin valor"
+const ejesConOR  = config.mostrarEjes || true;    // true  — ¡incorrecto!
+const opacidadOR = config.opacidad    || 1;       // 1     — ¡incorrecto!
+const tituloOR   = config.titulo      || "Sin título"; // "Sin título" — ¡incorrecto!
+
+// ✅ Con ?? — solo actúa sobre null y undefined
+const ejesConQQ  = config.mostrarEjes ?? true;    // false — correcto ✅
+const opacidadQQ = config.opacidad    ?? 1;       // 0     — correcto ✅
+const tituloQQ   = config.titulo      ?? "Sin título"; // ""    — correcto ✅
+
+console.log("||:", ejesConOR, opacidadOR, tituloOR);
+// true 1 "Sin título"
+
+console.log("??:", ejesConQQ, opacidadQQ, tituloQQ);
+// false 0 ""`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface ConfigGrafico {
+  mostrarEjes?: boolean;
+  opacidad?: number;
+  titulo?: string;
+}
+
+function normalizarConfig(config: ConfigGrafico): Required<ConfigGrafico> {
+  return {
+    // ?? garantiza que 0, false y "" se respetan
+    mostrarEjes: config.mostrarEjes ?? true,
+    opacidad:    config.opacidad    ?? 1,
+    titulo:      config.titulo      ?? "Sin título",
+  };
+}
+
+console.log(normalizarConfig({ mostrarEjes: false, opacidad: 0, titulo: "" }));
+// { mostrarEjes: false, opacidad: 0, titulo: "" }
+
+console.log(normalizarConfig({}));
+// { mostrarEjes: true, opacidad: 1, titulo: "Sin título" }`
+    }
+  ]}
+  output={`||: true 1 Sin título\n??: false 0 `}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Accede a propiedades anidadas con ?.", diff: "easy", minutes: 3 },
+    { num: "02", name: "Usa ?? para defaults más precisos que ||", diff: "easy", minutes: 5 },
+    { num: "03", name: "Encadena ?. en una respuesta de API anidada", diff: "med", minutes: 8 },
+    { num: "04", name: "Combina ?. y ?? en un accessor seguro", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

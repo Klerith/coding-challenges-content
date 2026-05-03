@@ -1,0 +1,241 @@
+---
+title: "try / catch / finally: maneja errores sin romper la app"
+short: "try-catch-finally"
+chapter: "07"
+num: "01"
+chapterTitle: "Manejo de errores"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El código falla — siempre. try/catch/finally te da un lugar donde capturar esos fallos y decidir qué hacer, sin que toda la aplicación se detenga."
+pro: false
+---
+
+<Section id="por-que" title="¿Por qué manejar errores?">
+
+Cuando JavaScript encuentra un error que no está manejado, **detiene la ejecución** del programa. En el navegador eso puede congelar la interfaz; en Node.js puede tumbar el servidor. El manejo de errores es lo que separa el código de producción del código de prototipo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Sin manejo de errores",
+      code: `// Sin manejo: el programa se detiene en la línea del error
+const texto = null;
+console.log(texto.toUpperCase()); // TypeError — crash
+console.log("Esta línea nunca se ejecuta");`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Sin manejo: el programa se detiene en la línea del error
+const texto: string | null = null;
+console.log(texto!.toUpperCase()); // TypeError — crash
+console.log("Esta línea nunca se ejecuta");`
+    }
+  ]}
+  output={`TypeError: Cannot read properties of null (reading 'toUpperCase')`}
+/>
+
+<Callout variant="info" title="Errores en tiempo de ejecución">
+TypeScript puede atrapar muchos errores en tiempo de compilación, pero errores como respuestas de red fallidas, archivos que no existen o datos inesperados de una API solo aparecen cuando el código se ejecuta.
+</Callout>
+
+</Section>
+
+<Section id="try-catch" title="try / catch — captura errores sin romper la app">
+
+Envuelves el código peligroso en un bloque `try`. Si algo falla, el control pasa inmediatamente al bloque `catch`. El resto del programa continúa normalmente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "try / catch básico",
+      code: `function parsearJSON(texto) {
+  try {
+    const datos = JSON.parse(texto);
+    return datos;
+  } catch (error) {
+    console.error("JSON inválido:", error.message);
+    return null;
+  }
+}
+
+console.log(parsearJSON('{"nombre": "Ana"}')); // { nombre: "Ana" }
+console.log(parsearJSON("esto no es json"));    // null
+console.log("El programa sigue ejecutándose");  // se ejecuta siempre`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function parsearJSON<T>(texto: string): T | null {
+  try {
+    const datos = JSON.parse(texto) as T;
+    return datos;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error("JSON inválido:", error.message);
+    }
+    return null;
+  }
+}
+
+interface Usuario {
+  nombre: string;
+}
+
+console.log(parsearJSON<Usuario>('{"nombre": "Ana"}')); // { nombre: "Ana" }
+console.log(parsearJSON<Usuario>("esto no es json"));    // null
+console.log("El programa sigue ejecutándose");`
+    }
+  ]}
+  output={`{ nombre: "Ana" }\nnull\nEl programa sigue ejecutándose`}
+/>
+
+<Callout variant="warn" title="No silencies errores sin razón">
+Un `catch` vacío que no hace nada es peor que no tener `catch`. Al menos registra el error con `console.error` para poder diagnosticarlo después.
+</Callout>
+
+</Section>
+
+<Section id="finally" title="finally — código que se ejecuta siempre">
+
+El bloque `finally` se ejecuta **sin importar** si hubo error o no. Es el lugar correcto para liberar recursos: cerrar conexiones, ocultar spinners de carga, limpiar temporizadores.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "finally en acción",
+      code: `function obtenerDatos(url) {
+  let cargando = true;
+  console.log("Iniciando carga...");
+
+  try {
+    // Simulamos una operación que puede fallar
+    if (!url.startsWith("https")) {
+      throw new Error("Solo se permiten URLs seguras");
+    }
+    console.log("Datos obtenidos de:", url);
+    return { ok: true };
+  } catch (error) {
+    console.error("Error:", error.message);
+    return null;
+  } finally {
+    // Esto se ejecuta SIEMPRE — con éxito o con error
+    cargando = false;
+    console.log("Carga terminada. cargando =", cargando);
+  }
+}
+
+obtenerDatos("https://api.ejemplo.com/datos");
+console.log("---");
+obtenerDatos("http://inseguro.com");`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Respuesta {
+  ok: boolean;
+}
+
+function obtenerDatos(url: string): Respuesta | null {
+  let cargando = true;
+  console.log("Iniciando carga...");
+
+  try {
+    if (!url.startsWith("https")) {
+      throw new Error("Solo se permiten URLs seguras");
+    }
+    console.log("Datos obtenidos de:", url);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error("Error:", error.message);
+    }
+    return null;
+  } finally {
+    cargando = false;
+    console.log("Carga terminada. cargando =", cargando);
+  }
+}
+
+obtenerDatos("https://api.ejemplo.com/datos");
+console.log("---");
+obtenerDatos("http://inseguro.com");`
+    }
+  ]}
+  output={`Iniciando carga...\nDatos obtenidos de: https://api.ejemplo.com/datos\nCarga terminada. cargando = false\n---\nIniciando carga...\nError: Solo se permiten URLs seguras\nCarga terminada. cargando = false`}
+/>
+
+</Section>
+
+<Section id="objeto-error" title="El objeto error en catch">
+
+El valor capturado por `catch` tiene tres propiedades clave que te dan contexto sobre qué salió mal.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Propiedades del error",
+      code: `try {
+  // Forzamos un ReferenceError
+  console.log(variableQueNoExiste);
+} catch (error) {
+  console.log("Tipo:", error.name);       // "ReferenceError"
+  console.log("Mensaje:", error.message); // "variableQueNoExiste is not defined"
+  console.log("Stack:", error.stack);     // traza completa de llamadas
+}
+
+// Inspeccionando errores propios
+try {
+  throw new TypeError("Se esperaba un número");
+} catch (error) {
+  console.log(error.name);    // "TypeError"
+  console.log(error.message); // "Se esperaba un número"
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// En TypeScript, el tipo de 'error' en catch es 'unknown'
+// Debes verificar antes de acceder a sus propiedades
+try {
+  const valor: unknown = null;
+  (valor as any).propiedad; // forzamos un error
+} catch (error) {
+  if (error instanceof Error) {
+    // Dentro de este bloque, TypeScript sabe que es Error
+    console.log("Tipo:", error.name);
+    console.log("Mensaje:", error.message);
+    console.log("Stack:", error.stack?.split("\n")[0]); // primera línea
+  } else {
+    console.log("Error desconocido:", error);
+  }
+}`
+    }
+  ]}
+  output={`Tipo: ReferenceError\nMensaje: variableQueNoExiste is not defined`}
+/>
+
+<Callout variant="tip" title="TypeScript: error es unknown">
+En TypeScript, el parámetro del `catch` tiene tipo `unknown` (no `Error`). Siempre verifica con `instanceof Error` antes de acceder a `error.message` o `error.name`. Esto previene accesos inseguros a propiedades.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Envuelve una operación peligrosa con try/catch", diff: "easy", minutes: 5 },
+    { num: "02", name: "Usa finally para liberar recursos", diff: "easy", minutes: 5 },
+    { num: "03", name: "Maneja múltiples tipos de error en un catch", diff: "med", minutes: 8 },
+    { num: "04", name: "Crea una función safe que nunca lanza", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

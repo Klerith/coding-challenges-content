@@ -1,0 +1,279 @@
+---
+title: "Dynamic imports: carga código <em>cuando lo necesitas</em>"
+short: "Dynamic imports"
+chapter: "10"
+num: "03"
+chapterTitle: "Módulos"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los static imports se resuelven antes de que el código corra. Los dynamic imports devuelven una Promise y permiten cargar módulos en el momento exacto que los necesitas — clave para mejorar el tiempo de carga inicial de tu app."
+pro: false
+---
+
+<Section id="estaticos-vs-dinamicos" title="Imports estáticos vs dinámicos">
+
+Los imports estáticos que ya conoces se procesan en tiempo de compilación: el bundler los analiza y el navegador los descarga al inicio. Los dinámicos se resuelven en tiempo de ejecución.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// ESTÁTICO — se carga siempre, al inicio, sin importar si se usa
+import { parse } from "./csv-parser.js"; // 200 KB que quizás no usas
+
+// DINÁMICO — se carga solo cuando se llama esta función
+async function exportarCSV(datos) {
+  // El módulo se descarga aquí, la primera vez que el usuario exporta
+  const { parse } = await import("./csv-parser.js");
+  return parse(datos);
+}
+
+// Comparación de timing
+console.log("Inicio de app"); // Se ejecuta inmediatamente
+
+// El import dinámico es una Promise
+const modulo = import("./matematicas.js");
+modulo.then(m => {
+  console.log(m.suma(1, 2)); // 3
+});
+
+console.log("Esta línea se ejecuta ANTES que la del módulo");`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ESTÁTICO — siempre en el bundle inicial
+import { parse } from "./csv-parser.js";
+
+// DINÁMICO — carga bajo demanda
+async function exportarCSV(datos: string[][]): Promise<string> {
+  // TypeScript infiere el tipo del módulo correctamente
+  const { parse } = await import("./csv-parser.js");
+  return parse(datos);
+}
+
+// La sintaxis import() devuelve Promise<modulo>
+async function demo(): Promise<void> {
+  const modulo = await import("./matematicas.js");
+  console.log(modulo.suma(1, 2)); // 3
+}
+
+demo();`
+    }
+  ]}
+  output={`Inicio de app\nEsta línea se ejecuta ANTES que la del módulo\n3`}
+/>
+
+</Section>
+
+<Section id="import-dinamico" title="import() — la función de carga asíncrona">
+
+`import()` acepta cualquier expresión de string, no solo literales. Esto permite carga condicional y dinámica real.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Carga condicional según entorno o configuración
+async function cargarLogger(entorno) {
+  if (entorno === "desarrollo") {
+    const { DevLogger } = await import("./loggers/dev-logger.js");
+    return new DevLogger();
+  } else {
+    const { ProdLogger } = await import("./loggers/prod-logger.js");
+    return new ProdLogger();
+  }
+}
+
+// Carga activada por evento de usuario
+document.getElementById("btnGrafico")?.addEventListener("click", async () => {
+  // chart.js pesa ~200KB — no tiene sentido cargarlo hasta que el usuario lo pida
+  const { Chart } = await import("https://cdn.jsdelivr.net/npm/chart.js");
+  const ctx = document.getElementById("miCanvas");
+  new Chart(ctx, { type: "bar", data: { /* ... */ } });
+});
+
+// Carga de módulo cuyo nombre se construye dinámicamente
+async function cargarTema(nombre) {
+  const tema = await import(\`./temas/\${nombre}.js\`);
+  return tema.default;
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Entorno = "desarrollo" | "produccion";
+
+async function cargarLogger(entorno: Entorno) {
+  if (entorno === "desarrollo") {
+    const { DevLogger } = await import("./loggers/dev-logger.js");
+    return new DevLogger();
+  } else {
+    const { ProdLogger } = await import("./loggers/prod-logger.js");
+    return new ProdLogger();
+  }
+}
+
+// Tipado explícito del módulo dinámico
+type ModuloPago = typeof import("./pagos/stripe.js");
+
+async function procesarPago(monto: number): Promise<void> {
+  const modulo: ModuloPago = await import("./pagos/stripe.js");
+  await modulo.cobrar(monto);
+}
+
+// Tema dinámico con tipo conocido
+interface Tema {
+  colores: Record<string, string>;
+  tipografia: string;
+}
+
+async function cargarTema(nombre: string): Promise<Tema> {
+  const tema = await import(\`./temas/\${nombre}.js\`);
+  return tema.default as Tema;
+}`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Bundlers y strings dinámicos">
+Webpack y Vite pueden analizar patrones de template literals simples como `` `./temas/${nombre}.js` `` y pre-generar los chunks. Evita construir rutas con lógica compleja para mantener esta optimización.
+</Callout>
+
+</Section>
+
+<Section id="code-splitting" title="Code splitting — divide para cargar más rápido">
+
+El code splitting es la técnica de dividir el bundle en fragmentos (chunks) que se cargan solo cuando se necesitan. Los dynamic imports son el mecanismo que lo hace posible.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// router.js — cada ruta carga su módulo solo cuando se visita
+
+const rutas = {
+  "/": () => import("./paginas/Inicio.js"),
+  "/perfil": () => import("./paginas/Perfil.js"),
+  "/editor": () => import("./paginas/Editor.js"),  // pesado: Monaco Editor
+  "/reportes": () => import("./paginas/Reportes.js"), // pesado: Chart.js + D3
+};
+
+async function navegar(ruta) {
+  const cargador = rutas[ruta];
+  if (!cargador) {
+    console.error("Ruta no encontrada");
+    return;
+  }
+
+  // Muestra skeleton mientras carga
+  document.body.innerHTML = '<div class="skeleton">Cargando...</div>';
+
+  const modulo = await cargador();
+  modulo.default.render(document.body);
+}
+
+// Solo al visitar /editor se descarga Monaco Editor
+navegar("/editor");`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// router.ts — enrutador con lazy loading tipado
+
+interface Pagina {
+  render(contenedor: HTMLElement): void;
+}
+
+type CargadorPagina = () => Promise<{ default: Pagina }>;
+
+const rutas: Record<string, CargadorPagina> = {
+  "/": () => import("./paginas/Inicio.js"),
+  "/perfil": () => import("./paginas/Perfil.js"),
+  "/editor": () => import("./paginas/Editor.js"),
+  "/reportes": () => import("./paginas/Reportes.js"),
+};
+
+async function navegar(ruta: string): Promise<void> {
+  const cargador = rutas[ruta];
+  if (!cargador) {
+    throw new Error(\`Ruta no encontrada: \${ruta}\`);
+  }
+
+  document.body.innerHTML = '<div class="skeleton">Cargando...</div>';
+
+  const { default: pagina } = await cargador();
+  pagina.render(document.body);
+}
+
+export { navegar };`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="typescript-tipos" title="Dynamic imports en TypeScript — inferencia de tipos">
+
+TypeScript infiere automáticamente el tipo del módulo cargado dinámicamente. No necesitas anotaciones manuales en la mayoría de los casos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// modulo-pesado.ts
+export function procesarImagenes(rutas: string[]): Promise<Blob[]> {
+  return Promise.resolve(rutas.map(() => new Blob()));
+}
+export const VERSION = "2.0.0";
+
+// --- main.ts ---
+async function cargarYProcesar(archivos: string[]) {
+  // TypeScript infiere: { procesarImagenes: Function, VERSION: string }
+  const modulo = await import("./modulo-pesado.js");
+
+  // Autocompletado y verificación de tipos funcionan correctamente
+  const blobs = await modulo.procesarImagenes(archivos);
+  console.log(\`Versión: \${modulo.VERSION}\`);
+  return blobs;
+}
+
+// Importar el TIPO del módulo sin cargarlo en runtime
+type ModuloPesado = typeof import("./modulo-pesado.js");
+
+// Útil para anotar variables que recibirán el módulo más tarde
+let moduloCacheado: ModuloPesado | null = null;
+
+async function obtenerModulo(): Promise<ModuloPesado> {
+  if (!moduloCacheado) {
+    moduloCacheado = await import("./modulo-pesado.js");
+  }
+  return moduloCacheado;
+}`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Error handling en dynamic imports">
+Un import dinámico puede fallar (red caída, módulo no encontrado). Siempre envuelve `await import()` en un bloque `try/catch` en código de producción.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Carga un módulo pesado solo cuando el usuario lo solicita", diff: "med", minutes: 10 },
+    { num: "02", name: "Implementa lazy loading condicional por entorno", diff: "med", minutes: 10 },
+    { num: "03", name: "Dynamic import con manejo de error y retry", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

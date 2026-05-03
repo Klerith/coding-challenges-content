@@ -1,0 +1,320 @@
+---
+title: "Scope y lexical scope: dónde viven tus <em>variables</em>"
+short: "Scope y lexical scope"
+chapter: "13"
+num: "02"
+chapterTitle: "Conceptos profundos de JavaScript"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El scope determina qué variables son visibles desde dónde. JavaScript usa lexical scope — el scope se fija cuando escribes el código, no cuando se ejecuta."
+pro: false
+---
+
+<Section id="tipos-de-scope" title="Tipos de scope">
+
+JavaScript tiene tres niveles de scope que determinan dónde vive cada variable:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// 1. Scope global — visible desde cualquier lugar
+var appNombre = "MiApp"; // var en global scope
+let version = "1.0.0";   // let en global scope
+
+function mostrarInfo() {
+  // 2. Scope de función — solo visible dentro de la función
+  var mensajeInterno = "Este mensaje es privado";
+  console.log(appNombre);       // ✅ accede al global
+  console.log(mensajeInterno);  // ✅ local
+
+  if (true) {
+    // 3. Scope de bloque — solo dentro de {}
+    let bloque = "solo en este bloque";
+    const constBloque = "también aquí";
+    var fueraDelBloque = "var ignora el bloque"; // ❌ no respeta bloque
+
+    console.log(bloque);       // ✅
+    console.log(constBloque);  // ✅
+  }
+
+  // console.log(bloque);      // ❌ ReferenceError
+  console.log(fueraDelBloque); // ✅ var escapó del bloque
+}
+
+mostrarInfo();`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript refuerza el block scope con análisis estático
+const appNombre: string = "MiApp";
+const version: string = "1.0.0";
+
+function mostrarInfo(): void {
+  const mensajeInterno: string = "Este mensaje es privado";
+  console.log(appNombre);
+  console.log(mensajeInterno);
+
+  if (true) {
+    let bloque: string = "solo en este bloque";
+    const constBloque: string = "también aquí";
+
+    console.log(bloque);
+    console.log(constBloque);
+  }
+
+  // TypeScript marca error en compilación si intentas usar
+  // 'bloque' fuera del if — no necesitas el runtime
+}`
+    }
+  ]}
+  output={`MiApp\nEste mensaje es privado\nsolo en este bloque\ntambién aquí\nundefined`}
+/>
+
+</Section>
+
+<Section id="lexical-scope" title="Lexical scope — el scope se determina al escribir">
+
+**Lexical scope** (o static scope) significa que el scope de una variable se determina por **dónde está escrita en el código**, no por dónde se llama la función.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Lexical scope",
+      code: `const saludo = "Hola";
+
+function externo() {
+  const nombre = "Ana";
+
+  function interno() {
+    // interno "ve" las variables de externo y del global
+    // porque fue DEFINIDO dentro de externo — no importa
+    // desde dónde se llame
+    console.log(\`\${saludo}, \${nombre}!\`); // "Hola, Ana!"
+  }
+
+  interno();
+}
+
+externo();
+
+// El scope léxico es estático:
+function crearSaludo() {
+  const base = "Buenos días";
+
+  return function(persona) {
+    // Esta función "recuerda" base porque fue definida aquí
+    return \`\${base}, \${persona}\`;
+  };
+}
+
+const saludar = crearSaludo();
+console.log(saludar("Carlos")); // "Buenos días, Carlos"
+// base no existe aquí, pero la función lo recuerda`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const saludo: string = "Hola";
+
+function externo(): void {
+  const nombre: string = "Ana";
+
+  function interno(): void {
+    console.log(\`\${saludo}, \${nombre}!\`);
+  }
+
+  interno();
+}
+
+externo();
+
+function crearSaludo(): (persona: string) => string {
+  const base: string = "Buenos días";
+
+  return function(persona: string): string {
+    return \`\${base}, \${persona}\`;
+  };
+}
+
+const saludar = crearSaludo();
+console.log(saludar("Carlos")); // "Buenos días, Carlos"`
+    }
+  ]}
+  output={`Hola, Ana!\nBuenos días, Carlos`}
+/>
+
+<Callout variant="info" title="Lexical vs Dynamic scope">
+JavaScript usa **lexical scope** — el scope se fija donde defines la función. Otros lenguajes como Bash usan dynamic scope — donde se llama la función. Esta diferencia explica por qué los closures funcionan en JS.
+</Callout>
+
+</Section>
+
+<Section id="scope-chain" title="Scope chain — búsqueda hacia arriba">
+
+Cuando JavaScript busca una variable, sube por la **cadena de scopes** hasta encontrarla o llegar al global.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "La cadena de búsqueda",
+      code: `const nivel = "global";
+
+function primerNivel() {
+  const nivel = "función";  // sombrea al global
+
+  function segundoNivel() {
+    // No tiene 'nivel' propio — busca en primerNivel
+
+    function tercerNivel() {
+      // No tiene 'nivel' — sube a segundoNivel — no tiene —
+      // sube a primerNivel — ¡encontrado!
+      console.log(nivel); // "función"
+    }
+
+    tercerNivel();
+  }
+
+  segundoNivel();
+}
+
+primerNivel();
+
+// Shadowing — una variable más interna oculta a la externa
+function demostrarShadowing() {
+  let x = 10;
+
+  if (true) {
+    let x = 20; // nueva x en scope de bloque
+    console.log(x); // 20 — la del bloque
+  }
+
+  console.log(x); // 10 — la del scope de función
+}
+
+demostrarShadowing();`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const nivel: string = "global";
+
+function primerNivel(): void {
+  const nivel: string = "función";
+
+  function segundoNivel(): void {
+    function tercerNivel(): void {
+      console.log(nivel); // "función" — sube la cadena
+    }
+    tercerNivel();
+  }
+
+  segundoNivel();
+}
+
+primerNivel();
+
+function demostrarShadowing(): void {
+  let x: number = 10;
+
+  if (true) {
+    let x: number = 20; // TypeScript permite shadowing
+    console.log(x); // 20
+  }
+
+  console.log(x); // 10
+}
+
+demostrarShadowing();`
+    }
+  ]}
+  output={`función\n20\n10`}
+/>
+
+</Section>
+
+<Section id="iife" title="IIFE — el patrón clásico de scope aislado">
+
+El **IIFE** (Immediately Invoked Function Expression) crea un scope privado de forma inmediata. Era el patrón estándar para encapsulación antes de los módulos ES6.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "IIFE",
+      code: `// Sintaxis básica del IIFE
+(function() {
+  const privado = "nadie me ve desde fuera";
+  console.log(\`Dentro del IIFE: \${privado}\`);
+})();
+
+// console.log(privado); // ❌ ReferenceError
+
+// IIFE con parámetros
+(function(nombre, version) {
+  console.log(\`\${nombre} v\${version} iniciado\`);
+})("MiApp", "2.0");
+
+// Arrow function IIFE
+const resultado = (() => {
+  const a = 10;
+  const b = 20;
+  return a + b;
+})();
+
+console.log(\`Resultado: \${resultado}\`); // 30
+
+// Hoy usamos módulos ES6 en lugar de IIFE:
+// import/export maneja el scope automáticamente`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// IIFE en TypeScript
+(function(): void {
+  const privado: string = "nadie me ve desde fuera";
+  console.log(\`Dentro del IIFE: \${privado}\`);
+})();
+
+// IIFE con parámetros tipados
+(function(nombre: string, version: string): void {
+  console.log(\`\${nombre} v\${version} iniciado\`);
+})("MiApp", "2.0");
+
+// Arrow IIFE que retorna un valor
+const resultado: number = ((): number => {
+  const a: number = 10;
+  const b: number = 20;
+  return a + b;
+})();
+
+console.log(\`Resultado: \${resultado}\`); // 30`
+    }
+  ]}
+  output={`Dentro del IIFE: nadie me ve desde fuera\nMiApp v2.0 iniciado\nResultado: 30`}
+/>
+
+<Callout variant="tip" title="IIFE hoy">
+En código moderno con ES modules, raramente necesitas un IIFE — cada archivo ya tiene su propio scope. Pero los verás en código legacy, bundles minificados y patrones como el Module Pattern.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Identifica qué scope tiene cada variable", diff: "easy", minutes: 5 },
+    { num: "02", name: "Corrige un bug de scope con let vs var", diff: "med", minutes: 8 },
+    { num: "03", name: "Crea un módulo privado con IIFE", diff: "med", minutes: 10 },
+    { num: "04", name: "Explica el output de esta scope chain", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

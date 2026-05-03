@@ -1,0 +1,335 @@
+---
+title: "Clases abstractas: contratos para <em>subclases</em>"
+short: "Clases abstractas"
+chapter: "09"
+num: "07"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "advanced"
+readingMinutes: 9
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Las clases abstractas definen una estructura base que no puede instanciarse directamente. Obligan a las subclases a implementar ciertos métodos, garantizando un contrato común."
+pro: true
+---
+
+<Section id="que-es-abstracta" title="¿Qué es una clase abstracta?">
+
+Una clase abstracta es un **molde incompleto** — define la estructura y parte del comportamiento, pero deja ciertos métodos sin implementar para que las subclases los completen. No se puede instanciar directamente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `abstract class Figura {
+  // Esta clase existe solo para ser extendida
+}
+
+// ❌ Error: Cannot create an instance of an abstract class
+// const f = new Figura();
+
+class Circulo extends Figura {}
+
+// ✅ Instanciar la subclase concreta sí está permitido
+const c = new Circulo();
+console.log(c instanceof Figura); // true — sigue siendo una Figura`
+    }
+  ]}
+  output={`true`}
+/>
+
+<Callout variant="info" title="¿Para qué sirve?">
+Las clases abstractas modelan conceptos que no tienen sentido solos. Un "Animal" genérico no tiene sonido propio, pero Perro y Gato sí. La clase abstracta garantiza que toda subclase implemente lo que le falta.
+</Callout>
+
+</Section>
+
+<Section id="abstract-class" title="abstract class en TypeScript">
+
+Una clase abstracta puede tener propiedades, métodos concretos y métodos abstractos mezclados:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Estructura de una clase abstracta",
+      code: `abstract class Vehiculo {
+  // Propiedades concretas — disponibles en todas las subclases
+  readonly marca: string;
+  readonly modelo: string;
+  protected velocidadActual: number = 0;
+
+  constructor(marca: string, modelo: string) {
+    this.marca = marca;
+    this.modelo = modelo;
+  }
+
+  // Método concreto — lógica compartida
+  acelerar(incremento: number): void {
+    this.velocidadActual += incremento;
+    console.log(\`\${this.marca} \${this.modelo}: \${this.velocidadActual} km/h\`);
+  }
+
+  // Método abstracto — cada subclase debe implementarlo
+  abstract combustible(): string;
+  abstract autonomiaKm(): number;
+}
+
+class AutoElectrico extends Vehiculo {
+  private bateriaKwh: number;
+
+  constructor(marca: string, modelo: string, bateriaKwh: number) {
+    super(marca, modelo);
+    this.bateriaKwh = bateriaKwh;
+  }
+
+  combustible(): string {
+    return "Electricidad";
+  }
+
+  autonomiaKm(): number {
+    return this.bateriaKwh * 6; // ~6 km por kWh
+  }
+}
+
+const tesla = new AutoElectrico("Tesla", "Model 3", 75);
+tesla.acelerar(60);
+console.log(tesla.combustible());   // "Electricidad"
+console.log(tesla.autonomiaKm());   // 450`
+    }
+  ]}
+  output={`Tesla Model 3: 60 km/h\nElectricidad\n450`}
+/>
+
+</Section>
+
+<Section id="metodos-abstractos" title="Métodos abstractos: firma sin implementación">
+
+Los métodos abstractos declaran la **firma** (nombre, parámetros, tipo de retorno) pero no tienen cuerpo. La subclase está obligada a implementarlos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Contrato por métodos abstractos",
+      code: `abstract class Reporte {
+  private titulo: string;
+  private fecha: Date;
+
+  constructor(titulo: string) {
+    this.titulo = titulo;
+    this.fecha = new Date();
+  }
+
+  // Métodos abstractos: cada tipo de reporte define su contenido
+  abstract generarCabecera(): string;
+  abstract generarCuerpo(): string;
+  abstract generarPie(): string;
+
+  // Método concreto que usa los abstractos (Template Method pattern)
+  generar(): string {
+    return [
+      this.generarCabecera(),
+      this.generarCuerpo(),
+      this.generarPie(),
+      \`Generado: \${this.fecha.toLocaleDateString()}\`,
+    ].join("\\n");
+  }
+}
+
+class ReportePDF extends Reporte {
+  private datos: string[];
+
+  constructor(titulo: string, datos: string[]) {
+    super(titulo);
+    this.datos = datos;
+  }
+
+  generarCabecera(): string {
+    return "=== REPORTE PDF ===";
+  }
+
+  generarCuerpo(): string {
+    return this.datos.map((d, i) => \`\${i + 1}. \${d}\`).join("\\n");
+  }
+
+  generarPie(): string {
+    return \`Total de registros: \${this.datos.length}\`;
+  }
+}
+
+const reporte = new ReportePDF("Ventas Q1", ["Laptop: $1200", "Mouse: $25", "Teclado: $80"]);
+console.log(reporte.generar());`
+    }
+  ]}
+  output={`=== REPORTE PDF ===\n1. Laptop: $1200\n2. Mouse: $25\n3. Teclado: $80\nTotal de registros: 3\nGenerado: 02/05/2026`}
+/>
+
+<Callout variant="warn" title="Olvidar un método abstracto es un error">
+Si tu subclase concreta no implementa todos los métodos abstractos del padre, TypeScript lanzará un error en compilación: `Non-abstract class 'X' does not implement inherited abstract member 'y'`. Esto es una garantía valiosa.
+</Callout>
+
+</Section>
+
+<Section id="metodos-concretos" title="Métodos concretos en abstractas">
+
+Las clases abstractas pueden tener métodos completamente implementados que las subclases heredan y pueden usar (o hacer override):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Template Method Pattern",
+      code: `abstract class Autenticador {
+  // Método concreto: flujo fijo de autenticación
+  async autenticar(usuario: string, contrasena: string): Promise<boolean> {
+    // 1. Paso concreto: log de intento
+    this.registrarIntento(usuario);
+
+    // 2. Paso abstracto: cada subclase valida a su manera
+    const esValido = await this.validarCredenciales(usuario, contrasena);
+
+    // 3. Paso concreto: manejar resultado
+    if (esValido) {
+      this.registrarExito(usuario);
+    } else {
+      this.registrarFallo(usuario);
+    }
+
+    return esValido;
+  }
+
+  // Métodos abstractos: la subclase define el "cómo"
+  protected abstract validarCredenciales(usuario: string, contrasena: string): Promise<boolean>;
+
+  // Métodos concretos con comportamiento por defecto
+  protected registrarIntento(usuario: string): void {
+    console.log(\`[AUTH] Intento de login: \${usuario}\`);
+  }
+
+  protected registrarExito(usuario: string): void {
+    console.log(\`[AUTH] Login exitoso: \${usuario}\`);
+  }
+
+  protected registrarFallo(usuario: string): void {
+    console.log(\`[AUTH] Login fallido: \${usuario}\`);
+  }
+}
+
+class AutenticadorLocal extends Autenticador {
+  private usuarios = new Map([["admin", "1234"], ["ana", "pass"]]);
+
+  protected async validarCredenciales(usuario: string, contrasena: string): Promise<boolean> {
+    return this.usuarios.get(usuario) === contrasena;
+  }
+}
+
+const auth = new AutenticadorLocal();
+await auth.autenticar("admin", "1234");  // exitoso
+await auth.autenticar("hacker", "0000"); // fallido`
+    }
+  ]}
+  output={`[AUTH] Intento de login: admin\n[AUTH] Login exitoso: admin\n[AUTH] Intento de login: hacker\n[AUTH] Login fallido: hacker`}
+/>
+
+</Section>
+
+<Section id="abstract-vs-interface" title="Abstractas vs interfaces: cuándo usar cada una">
+
+Ambas definen contratos, pero tienen capacidades distintas. La elección correcta depende del contexto:
+
+<CompareTable
+  headers={["Característica", "Clase abstracta", "Interface"]}
+  rows={[
+    [
+      { value: "Implementación de métodos" },
+      { kind: "good", value: "Sí — puede tener código" },
+      { kind: "bad", value: "No — solo firmas" }
+    ],
+    [
+      { value: "Estado (propiedades con valor)" },
+      { kind: "good", value: "Sí" },
+      { kind: "bad", value: "No (solo tipos)" }
+    ],
+    [
+      { value: "Constructor" },
+      { kind: "good", value: "Sí" },
+      { kind: "bad", value: "No" }
+    ],
+    [
+      { value: "Herencia múltiple" },
+      { kind: "bad", value: "No — solo una clase padre" },
+      { kind: "good", value: "Sí — múltiples interfaces" }
+    ],
+    [
+      { value: "Modificadores de acceso" },
+      { kind: "good", value: "Sí (private, protected)" },
+      { kind: "bad", value: "No — todo es público" }
+    ],
+    [
+      { value: "Cuando usar" },
+      { value: "Jerarquía con código compartido" },
+      { value: "Contrato puro, sin lógica compartida" }
+    ]
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Regla práctica",
+      code: `// ✅ Usa interface cuando defines solo la forma del objeto
+interface Serializable {
+  toJSON(): object;
+  fromJSON(data: object): void;
+}
+
+// ✅ Usa abstract class cuando compartes lógica entre subclases
+abstract class BaseDatos {
+  private conectado = false;
+
+  async conectar(): Promise<void> {
+    await this.establecerConexion(); // abstracto
+    this.conectado = true;
+    console.log("Conectado");
+  }
+
+  protected abstract establecerConexion(): Promise<void>;
+  abstract consultar(sql: string): Promise<unknown[]>;
+}
+
+// ✅ Puedes combinar ambas: abstracta que implementa interfaces
+abstract class Repositorio implements Serializable {
+  abstract toJSON(): object;
+  abstract fromJSON(data: object): void;
+  abstract guardar(): Promise<void>;
+}
+
+console.log("TypeScript te da todas las herramientas");`
+    }
+  ]}
+  output={`TypeScript te da todas las herramientas`}
+/>
+
+<Rules>
+  <Rule>Usa `abstract class` cuando necesitas compartir código entre clases relacionadas</Rule>
+  <Rule>Usa `interface` cuando solo necesitas definir la forma de un objeto o un contrato sin lógica</Rule>
+  <Rule>Una clase puede implementar múltiples interfaces pero solo extender una clase abstracta</Rule>
+  <Rule>Los métodos abstractos obligan a las subclases a completar el contrato — úsalos en lugar de lanzar errores manualmente</Rule>
+</Rules>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Clase abstracta Figura con area() abstracto", diff: "easy", minutes: 8 },
+    { num: "02", name: "Implementa Circulo y Triangulo que extienden Figura", diff: "med", minutes: 10 },
+    { num: "03", name: "Abstracta con hook methods (Template Method pattern)", diff: "hard", minutes: 15 },
+    { num: "04", name: "Distingue cuándo usar abstract vs interface", diff: "med", minutes: 10 },
+  ]}
+/>
+</Section>

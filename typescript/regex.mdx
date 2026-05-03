@@ -1,0 +1,395 @@
+---
+title: "Expresiones regulares: buscar y transformar <em>texto con patrones</em>"
+short: "Regex"
+chapter: "14"
+num: "02"
+chapterTitle: "Bonus prácticos"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Las expresiones regulares son patrones para buscar, validar y transformar texto. Son intimidantes al principio, pero dominando su sintaxis básica puedes resolver problemas complejos de texto en pocas líneas."
+pro: false
+---
+
+<Section id="que-son" title="¿Qué son las expresiones regulares?">
+
+Una **expresión regular** (regex) es un patrón que describe un conjunto de strings. En JavaScript se escriben entre barras `/patron/` o con `new RegExp("patron")`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Dos formas de crear una regex
+const patron1 = /hola/;                   // literal (preferido)
+const patron2 = new RegExp("hola");       // constructor (cuando el patrón es dinámico)
+
+// Flags más comunes:
+// i → case-insensitive (ignora mayúsculas)
+// g → global (encuentra todas las coincidencias)
+// m → multiline (^ y $ aplican a cada línea)
+
+const texto = "Hola mundo, hola JavaScript!";
+
+console.log(/hola/.test(texto));    // false — case sensitive
+console.log(/hola/i.test(texto));   // true — ignora mayúsculas
+
+const coincidencias = texto.match(/hola/gi);
+console.log(coincidencias); // ["Hola", "hola"]
+
+// Regex con patrones dinámicos
+function buscarPalabra(texto, palabra) {
+  const patron = new RegExp(\`\\\\b\${palabra}\\\\b\`, "gi"); // \\b = word boundary
+  return texto.match(patron) || [];
+}
+
+console.log(buscarPalabra("El gato y el gatobus", "gato")); // ["gato"] — solo la palabra exacta`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript no tiene tipos especiales para regex — usa RegExp
+const patron: RegExp = /hola/gi;
+
+const texto: string = "Hola mundo, hola JavaScript!";
+
+// test() retorna boolean
+const encontrado: boolean = patron.test(texto);
+console.log(encontrado); // true (o false si ya se usó el flag g con lastIndex)
+
+// Resetear lastIndex para regex con flag g
+patron.lastIndex = 0;
+
+// match() retorna string[] | null
+const coincidencias: RegExpMatchArray | null = texto.match(/hola/gi);
+console.log(coincidencias); // ["Hola", "hola"]
+
+// Función reutilizable tipada
+function buscarPalabra(texto: string, palabra: string): string[] {
+  const patron = new RegExp(\`\\\\b\${palabra}\\\\b\`, "gi");
+  return texto.match(patron) ?? [];
+}
+
+console.log(buscarPalabra("El gato y el gatobus", "gato")); // ["gato"]`
+    }
+  ]}
+  output={`false\ntrue\n["Hola", "hola"]\n["gato"]`}
+/>
+
+</Section>
+
+<Section id="sintaxis-basica" title="Sintaxis básica — clases de caracteres">
+
+Los **metacaracteres** son los bloques de construcción de las regex:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Metacaracteres esenciales",
+      code: `// Clases de caracteres predefinidas
+// \\d — dígito [0-9]
+// \\D — no dígito
+// \\w — palabra [a-zA-Z0-9_]
+// \\W — no palabra
+// \\s — espacio en blanco (espacio, tab, newline)
+// \\S — no espacio
+// .  — cualquier carácter (excepto newline)
+
+const texto = "Teléfono: +52 55 1234-5678";
+
+const soloDigitos = texto.match(/\\d/g);
+console.log(soloDigitos?.join("")); // "52551234567 8" → "525512345678"
+
+// Anclas
+// ^ — inicio del string (o línea con flag m)
+// $ — fin del string (o línea con flag m)
+
+console.log(/^\\d/.test("123abc")); // true — empieza con dígito
+console.log(/^\\d/.test("abc123")); // false — empieza con letra
+console.log(/\\d$/.test("abc123")); // true — termina con dígito
+
+// Clases personalizadas con []
+const vocales = /[aeiouáéíóúü]/gi;
+console.log("Hola Mundo".match(vocales)); // ["o", "a", "u", "o"]
+
+// Rango
+const letrasAC = /[a-c]/gi;
+console.log("abcdefg".match(letrasAC)); // ["a", "b", "c"]
+
+// Negación con ^
+const noVocales = /[^aeiou]/gi;
+console.log("Hola".match(noVocales)); // ["H", "l"]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Metacaracteres en TypeScript — misma sintaxis
+const telefono: string = "+52 55 1234-5678";
+
+// Extraer solo dígitos
+const soloDigitos: string[] = telefono.match(/\\d/g) ?? [];
+console.log(soloDigitos.join("")); // "52551234 5678"
+
+// Función de validación con regex
+function soloLetras(texto: string): boolean {
+  return /^[a-záéíóúüñ\s]+$/i.test(texto);
+}
+
+console.log(soloLetras("Ana García")); // true
+console.log(soloLetras("Ana123"));     // false
+
+// Clase personalizada para slugs válidos
+function esSlugValido(slug: string): boolean {
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug);
+}
+
+console.log(esSlugValido("mi-primer-curso")); // true
+console.log(esSlugValido("Mi Curso"));        // false
+console.log(esSlugValido("curso-"));          // false`
+    }
+  ]}
+  output={`525512345678\ntrue\nfalse\ntrue\n["o", "a", "u", "o"]\ntrue\nfalse`}
+/>
+
+</Section>
+
+<Section id="cuantificadores" title="Cuantificadores — ¿cuántas veces?">
+
+Los cuantificadores controlan cuántas veces debe aparecer un elemento:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Cuantificadores",
+      code: `// * → 0 o más veces
+// + → 1 o más veces
+// ? → 0 o 1 vez (opcional)
+// {n} → exactamente n veces
+// {n,} → n o más veces
+// {n,m} → entre n y m veces
+
+// Número de teléfono mexicano: 10 dígitos
+const telRegex = /^\\d{10}$/;
+console.log(telRegex.test("5512345678")); // true
+console.log(telRegex.test("551234567"));  // false — solo 9
+
+// Código postal: 5 dígitos
+const cpRegex = /^\\d{5}$/;
+console.log(cpRegex.test("06600")); // true
+console.log(cpRegex.test("6600"));  // false
+
+// Contraseña: mínimo 8 caracteres, al menos una mayúscula y un número
+const passRegex = /^(?=.*[A-Z])(?=.*\\d).{8,}$/;
+console.log(passRegex.test("Abc12345"));     // true
+console.log(passRegex.test("abc12345"));     // false — sin mayúscula
+console.log(passRegex.test("Abcdefgh"));     // false — sin número
+
+// Cuantificador lazy (?) — mínimo posible
+const html = "<b>hola</b> y <b>mundo</b>";
+const greedy = html.match(/<b>.+<\\/b>/g);   // ["<b>hola</b> y <b>mundo</b>"]
+const lazy   = html.match(/<b>.+?<\\/b>/g);  // ["<b>hola</b>", "<b>mundo</b>"]
+console.log(greedy);
+console.log(lazy);`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Validaciones comunes con cuantificadores
+function validarTelefono(tel: string): boolean {
+  // Acepta: 5512345678 o +52 55 1234-5678
+  return /^(\\+52\\s?)?\\d{2}\\s?\\d{4}[-\\s]?\\d{4}$/.test(tel);
+}
+
+console.log(validarTelefono("5512345678"));        // true
+console.log(validarTelefono("+52 55 1234-5678"));  // true
+console.log(validarTelefono("123"));               // false
+
+function validarContrasena(pass: string): { valida: boolean; errores: string[] } {
+  const errores: string[] = [];
+  if (pass.length < 8) errores.push("Mínimo 8 caracteres");
+  if (!/[A-Z]/.test(pass)) errores.push("Al menos una mayúscula");
+  if (!/\\d/.test(pass)) errores.push("Al menos un número");
+  if (!/[!@#$%]/.test(pass)) errores.push("Al menos un símbolo (!@#$%)");
+  return { valida: errores.length === 0, errores };
+}
+
+const resultado = validarContrasena("Abc12345!");
+console.log(resultado.valida);   // true
+console.log(resultado.errores);  // []`
+    }
+  ]}
+  output={`true\nfalse\ntrue\ntrue\nfalse\n["<b>hola</b> y <b>mundo</b>"]\n["<b>hola</b>", "<b>mundo</b>"]`}
+/>
+
+</Section>
+
+<Section id="grupos-capturas" title="Grupos y capturas — extraer partes del texto">
+
+Los **grupos** `()` capturan partes del match para usarlas por separado. Los grupos no capturantes `(?:)` agrupan sin capturar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Grupos y capturas",
+      code: `// Grupos numerados — se acceden por índice
+const fechaRegex = /(\\d{4})-(\\d{2})-(\\d{2})/;
+const match = "Fecha: 2026-05-02".match(fechaRegex);
+
+if (match) {
+  console.log(match[0]); // "2026-05-02" — match completo
+  console.log(match[1]); // "2026" — grupo 1
+  console.log(match[2]); // "05" — grupo 2
+  console.log(match[3]); // "02" — grupo 3
+}
+
+// Grupos nombrados — más legibles
+const fechaNombrada = /(?<anio>\\d{4})-(?<mes>\\d{2})-(?<dia>\\d{2})/;
+const matchNombrado = "2026-05-02".match(fechaNombrada);
+
+if (matchNombrado?.groups) {
+  const { anio, mes, dia } = matchNombrado.groups;
+  console.log(\`Año: \${anio}, Mes: \${mes}, Día: \${dia}\`);
+  // "Año: 2026, Mes: 05, Día: 02"
+}
+
+// Grupo no capturante (?:) — agrupar sin capturar
+const urlRegex = /(?:https?|ftp):\\/\\/([\\w.-]+)/;
+const urlMatch = "visita https://ejemplo.com/ruta".match(urlRegex);
+console.log(urlMatch?.[1]); // "ejemplo.com" — solo el dominio`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Grupos nombrados en TypeScript
+const fechaNombrada: RegExp = /(?<anio>\\d{4})-(?<mes>\\d{2})-(?<dia>\\d{2})/;
+
+function parsearFecha(fechaStr: string): { anio: string; mes: string; dia: string } | null {
+  const match = fechaStr.match(fechaNombrada);
+  if (!match?.groups) return null;
+
+  const { anio, mes, dia } = match.groups;
+  return { anio, mes, dia };
+}
+
+const resultado = parsearFecha("2026-05-02");
+console.log(resultado); // { anio: "2026", mes: "05", dia: "02" }
+
+// Extraer partes de una URL
+function parsearURL(url: string): { protocolo: string; dominio: string } | null {
+  const match = url.match(/(?<protocolo>https?|ftp):\\/\\/(?<dominio>[\\w.-]+)/);
+  if (!match?.groups) return null;
+  return {
+    protocolo: match.groups.protocolo,
+    dominio: match.groups.dominio,
+  };
+}
+
+console.log(parsearURL("https://ejemplo.com/ruta"));
+// { protocolo: "https", dominio: "ejemplo.com" }`
+    }
+  ]}
+  output={`2026-05-02\n2026\n05\n02\nAño: 2026, Mes: 05, Día: 02\nejemplo.com`}
+/>
+
+</Section>
+
+<Section id="metodos-string" title="Métodos de string con regex">
+
+Los strings tienen métodos que trabajan directamente con regex:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "match, replace, test, split",
+      code: `// test() — ¿coincide? → boolean
+const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+console.log(emailRegex.test("ana@ejemplo.com")); // true
+console.log(emailRegex.test("no-es-email"));     // false
+
+// match() — encontrar coincidencias → array | null
+const texto = "Precios: $100, $250, $1500";
+const precios = texto.match(/\\$\\d+/g);
+console.log(precios); // ["$100", "$250", "$1500"]
+
+// replace() — reemplazar
+const conBlancos = "Hola   mundo  con   espacios";
+const normalizado = conBlancos.replace(/\\s+/g, " ");
+console.log(normalizado); // "Hola mundo con espacios"
+
+// replace con función — transformación dinámica
+const resaltado = "hola mundo".replace(
+  /\\b\\w+/g,
+  palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1)
+);
+console.log(resaltado); // "Hola Mundo"
+
+// split() con regex — separar por patrón
+const csv = "uno,dos;tres|cuatro";
+const items = csv.split(/[,;|]/);
+console.log(items); // ["uno", "dos", "tres", "cuatro"]
+
+// matchAll() — todos los matches con grupos
+const htmlLinks = '<a href="url1.com">Link 1</a> <a href="url2.com">Link 2</a>';
+const linkRegex = /<a href="([^"]+)">([^<]+)<\\/a>/g;
+for (const match of htmlLinks.matchAll(linkRegex)) {
+  console.log(\`URL: \${match[1]}, Texto: \${match[2]}\`);
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Validación de email tipada
+function validarEmail(email: string): boolean {
+  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+}
+
+console.log(validarEmail("ana@ejemplo.com")); // true
+console.log(validarEmail("no-es-email"));     // false
+
+// Extraer todos los números de un string
+function extraerNumeros(texto: string): number[] {
+  return (texto.match(/-?\\d+(\\.\\d+)?/g) ?? []).map(Number);
+}
+
+console.log(extraerNumeros("Temp: -5.5°C, máx: 30°C")); // [-5.5, 5, 30]
+
+// Normalizar espacios múltiples
+function normalizarEspacios(texto: string): string {
+  return texto.replace(/\\s+/g, " ").trim();
+}
+
+console.log(normalizarEspacios("  Hola   mundo  ")); // "Hola mundo"
+
+// Convertir a Title Case
+function titleCase(texto: string): string {
+  return texto.replace(
+    /\\b\\w+/g,
+    (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+  );
+}
+
+console.log(titleCase("hola MUNDO con TypeScript")); // "Hola Mundo Con Typescript"`
+    }
+  ]}
+  output={`true\nfalse\n["$100", "$250", "$1500"]\nHola mundo con espacios\nHola Mundo\n["uno", "dos", "tres", "cuatro"]\nURL: url1.com, Texto: Link 1\nURL: url2.com, Texto: Link 2`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Valida un email con regex", diff: "med", minutes: 8 },
+    { num: "02", name: "Extrae todos los números de un string", diff: "easy", minutes: 5 },
+    { num: "03", name: "Reemplaza múltiples espacios por uno solo", diff: "easy", minutes: 5 },
+    { num: "04", name: "Parsea una URL en sus componentes con regex", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,347 @@
+---
+title: "Spread y rest en objetos: fusiona, copia y extrae"
+short: "Spread y rest"
+chapter: "08"
+num: "04"
+chapterTitle: "Arrays y objetos avanzados"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "El operador spread (...) copia y fusiona objetos de forma declarativa. Su contraparte rest recoge las propiedades restantes de una desestructuración. Juntos hacen las actualizaciones inmutables elegantes y explícitas."
+pro: false
+---
+
+<Section id="spread-objetos" title="Spread en objetos — copiar y fusionar">
+
+El operador `...` dentro de un objeto literal **expande** todas las propiedades enumerables de un objeto en el nuevo objeto. El resultado es siempre un objeto nuevo — el original no se modifica.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Spread básico",
+      code: `const base = { color: "azul", tamaño: "M" };
+
+// Copiar un objeto (shallow copy)
+const copia = { ...base };
+console.log(copia);          // { color: "azul", tamaño: "M" }
+console.log(copia === base); // false — son objetos distintos
+
+// Fusionar dos objetos
+const extra = { material: "algodón", stock: 100 };
+const producto = { ...base, ...extra };
+console.log(producto);
+// { color: "azul", tamaño: "M", material: "algodón", stock: 100 }
+
+// Agregar propiedades nuevas al fusionar
+const conPrecio = { ...producto, precio: 29.99 };
+console.log(conPrecio);
+// { color: "azul", tamaño: "M", material: "algodón", stock: 100, precio: 29.99 }
+
+// El original permanece sin cambios
+console.log(base); // { color: "azul", tamaño: "M" }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface ConfigBase {
+  host: string;
+  puerto: number;
+}
+
+interface ConfigSSL {
+  ssl: boolean;
+  certificado: string;
+}
+
+const configBase: ConfigBase = {
+  host: "localhost",
+  puerto: 5432,
+};
+
+const configSSL: ConfigSSL = {
+  ssl: true,
+  certificado: "/etc/ssl/cert.pem",
+};
+
+// TypeScript infiere el tipo unión de ambas interfaces
+const configCompleta = { ...configBase, ...configSSL };
+// tipo: ConfigBase & ConfigSSL
+
+console.log(configCompleta);
+// { host: "localhost", puerto: 5432, ssl: true, certificado: "..." }
+
+// Agregar propiedad extra inline
+const configFinal = { ...configCompleta, timeout: 30000 };
+console.log(configFinal.timeout); // 30000`
+    }
+  ]}
+  output={`{ color: "azul", tamaño: "M" }\nfalse\n{ color: "azul", tamaño: "M", material: "algodón", stock: 100 }`}
+/>
+
+</Section>
+
+<Section id="override" title="Override con spread — el último gana">
+
+Cuando dos objetos tienen la misma propiedad, el que viene **después** en la expresión spread gana. Esto lo convierte en una herramienta perfecta para aplicar valores por defecto o sobreescribir configuraciones.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Override de propiedades",
+      code: `const configPorDefecto = {
+  tema: "oscuro",
+  idioma: "es",
+  notificaciones: true,
+  tamaño: "M",
+};
+
+const preferenciasUsuario = {
+  tema: "claro",     // sobrescribe "oscuro"
+  tamaño: "L",       // sobrescribe "M"
+};
+
+// El spread del usuario va DESPUÉS → sus propiedades ganan
+const configFinal = { ...configPorDefecto, ...preferenciasUsuario };
+console.log(configFinal);
+// { tema: "claro", idioma: "es", notificaciones: true, tamaño: "L" }
+
+// Actualizar una sola propiedad inmutablemente
+function actualizarTema(config, nuevoTema) {
+  return { ...config, tema: nuevoTema };
+}
+
+const configClara = actualizarTema(configPorDefecto, "claro");
+console.log(configClara.tema);        // "claro"
+console.log(configPorDefecto.tema);   // "oscuro" — sin cambios`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface ConfigUI {
+  tema: "oscuro" | "claro";
+  idioma: string;
+  notificaciones: boolean;
+  tamaño: "S" | "M" | "L" | "XL";
+}
+
+const configDefecto: ConfigUI = {
+  tema: "oscuro",
+  idioma: "es",
+  notificaciones: true,
+  tamaño: "M",
+};
+
+// Partial<ConfigUI> permite pasar solo algunas propiedades
+function aplicarPreferencias(
+  base: ConfigUI,
+  preferencias: Partial<ConfigUI>
+): ConfigUI {
+  return { ...base, ...preferencias };
+}
+
+const resultado = aplicarPreferencias(configDefecto, {
+  tema: "claro",
+  tamaño: "L",
+});
+
+console.log(resultado.tema);    // "claro"
+console.log(resultado.idioma);  // "es" — heredado del base`
+    }
+  ]}
+  output={`{ tema: "claro", idioma: "es", notificaciones: true, tamaño: "L" }\nclaro\noscuro`}
+/>
+
+<Callout variant="tip" title="Orden importa">
+`{ ...defaults, ...overrides }` aplica los defaults primero y los overrides los sobreescriben. Al revés — `{ ...overrides, ...defaults }` — los defaults siempre ganarían y los overrides no servirían de nada.
+</Callout>
+
+</Section>
+
+<Section id="rest-objetos" title="Rest en objetos — const { a, ...resto } = obj">
+
+El operador rest en desestructuración recoge todas las propiedades que **no** fueron extraídas explícitamente. Es el opuesto del spread: en lugar de expandir, agrupa.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Rest en destructuring",
+      code: `const usuario = {
+  id: 42,
+  nombre: "Ana García",
+  email: "ana@ejemplo.com",
+  password: "secreto-hasheado",
+  token: "jwt-abc123",
+};
+
+// Extraer campos sensibles y quedarte con el resto
+const { password, token, ...datosPublicos } = usuario;
+console.log(datosPublicos);
+// { id: 42, nombre: "Ana García", email: "ana@ejemplo.com" }
+
+// Los campos sensibles están separados y no se expondrán
+console.log(password); // "secreto-hasheado" — en variable separada
+
+// Caso práctico: función que recibe opciones y separa las suyas
+function crearBoton({ variante = "primario", tamaño = "M", ...atributosHTML }) {
+  return {
+    clases: \`btn btn-\${variante} btn-\${tamaño}\`,
+    atributos: atributosHTML,
+  };
+}
+
+const boton = crearBoton({
+  variante: "secundario",
+  tamaño: "L",
+  disabled: true,
+  id: "btn-guardar",
+  "aria-label": "Guardar cambios",
+});
+
+console.log(boton.clases);      // "btn btn-secundario btn-L"
+console.log(boton.atributos);   // { disabled: true, id: "btn-guardar", ... }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface UsuarioCompleto {
+  id: number;
+  nombre: string;
+  email: string;
+  password: string;
+  token: string;
+}
+
+type UsuarioPublico = Omit<UsuarioCompleto, "password" | "token">;
+
+function sanitizarUsuario(usuario: UsuarioCompleto): UsuarioPublico {
+  // TypeScript verifica que 'resto' tenga exactamente UsuarioPublico
+  const { password, token, ...resto } = usuario;
+  return resto;
+}
+
+const usuario: UsuarioCompleto = {
+  id: 1,
+  nombre: "Ana García",
+  email: "ana@ejemplo.com",
+  password: "hash-secreto",
+  token: "jwt-xyz",
+};
+
+const publico = sanitizarUsuario(usuario);
+console.log(publico);
+// { id: 1, nombre: "Ana García", email: "ana@ejemplo.com" }
+
+// 'publico' no tiene .password — TypeScript lo garantiza
+// publico.password; // Error de compilación`
+    }
+  ]}
+  output={`{ id: 42, nombre: "Ana García", email: "ana@ejemplo.com" }\nsecretohasheado`}
+/>
+
+</Section>
+
+<Section id="shallow-deep" title="Shallow vs deep copy — la limitación del spread">
+
+El spread hace una copia **superficial**: copia las propiedades de primer nivel, pero si alguna propiedad es un objeto, se copia la **referencia**, no el objeto en sí.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Shallow copy en la práctica",
+      code: `const original = {
+  nombre: "Teclado",
+  precio: 80,
+  dimensiones: { ancho: 44, alto: 14 }, // objeto anidado
+  etiquetas: ["periférico", "usb"],       // array anidado
+};
+
+const copia = { ...original };
+
+// Propiedades primitivas — independientes
+copia.precio = 100;
+console.log(original.precio); // 80 — sin cambios ✅
+
+// Objetos anidados — comparten referencia
+copia.dimensiones.ancho = 99;
+console.log(original.dimensiones.ancho); // 99 — ¡mutó el original! ❌
+
+// Arrays anidados — misma referencia
+copia.etiquetas.push("bluetooth");
+console.log(original.etiquetas); // ["periférico", "usb", "bluetooth"] ❌
+
+// Deep copy manual para estructuras simples
+const copiaProf = {
+  ...original,
+  dimensiones: { ...original.dimensiones },
+  etiquetas: [...original.etiquetas],
+};
+
+copiaProf.dimensiones.ancho = 50;
+console.log(original.dimensiones.ancho); // 99 — sin cambios ✅
+
+// Para estructuras más complejas: structuredClone (moderno)
+const copiaTotal = structuredClone(original);
+copiaTotal.dimensiones.ancho = 0;
+console.log(original.dimensiones.ancho); // 99 — intacto ✅`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Dimensiones {
+  ancho: number;
+  alto: number;
+}
+
+interface Producto {
+  nombre: string;
+  precio: number;
+  dimensiones: Dimensiones;
+}
+
+function copiarProducto(producto: Producto): Producto {
+  // Copia profunda manual de los objetos anidados
+  return {
+    ...producto,
+    dimensiones: { ...producto.dimensiones },
+  };
+}
+
+const original: Producto = {
+  nombre: "Teclado",
+  precio: 80,
+  dimensiones: { ancho: 44, alto: 14 },
+};
+
+const copia = copiarProducto(original);
+copia.dimensiones.ancho = 99;
+
+console.log(original.dimensiones.ancho); // 44 — intacto
+console.log(copia.dimensiones.ancho);    // 99`
+    }
+  ]}
+  output={`80\n99\n["periférico", "usb", "bluetooth"]\n99\n99`}
+/>
+
+<Callout variant="warn" title="structuredClone para deep copy real">
+`structuredClone()` hace una copia profunda real. Está disponible en Node.js 17+ y navegadores modernos. No clona funciones ni instancias de clase — para eso necesitas una librería como `lodash.cloneDeep`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Fusiona dos objetos de configuración", diff: "easy", minutes: 5 },
+    { num: "02", name: "Actualiza una propiedad inmutablemente con spread", diff: "easy", minutes: 5 },
+    { num: "03", name: "Extrae campos sensibles de un objeto con rest", diff: "med", minutes: 8 },
+    { num: "04", name: "Deep merge manual de objetos anidados", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,364 @@
+---
+title: "Callbacks: funciones que se ejecutan <em>después</em>"
+short: "Callbacks"
+chapter: "06"
+num: "01"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Un callback es una función que pasas como argumento para que otra función la ejecute más tarde. Es el mecanismo más primitivo de asincronía en JavaScript — y la base de todo lo demás."
+pro: false
+---
+
+<Section id="que-es-callback" title="¿Qué es un callback?">
+
+Un callback no es más que una función que se pasa como argumento. La función receptora decide cuándo y cómo llamarla:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `function procesar(valor, alTerminar) {
+  const resultado = valor * 2;
+  alTerminar(resultado);
+}
+
+procesar(5, (resultado) => {
+  console.log(resultado); // 10
+});
+
+// También puedes pasar funciones con nombre
+function mostrarResultado(valor) {
+  console.log(\`Resultado: \${valor}\`);
+}
+
+procesar(7, mostrarResultado); // Resultado: 14`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function procesar(valor: number, alTerminar: (resultado: number) => void): void {
+  const resultado = valor * 2;
+  alTerminar(resultado);
+}
+
+procesar(5, (resultado) => {
+  console.log(resultado); // 10
+});
+
+// También puedes pasar funciones con nombre
+function mostrarResultado(valor: number): void {
+  console.log(\`Resultado: \${valor}\`);
+}
+
+procesar(7, mostrarResultado); // Resultado: 14`
+    }
+  ]}
+  output={`10\nResultado: 14`}
+/>
+
+</Section>
+
+<Section id="sincronos-vs-asincronos" title="Callbacks síncronos vs asíncronos">
+
+No todo callback es asíncrono. `forEach`, `map` y `filter` usan callbacks síncronos — se ejecutan de inmediato:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Callback SÍNCRONO — se ejecuta de inmediato
+const numeros = [1, 2, 3];
+numeros.forEach(n => {
+  console.log(n);
+});
+console.log("Fin del forEach");
+// 1
+// 2
+// 3
+// Fin del forEach
+
+// Callback ASÍNCRONO — se ejecuta más tarde
+console.log("Antes del timeout");
+setTimeout(() => {
+  console.log("Dentro del timeout");
+}, 0);
+console.log("Después del timeout");
+// Antes del timeout
+// Después del timeout
+// Dentro del timeout`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Callback SÍNCRONO — se ejecuta de inmediato
+const numeros: number[] = [1, 2, 3];
+numeros.forEach((n: number) => {
+  console.log(n);
+});
+console.log("Fin del forEach");
+// 1
+// 2
+// 3
+// Fin del forEach
+
+// Callback ASÍNCRONO — se ejecuta más tarde
+console.log("Antes del timeout");
+setTimeout(() => {
+  console.log("Dentro del timeout");
+}, 0);
+console.log("Después del timeout");
+// Antes del timeout
+// Después del timeout
+// Dentro del timeout`
+    }
+  ]}
+  output={`1\n2\n3\nFin del forEach\nAntes del timeout\nDespués del timeout\nDentro del timeout`}
+/>
+
+<Callout variant="info" title="¿Por qué setTimeout(fn, 0) no es inmediato?">
+Aunque el delay es 0ms, `setTimeout` siempre encola el callback en la macrotask queue. El código síncrono actual termina antes de que la queue se procese. El Event Loop explica esto en detalle en la lección 06-05.
+</Callout>
+
+</Section>
+
+<Section id="callback-hell" title="El problema: Callback Hell">
+
+Cuando necesitas operaciones asíncronas en secuencia, los callbacks se anidan — creando la temida pirámide de doom:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Simulación de operaciones asíncronas anidadas
+function obtenerUsuario(id, callback) {
+  setTimeout(() => callback(null, { id, nombre: "Ana" }), 100);
+}
+
+function obtenerPedidos(usuarioId, callback) {
+  setTimeout(() => callback(null, [{ id: 1, total: 50 }]), 100);
+}
+
+function obtenerDetalle(pedidoId, callback) {
+  setTimeout(() => callback(null, { pedidoId, items: 3 }), 100);
+}
+
+// ❌ Callback hell — difícil de leer, mantener y depurar
+obtenerUsuario(1, (err, usuario) => {
+  if (err) return console.error(err);
+  obtenerPedidos(usuario.id, (err, pedidos) => {
+    if (err) return console.error(err);
+    obtenerDetalle(pedidos[0].id, (err, detalle) => {
+      if (err) return console.error(err);
+      console.log(\`\${usuario.nombre} tiene \${detalle.items} items\`);
+    });
+  });
+});`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Usuario = { id: number; nombre: string };
+type Pedido = { id: number; total: number };
+type Detalle = { pedidoId: number; items: number };
+type Callback<T> = (err: Error | null, data: T) => void;
+
+function obtenerUsuario(id: number, callback: Callback<Usuario>): void {
+  setTimeout(() => callback(null, { id, nombre: "Ana" }), 100);
+}
+
+function obtenerPedidos(usuarioId: number, callback: Callback<Pedido[]>): void {
+  setTimeout(() => callback(null, [{ id: 1, total: 50 }]), 100);
+}
+
+function obtenerDetalle(pedidoId: number, callback: Callback<Detalle>): void {
+  setTimeout(() => callback(null, { pedidoId, items: 3 }), 100);
+}
+
+// ❌ Callback hell — difícil de leer, mantener y depurar
+obtenerUsuario(1, (err, usuario) => {
+  if (err) return console.error(err);
+  obtenerPedidos(usuario.id, (err, pedidos) => {
+    if (err) return console.error(err);
+    obtenerDetalle(pedidos[0].id, (err, detalle) => {
+      if (err) return console.error(err);
+      console.log(\`\${usuario.nombre} tiene \${detalle.items} items\`);
+    });
+  });
+});`
+    }
+  ]}
+  output={`Ana tiene 3 items`}
+/>
+
+<Callout variant="warn" title="Los síntomas del callback hell">
+Indentación que crece hacia la derecha, manejo de errores duplicado en cada nivel, y código imposible de reutilizar o testear de forma aislada. Las Promises (lección 06-02) y async/await (06-03) resuelven esto.
+</Callout>
+
+</Section>
+
+<Section id="errores-node-style" title="Errores en callbacks: la convención Node.js">
+
+Node.js popularizó una convención que se volvió estándar: el primer parámetro del callback siempre es el error:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Convención: callback(error, resultado)
+// Si hay error, el primer argumento es el Error
+// Si todo fue bien, el primero es null
+
+function dividir(a, b, callback) {
+  if (b === 0) {
+    callback(new Error("No se puede dividir por cero"), null);
+    return;
+  }
+  callback(null, a / b);
+}
+
+dividir(10, 2, (err, resultado) => {
+  if (err) {
+    console.error("Error:", err.message);
+    return;
+  }
+  console.log("Resultado:", resultado); // 5
+});
+
+dividir(10, 0, (err, resultado) => {
+  if (err) {
+    console.error("Error:", err.message); // No se puede dividir por cero
+    return;
+  }
+  console.log("Resultado:", resultado);
+});`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Convención: callback(error, resultado)
+type CallbackDivision = (err: Error | null, resultado: number | null) => void;
+
+function dividir(a: number, b: number, callback: CallbackDivision): void {
+  if (b === 0) {
+    callback(new Error("No se puede dividir por cero"), null);
+    return;
+  }
+  callback(null, a / b);
+}
+
+dividir(10, 2, (err, resultado) => {
+  if (err) {
+    console.error("Error:", err.message);
+    return;
+  }
+  console.log("Resultado:", resultado); // 5
+});
+
+dividir(10, 0, (err, resultado) => {
+  if (err) {
+    console.error("Error:", err.message); // No se puede dividir por cero
+    return;
+  }
+  console.log("Resultado:", resultado);
+});`
+    }
+  ]}
+  output={`Resultado: 5\nError: No se puede dividir por cero`}
+/>
+
+</Section>
+
+<Section id="cuando-usar-hoy" title="¿Cuándo usar callbacks hoy?">
+
+Aunque las Promises dominan el código moderno, los callbacks siguen siendo la herramienta correcta en ciertos contextos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// ✅ Event listeners — la API nativa usa callbacks
+const boton = document.querySelector("#miBoton");
+boton.addEventListener("click", (evento) => {
+  console.log("Clicked:", evento.target.id);
+});
+
+// ✅ Timers — setTimeout y setInterval
+const intervalo = setInterval(() => {
+  console.log("Tick");
+}, 1000);
+
+setTimeout(() => clearInterval(intervalo), 5000);
+
+// ✅ APIs de streaming / Node.js
+import { createReadStream } from "fs";
+
+const stream = createReadStream("datos.txt", "utf8");
+stream.on("data", (fragmento) => {
+  console.log("Recibido:", fragmento.length, "bytes");
+});
+stream.on("end", () => {
+  console.log("Lectura completada");
+});
+stream.on("error", (err) => {
+  console.error("Error de lectura:", err.message);
+});`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ✅ Event listeners — la API nativa usa callbacks
+const boton = document.querySelector<HTMLButtonElement>("#miBoton");
+boton?.addEventListener("click", (evento: MouseEvent) => {
+  console.log("Clicked:", (evento.target as HTMLElement).id);
+});
+
+// ✅ Timers — setTimeout y setInterval
+const intervalo: ReturnType<typeof setInterval> = setInterval(() => {
+  console.log("Tick");
+}, 1000);
+
+setTimeout(() => clearInterval(intervalo), 5000);
+
+// ✅ APIs de streaming / Node.js
+import { createReadStream } from "fs";
+
+const stream = createReadStream("datos.txt", "utf8");
+stream.on("data", (fragmento: string | Buffer) => {
+  console.log("Recibido:", fragmento.length, "bytes");
+});
+stream.on("end", () => {
+  console.log("Lectura completada");
+});
+stream.on("error", (err: Error) => {
+  console.error("Error de lectura:", err.message);
+});`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Callbacks vs Promises hoy">
+Usa callbacks para event listeners y APIs de streaming nativas. Para lógica de negocio asíncrona nueva, usa siempre Promises o async/await — son más legibles y componibles.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea una función que acepte un callback de éxito y error", diff: "easy", minutes: 5 },
+    { num: "02", name: "Simula una llamada a API con setTimeout", diff: "med", minutes: 8 },
+    { num: "03", name: "Convierte callback hell a funciones separadas", diff: "med", minutes: 10 },
+    { num: "04", name: "Implementa un sistema de eventos simple", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

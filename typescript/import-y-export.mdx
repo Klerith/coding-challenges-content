@@ -1,0 +1,299 @@
+---
+title: "import y export: comparte código entre <em>módulos</em>"
+short: "import y export"
+chapter: "10"
+num: "01"
+chapterTitle: "Módulos"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "En JavaScript moderno cada archivo es un módulo independiente. Con export expones lo que quieres compartir; con import lo consumes desde otro archivo. Esta separación es la base de cualquier proyecto escalable."
+pro: false
+---
+
+<Section id="que-es-un-modulo" title="¿Qué es un módulo?">
+
+Antes de ESM (ES Modules), todos los archivos JavaScript compartían el mismo ámbito global. Hoy, cada archivo es un módulo: su propio ámbito aislado. Nada sale al exterior a menos que lo exportes explícitamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// matematicas.js
+// Todo lo que no se exporta es PRIVADO al módulo
+const PI = 3.14159;
+
+function cuadrado(n) {
+  return n * n;
+}
+
+export function suma(a, b) {
+  return a + b;
+}
+
+export function areaCirculo(radio) {
+  return PI * cuadrado(radio); // PI y cuadrado son privados
+}
+
+// PI y cuadrado NO son accesibles desde fuera`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// matematicas.ts
+// Todo lo que no se exporta es PRIVADO al módulo
+const PI = 3.14159;
+
+function cuadrado(n: number): number {
+  return n * n;
+}
+
+export function suma(a: number, b: number): number {
+  return a + b;
+}
+
+export function areaCirculo(radio: number): number {
+  return PI * cuadrado(radio); // PI y cuadrado son privados
+}
+
+// PI y cuadrado NO son accesibles desde fuera`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="ESM en el navegador y Node.js">
+En el navegador usa `<script type="module">`. En Node.js agrega `"type": "module"` en tu `package.json` o usa extensión `.mjs`.
+</Callout>
+
+</Section>
+
+<Section id="export" title="export — exponer funciones, clases y variables">
+
+Puedes exportar cualquier declaración: variables, funciones, clases, e incluso tipos en TypeScript.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// usuarios.js — varias formas de exportar
+
+// 1. Export inline — junto a la declaración
+export const VERSION = "1.0.0";
+
+export function crearUsuario(nombre, email) {
+  return { id: crypto.randomUUID(), nombre, email };
+}
+
+export class RepositorioUsuarios {
+  #usuarios = [];
+
+  agregar(usuario) {
+    this.#usuarios.push(usuario);
+  }
+
+  listar() {
+    return [...this.#usuarios];
+  }
+}
+
+// 2. Export al final del archivo (equivalente)
+const LIMITE_USUARIOS = 100;
+function validarEmail(email) {
+  return email.includes("@");
+}
+
+export { LIMITE_USUARIOS, validarEmail };`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// usuarios.ts — también puedes exportar tipos e interfaces
+
+export const VERSION = "1.0.0";
+
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+}
+
+export function crearUsuario(nombre: string, email: string): Usuario {
+  return { id: crypto.randomUUID(), nombre, email };
+}
+
+export class RepositorioUsuarios {
+  private usuarios: Usuario[] = [];
+
+  agregar(usuario: Usuario): void {
+    this.usuarios.push(usuario);
+  }
+
+  listar(): Usuario[] {
+    return [...this.usuarios];
+  }
+}
+
+export const LIMITE_USUARIOS = 100;
+export function validarEmail(email: string): boolean {
+  return email.includes("@");
+}`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="import" title="import — consumir desde otros módulos">
+
+`import` siempre va al principio del archivo. Los nombres deben coincidir exactamente con los exportados (puedes renombrarlos con `as`).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// main.js
+import { crearUsuario, validarEmail, LIMITE_USUARIOS } from "./usuarios.js";
+
+// Usar lo importado normalmente
+const email = "ana@ejemplo.com";
+
+if (validarEmail(email)) {
+  const usuario = crearUsuario("Ana", email);
+  console.log(usuario);
+  // { id: "...", nombre: "Ana", email: "ana@ejemplo.com" }
+}
+
+// Importar con alias para evitar colisiones
+import { suma as sumar } from "./matematicas.js";
+console.log(sumar(3, 4)); // 7
+
+// Importar todo el módulo como namespace
+import * as Mat from "./matematicas.js";
+console.log(Mat.areaCirculo(5)); // 78.53...`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// main.ts
+import { crearUsuario, validarEmail, LIMITE_USUARIOS, type Usuario } from "./usuarios.js";
+
+// En TS puedes importar solo tipos con 'import type'
+import type { Usuario as UsuarioTipo } from "./usuarios.js";
+
+const email = "ana@ejemplo.com";
+
+if (validarEmail(email)) {
+  const usuario: Usuario = crearUsuario("Ana", email);
+  console.log(usuario);
+  // { id: "...", nombre: "Ana", email: "ana@ejemplo.com" }
+}
+
+// Importar con alias
+import { suma as sumar } from "./matematicas.js";
+console.log(sumar(3, 4)); // 7
+
+// Namespace import
+import * as Mat from "./matematicas.js";
+console.log(Mat.areaCirculo(5)); // 78.53...`
+    }
+  ]}
+  output={`{ id: "...", nombre: "Ana", email: "ana@ejemplo.com" }\n7\n78.53975`}
+/>
+
+<Callout variant="warn" title="Extensiones en ESM">
+En ESM nativo (Node.js y navegador) debes incluir la extensión en las rutas: `"./matematicas.js"`. TypeScript permite omitir la extensión al escribir, pero al compilar genera los `.js` correctamente.
+</Callout>
+
+</Section>
+
+<Section id="multiples-exports" title="Múltiples exports en un archivo">
+
+Un módulo puede exportar cuantas cosas necesite. Organiza por responsabilidad, no por cantidad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// formato.js — módulo con múltiples utilidades relacionadas
+
+export function capitalizar(texto) {
+  return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+}
+
+export function truncar(texto, max = 50) {
+  return texto.length > max ? texto.slice(0, max) + "..." : texto;
+}
+
+export function slugify(texto) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]/g, "");
+}
+
+export const FORMATOS = {
+  fecha: "DD/MM/YYYY",
+  moneda: "es-MX",
+};
+
+// Uso en otro archivo:
+// import { capitalizar, slugify, FORMATOS } from "./formato.js";
+// console.log(slugify("Hola Mundo")); // "hola-mundo"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// formato.ts
+
+export function capitalizar(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+}
+
+export function truncar(texto: string, max = 50): string {
+  return texto.length > max ? texto.slice(0, max) + "..." : texto;
+}
+
+export function slugify(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]/g, "");
+}
+
+export interface ConfigFormatos {
+  fecha: string;
+  moneda: string;
+}
+
+export const FORMATOS: ConfigFormatos = {
+  fecha: "DD/MM/YYYY",
+  moneda: "es-MX",
+};`
+    }
+  ]}
+  output={`hola-mundo`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Exporta 3 funciones de utilidad desde un módulo", diff: "easy", minutes: 5 },
+    { num: "02", name: "Importa y usa una función de otro módulo", diff: "easy", minutes: 5 },
+    { num: "03", name: "Organiza constantes en un módulo separado", diff: "med", minutes: 8 },
+    { num: "04", name: "Importa y re-exporta desde un índice", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

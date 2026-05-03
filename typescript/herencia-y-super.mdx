@@ -1,0 +1,349 @@
+---
+title: "Herencia y <em>super</em>: reutilizar clases existentes"
+short: "Herencia y super"
+chapter: "09"
+num: "02"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "La herencia permite crear clases especializadas basadas en otras, reutilizando propiedades y métodos sin duplicar código."
+pro: false
+---
+
+<Section id="extends" title="extends: heredar de otra clase">
+
+Con `extends`, una clase hija adquiere todas las propiedades y métodos de la clase padre:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Animal {
+  constructor(nombre) {
+    this.nombre = nombre;
+  }
+
+  describir() {
+    return \`Soy \${this.nombre}\`;
+  }
+}
+
+// Perro hereda todo de Animal
+class Perro extends Animal {
+  ladrar() {
+    return "¡Guau!";
+  }
+}
+
+const rex = new Perro("Rex");
+console.log(rex.describir()); // "Soy Rex"  ← método heredado
+console.log(rex.ladrar());    // "¡Guau!"   ← método propio`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Animal {
+  nombre: string;
+
+  constructor(nombre: string) {
+    this.nombre = nombre;
+  }
+
+  describir(): string {
+    return \`Soy \${this.nombre}\`;
+  }
+}
+
+// Perro hereda todo de Animal
+class Perro extends Animal {
+  ladrar(): string {
+    return "¡Guau!";
+  }
+}
+
+const rex = new Perro("Rex");
+console.log(rex.describir()); // "Soy Rex"  ← método heredado
+console.log(rex.ladrar());    // "¡Guau!"   ← método propio`
+    }
+  ]}
+  output={`Soy Rex\n¡Guau!`}
+/>
+
+<Callout variant="info" title="instanceof">
+Puedes verificar la jerarquía con `instanceof`: `rex instanceof Perro` → `true`, y también `rex instanceof Animal` → `true`. La instancia es de la clase hija y de todas sus ancestras.
+</Callout>
+
+</Section>
+
+<Section id="super-constructor" title="super(): llamar al constructor padre">
+
+Cuando la clase hija tiene su propio constructor, **debe llamar a `super()`** antes de usar `this`. Esto inicializa la parte heredada del objeto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Animal {
+  constructor(nombre, tipo) {
+    this.nombre = nombre;
+    this.tipo = tipo;
+  }
+}
+
+class Perro extends Animal {
+  constructor(nombre, raza) {
+    // ✅ super() llama al constructor de Animal
+    super(nombre, "mamífero");
+    // Ahora podemos usar 'this'
+    this.raza = raza;
+  }
+
+  presentarse() {
+    return \`Soy \${this.nombre}, un \${this.raza} (\${this.tipo})\`;
+  }
+}
+
+const luna = new Perro("Luna", "Beagle");
+console.log(luna.presentarse());
+// "Soy Luna, un Beagle (mamífero)"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Animal {
+  nombre: string;
+  tipo: string;
+
+  constructor(nombre: string, tipo: string) {
+    this.nombre = nombre;
+    this.tipo = tipo;
+  }
+}
+
+class Perro extends Animal {
+  raza: string;
+
+  constructor(nombre: string, raza: string) {
+    // ✅ super() llama al constructor de Animal
+    super(nombre, "mamífero");
+    // Ahora podemos usar 'this'
+    this.raza = raza;
+  }
+
+  presentarse(): string {
+    return \`Soy \${this.nombre}, un \${this.raza} (\${this.tipo})\`;
+  }
+}
+
+const luna = new Perro("Luna", "Beagle");
+console.log(luna.presentarse());
+// "Soy Luna, un Beagle (mamífero)"`
+    }
+  ]}
+  output={`Soy Luna, un Beagle (mamífero)`}
+/>
+
+<Callout variant="warn" title="super() es obligatorio">
+Si defines un `constructor` en la clase hija y no llamas a `super()` antes de acceder a `this`, obtendrás un `ReferenceError` en tiempo de ejecución. TypeScript lo detecta en compilación.
+</Callout>
+
+</Section>
+
+<Section id="override" title="Override: redefinir comportamiento">
+
+Una clase hija puede redefinir (**override**) cualquier método del padre. La versión de la hija tiene prioridad cuando se llama sobre una instancia de la hija:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Animal {
+  constructor(nombre) {
+    this.nombre = nombre;
+  }
+
+  hacerSonido() {
+    return "...";
+  }
+
+  toString() {
+    return \`Animal: \${this.nombre}\`;
+  }
+}
+
+class Perro extends Animal {
+  // Override: redefinimos hacerSonido
+  hacerSonido() {
+    return "¡Guau!";
+  }
+}
+
+class Gato extends Animal {
+  // Override: cada clase define su propio sonido
+  hacerSonido() {
+    return "¡Miau!";
+  }
+}
+
+const animales = [new Perro("Rex"), new Gato("Michi"), new Perro("Luna")];
+
+for (const animal of animales) {
+  console.log(\`\${animal.nombre}: \${animal.hacerSonido()}\`);
+}
+// Rex: ¡Guau!
+// Michi: ¡Miau!
+// Luna: ¡Guau!`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Animal {
+  nombre: string;
+
+  constructor(nombre: string) {
+    this.nombre = nombre;
+  }
+
+  hacerSonido(): string {
+    return "...";
+  }
+}
+
+class Perro extends Animal {
+  override hacerSonido(): string {
+    return "¡Guau!";
+  }
+}
+
+class Gato extends Animal {
+  override hacerSonido(): string {
+    return "¡Miau!";
+  }
+}
+
+const animales: Animal[] = [new Perro("Rex"), new Gato("Michi"), new Perro("Luna")];
+
+for (const animal of animales) {
+  console.log(\`\${animal.nombre}: \${animal.hacerSonido()}\`);
+}
+// Rex: ¡Guau!
+// Michi: ¡Miau!
+// Luna: ¡Guau!`
+    }
+  ]}
+  output={`Rex: ¡Guau!\nMichi: ¡Miau!\nLuna: ¡Guau!`}
+/>
+
+<Callout variant="tip" title="override en TypeScript">
+La palabra clave `override` (TypeScript 4.3+) hace explícito que estás redefiniendo un método del padre. Si el método no existe en la clase padre, TypeScript lanzará un error — lo que previene typos difíciles de detectar.
+</Callout>
+
+</Section>
+
+<Section id="super-metodo" title="super.metodo(): llamar la implementación del padre">
+
+Dentro de un override, puedes llamar la versión del padre usando `super.metodo()`. Útil para extender, no reemplazar completamente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `class Empleado {
+  constructor(nombre, salarioBase) {
+    this.nombre = nombre;
+    this.salarioBase = salarioBase;
+  }
+
+  calcularSalario() {
+    return this.salarioBase;
+  }
+
+  toString() {
+    return \`\${this.nombre} — Salario: \$\${this.calcularSalario()}\`;
+  }
+}
+
+class Gerente extends Empleado {
+  constructor(nombre, salarioBase, bono) {
+    super(nombre, salarioBase);
+    this.bono = bono;
+  }
+
+  // Extiende la lógica del padre en lugar de reemplazarla
+  calcularSalario() {
+    const base = super.calcularSalario(); // ← llama al padre
+    return base + this.bono;
+  }
+}
+
+const emp = new Empleado("Carlos", 3000);
+const ger = new Gerente("Diana", 5000, 1500);
+
+console.log(emp.toString()); // "Carlos — Salario: $3000"
+console.log(ger.toString()); // "Diana — Salario: $6500"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Empleado {
+  nombre: string;
+  salarioBase: number;
+
+  constructor(nombre: string, salarioBase: number) {
+    this.nombre = nombre;
+    this.salarioBase = salarioBase;
+  }
+
+  calcularSalario(): number {
+    return this.salarioBase;
+  }
+
+  toString(): string {
+    return \`\${this.nombre} — Salario: \$\${this.calcularSalario()}\`;
+  }
+}
+
+class Gerente extends Empleado {
+  bono: number;
+
+  constructor(nombre: string, salarioBase: number, bono: number) {
+    super(nombre, salarioBase);
+    this.bono = bono;
+  }
+
+  override calcularSalario(): number {
+    const base = super.calcularSalario(); // ← llama al padre
+    return base + this.bono;
+  }
+}
+
+const emp = new Empleado("Carlos", 3000);
+const ger = new Gerente("Diana", 5000, 1500);
+
+console.log(emp.toString()); // "Carlos — Salario: $3000"
+console.log(ger.toString()); // "Diana — Salario: $6500"`
+    }
+  ]}
+  output={`Carlos — Salario: $3000\nDiana — Salario: $6500`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea Perro y Gato que extienden Animal", diff: "easy", minutes: 8 },
+    { num: "02", name: "Override del método toString() usando super", diff: "med", minutes: 10 },
+    { num: "03", name: "Jerarquía de Empleado → Gerente con salario", diff: "med", minutes: 12 },
+    { num: "04", name: "Polimorfismo: array de Animales, cada uno llama sonido()", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

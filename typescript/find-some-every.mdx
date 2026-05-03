@@ -1,0 +1,350 @@
+---
+title: "find, some y every: búsquedas en arrays"
+short: "find / some / every"
+chapter: "08"
+num: "02"
+chapterTitle: "Arrays y objetos avanzados"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Cuando no necesitas transformar un array sino hacer una pregunta sobre él, find, some, every e includes son más expresivos y eficientes que un bucle for."
+pro: false
+---
+
+<Section id="find" title="find y findIndex — el primer elemento que cumple la condición">
+
+`find` devuelve el **primer elemento** que satisface el predicado, o `undefined` si ninguno lo hace. `findIndex` devuelve su posición (o `-1`). Ambos se detienen en cuanto encuentran el primer match — no recorren todo el array.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "find y findIndex",
+      code: `const usuarios = [
+  { id: 1, nombre: "Ana",    email: "ana@ejemplo.com",    activo: true },
+  { id: 2, nombre: "Carlos", email: "carlos@ejemplo.com", activo: false },
+  { id: 3, nombre: "Bea",    email: "bea@ejemplo.com",    activo: true },
+];
+
+// find — devuelve el objeto o undefined
+const usuario = usuarios.find((u) => u.email === "carlos@ejemplo.com");
+console.log(usuario?.nombre); // "Carlos"
+
+const noExiste = usuarios.find((u) => u.id === 99);
+console.log(noExiste); // undefined
+
+// findIndex — devuelve la posición o -1
+const indice = usuarios.findIndex((u) => u.id === 3);
+console.log(indice); // 2
+
+const indiceMalo = usuarios.findIndex((u) => u.id === 99);
+console.log(indiceMalo); // -1
+
+// Uso práctico: actualizar un elemento por id
+const idx = usuarios.findIndex((u) => u.id === 2);
+if (idx !== -1) {
+  usuarios[idx] = { ...usuarios[idx], activo: true };
+}
+console.log(usuarios[1].activo); // true`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+  activo: boolean;
+}
+
+const usuarios: Usuario[] = [
+  { id: 1, nombre: "Ana",    email: "ana@ejemplo.com",    activo: true },
+  { id: 2, nombre: "Carlos", email: "carlos@ejemplo.com", activo: false },
+  { id: 3, nombre: "Bea",    email: "bea@ejemplo.com",    activo: true },
+];
+
+// find devuelve Usuario | undefined — TypeScript lo sabe
+const usuario: Usuario | undefined = usuarios.find(
+  (u) => u.email === "carlos@ejemplo.com"
+);
+
+// Debes verificar antes de usar
+if (usuario) {
+  console.log(usuario.nombre); // "Carlos" — sin error de TS
+}
+
+// findIndex para actualizar inmutablemente
+const indice = usuarios.findIndex((u) => u.id === 2);
+if (indice !== -1) {
+  const actualizados: Usuario[] = [
+    ...usuarios.slice(0, indice),
+    { ...usuarios[indice], activo: true },
+    ...usuarios.slice(indice + 1),
+  ];
+  console.log(actualizados[1].activo); // true
+}`
+    }
+  ]}
+  output={`Carlos\nundefined\n2\n-1\ntrue`}
+/>
+
+</Section>
+
+<Section id="some" title="some — ¿algún elemento cumple la condición?">
+
+`some` devuelve `true` en cuanto encuentra el primer elemento que satisface el predicado. Si ninguno lo cumple, devuelve `false`. Es equivalente al operador lógico OR sobre el array.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "some en acción",
+      code: `const productos = [
+  { nombre: "Teclado",  precio: 80,  stock: 5 },
+  { nombre: "Mouse",    precio: 35,  stock: 0 },
+  { nombre: "Monitor",  precio: 320, stock: 2 },
+  { nombre: "Webcam",   precio: 90,  stock: 0 },
+];
+
+// ¿Hay algún producto sin stock?
+const haySinStock = productos.some((p) => p.stock === 0);
+console.log(haySinStock); // true
+
+// ¿Hay algún producto que cuesta más de 200?
+const hayPremium = productos.some((p) => p.precio > 200);
+console.log(hayPremium); // true
+
+// ¿Hay algún producto que cuesta más de 1000?
+const hayMuyCaros = productos.some((p) => p.precio > 1000);
+console.log(hayMuyCaros); // false
+
+// Verificar permisos — ¿el usuario tiene AL MENOS uno de estos roles?
+const rolesUsuario = ["editor", "moderador"];
+const rolesRequeridos = ["admin", "moderador"];
+
+const tieneAcceso = rolesRequeridos.some((rol) => rolesUsuario.includes(rol));
+console.log(tieneAcceso); // true (tiene "moderador")`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Producto {
+  nombre: string;
+  precio: number;
+  stock: number;
+}
+
+const productos: Producto[] = [
+  { nombre: "Teclado",  precio: 80,  stock: 5 },
+  { nombre: "Mouse",    precio: 35,  stock: 0 },
+  { nombre: "Monitor",  precio: 320, stock: 2 },
+];
+
+// some siempre devuelve boolean
+const haySinStock: boolean = productos.some((p) => p.stock === 0);
+console.log(haySinStock); // true
+
+// Útil en validaciones de formularios
+interface CampoFormulario {
+  nombre: string;
+  valor: string;
+  requerido: boolean;
+}
+
+function tieneErrores(campos: CampoFormulario[]): boolean {
+  return campos.some((campo) => campo.requerido && campo.valor.trim() === "");
+}
+
+const campos: CampoFormulario[] = [
+  { nombre: "email", valor: "ana@ejemplo.com", requerido: true },
+  { nombre: "nombre", valor: "", requerido: true },
+];
+
+console.log(tieneErrores(campos)); // true — nombre está vacío`
+    }
+  ]}
+  output={`true\ntrue\nfalse\ntrue`}
+/>
+
+</Section>
+
+<Section id="every" title="every — ¿todos los elementos cumplen la condición?">
+
+`every` devuelve `true` solo si **todos** los elementos satisfacen el predicado. Es equivalente al operador AND sobre el array. Se detiene en el primer elemento que falla.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "every en acción",
+      code: `const notas = [85, 92, 78, 95, 88];
+
+// ¿Todas las notas son aprobatorias?
+const todoAprobados = notas.every((nota) => nota >= 60);
+console.log(todoAprobados); // true
+
+// ¿Todas son sobresalientes (>= 90)?
+const todosSobresalientes = notas.every((nota) => nota >= 90);
+console.log(todosSobresalientes); // false
+
+// Validar que todos los campos del formulario estén llenos
+const campos = [
+  { nombre: "email", valor: "ana@ejemplo.com" },
+  { nombre: "nombre", valor: "Ana García" },
+  { nombre: "telefono", valor: "555-1234" },
+];
+
+const formularioCompleto = campos.every((c) => c.valor.trim() !== "");
+console.log(formularioCompleto); // true
+
+// Verificar que todos los items del carrito tienen stock
+const carrito = [
+  { producto: "Teclado", stock: 5 },
+  { producto: "Mouse", stock: 0 },
+];
+
+const pedidoValido = carrito.every((item) => item.stock > 0);
+console.log(pedidoValido); // false`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// every como type guard — estrecha el tipo del array
+function sonTodosStrings(valores: unknown[]): valores is string[] {
+  return valores.every((v) => typeof v === "string");
+}
+
+const mezcla: unknown[] = ["Ana", "Carlos", "Bea"];
+if (sonTodosStrings(mezcla)) {
+  // Aquí TypeScript sabe que mezcla es string[]
+  console.log(mezcla.map((s) => s.toUpperCase()));
+  // ["ANA", "CARLOS", "BEA"]
+}
+
+// Validación de campos
+interface Campo {
+  nombre: string;
+  valor: string;
+  requerido: boolean;
+}
+
+function formularioValido(campos: Campo[]): boolean {
+  return campos
+    .filter((c) => c.requerido)
+    .every((c) => c.valor.trim().length > 0);
+}
+
+const campos: Campo[] = [
+  { nombre: "email", valor: "ana@test.com", requerido: true },
+  { nombre: "bio", valor: "", requerido: false }, // no requerido, ok
+];
+
+console.log(formularioValido(campos)); // true`
+    }
+  ]}
+  output={`true\nfalse\ntrue\nfalse`}
+/>
+
+</Section>
+
+<Section id="includes-indexof" title="includes e indexOf — búsqueda por valor exacto">
+
+Cuando buscas un valor primitivo (no un objeto), `includes` e `indexOf` son más directos que `some` o `find`.
+
+<CompareTable
+  headers={["Método", "Retorna", "Para qué sirve", "Cuándo usar"]}
+  rows={[
+    [
+      { kind: "good", value: "find(fn)" },
+      { value: "elemento | undefined" },
+      { value: "Buscar objetos por condición compleja" },
+      { value: "Necesitas el objeto en sí" }
+    ],
+    [
+      { kind: "good", value: "findIndex(fn)" },
+      { value: "número (-1 si no)" },
+      { value: "Buscar posición de un objeto" },
+      { value: "Necesitas el índice para mutar" }
+    ],
+    [
+      { kind: "good", value: "some(fn)" },
+      { value: "boolean" },
+      { value: "¿Existe al menos uno que cumpla?" },
+      { value: "Pregunta de existencia con condición" }
+    ],
+    [
+      { kind: "good", value: "every(fn)" },
+      { value: "boolean" },
+      { value: "¿Todos cumplen la condición?" },
+      { value: "Validar que todos pasen una regla" }
+    ],
+    [
+      { kind: "good", value: "includes(v)" },
+      { value: "boolean" },
+      { value: "¿El array contiene este valor exacto?" },
+      { value: "Búsqueda de primitivos (string, número)" }
+    ],
+    [
+      { kind: "good", value: "indexOf(v)" },
+      { value: "número (-1 si no)" },
+      { value: "Posición del valor exacto en el array" },
+      { value: "Necesitas la posición de un primitivo" }
+    ],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "includes e indexOf",
+      code: `const frutas = ["manzana", "pera", "uva", "mango"];
+
+console.log(frutas.includes("pera"));   // true
+console.log(frutas.includes("sandía")); // false
+
+console.log(frutas.indexOf("uva"));     // 2
+console.log(frutas.indexOf("sandía"));  // -1
+
+// includes con NaN — ventaja sobre indexOf
+const valores = [1, NaN, 3];
+console.log(valores.includes(NaN)); // true
+console.log(valores.indexOf(NaN));  // -1 (bug histórico de indexOf)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// includes con union types — útil para type guards
+type Dificultad = "facil" | "medio" | "dificil";
+
+const dificultades: Dificultad[] = ["facil", "medio", "dificil"];
+
+function esDificultad(valor: string): valor is Dificultad {
+  return (dificultades as string[]).includes(valor);
+}
+
+const input = "medio";
+if (esDificultad(input)) {
+  // TypeScript sabe que input es Dificultad aquí
+  console.log("Dificultad válida:", input);
+}`
+    }
+  ]}
+  output={`true\nfalse\n2\n-1\ntrue\n-1`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Busca un usuario por email con find", diff: "easy", minutes: 5 },
+    { num: "02", name: "Verifica si hay productos sin stock con some", diff: "easy", minutes: 5 },
+    { num: "03", name: "Valida que todos los campos del formulario estén llenos", diff: "med", minutes: 8 },
+    { num: "04", name: "Implementa una búsqueda con múltiples criterios", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

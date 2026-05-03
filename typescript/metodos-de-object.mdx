@@ -1,0 +1,341 @@
+---
+title: "Métodos de Object: keys, values, entries y más"
+short: "Métodos de Object"
+chapter: "08"
+num: "06"
+chapterTitle: "Arrays y objetos avanzados"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los métodos estáticos de Object te permiten iterar, combinar y transformar objetos sin mutarlos. Son las herramientas que convierten objetos en arrays — y viceversa — de forma limpia."
+pro: false
+---
+
+<Section id="keys-values-entries" title="Object.keys(), values() y entries() — iterar objetos">
+
+Estos tres métodos convierten las propiedades de un objeto en un array, lo que permite usar todos los métodos de array (`map`, `filter`, `reduce`) sobre los datos de un objeto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "keys, values, entries",
+      code: `const producto = {
+  nombre: "Teclado Mecánico",
+  precio: 120,
+  stock: 8,
+  activo: true,
+};
+
+// Object.keys — array de nombres de propiedades (strings)
+const claves = Object.keys(producto);
+console.log(claves); // ["nombre", "precio", "stock", "activo"]
+
+// Object.values — array de valores
+const valores = Object.values(producto);
+console.log(valores); // ["Teclado Mecánico", 120, 8, true]
+
+// Object.entries — array de pares [clave, valor]
+const entradas = Object.entries(producto);
+console.log(entradas);
+// [["nombre","Teclado Mecánico"], ["precio",120], ["stock",8], ["activo",true]]
+
+// Iterar con entries + destructuring
+for (const [clave, valor] of Object.entries(producto)) {
+  console.log(\`\${clave}: \${valor}\`);
+}
+
+// Transformar los valores con map
+const preciosConIVA = Object.fromEntries(
+  Object.entries({ teclado: 100, mouse: 40, monitor: 300 }).map(
+    ([nombre, precio]) => [nombre, precio * 1.21]
+  )
+);
+console.log(preciosConIVA);
+// { teclado: 121, mouse: 48.4, monitor: 363 }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Inventario = Record<string, number>;
+
+const inventario: Inventario = {
+  teclado: 15,
+  mouse: 30,
+  monitor: 8,
+  webcam: 0,
+};
+
+// Object.keys devuelve string[] — TypeScript no estrecha al tipo de las claves
+const claves: string[] = Object.keys(inventario);
+
+// Object.values devuelve el tipo del valor
+const cantidades: number[] = Object.values(inventario);
+const totalUnidades = cantidades.reduce((sum, n) => sum + n, 0);
+console.log("Total:", totalUnidades); // 53
+
+// Object.entries + filter para obtener productos sin stock
+const sinStock = Object.entries(inventario)
+  .filter(([, cantidad]) => cantidad === 0)
+  .map(([nombre]) => nombre);
+
+console.log("Sin stock:", sinStock); // ["webcam"]
+
+// Mapear a otro formato
+const reporteInventario = Object.entries(inventario).map(
+  ([producto, cantidad]) => ({
+    producto,
+    cantidad,
+    estado: cantidad === 0 ? "agotado" : cantidad < 10 ? "bajo" : "disponible",
+  })
+);
+console.log(reporteInventario);`
+    }
+  ]}
+  output={`["nombre", "precio", "stock", "activo"]\n["Teclado Mecánico", 120, 8, true]\nTotal: 53\nSin stock: ["webcam"]`}
+/>
+
+</Section>
+
+<Section id="assign" title="Object.assign() — combinar objetos (mutable)">
+
+`Object.assign(destino, ...fuentes)` copia las propiedades de las fuentes al destino y devuelve el destino modificado. A diferencia del spread, **muta** el objeto destino.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Object.assign",
+      code: `// Copiar propiedades al destino
+const destino = { a: 1, b: 2 };
+const fuente = { b: 3, c: 4 }; // 'b' sobrescribirá al del destino
+
+Object.assign(destino, fuente);
+console.log(destino); // { a: 1, b: 3, c: 4 } — destino mutado
+
+// Fusionar múltiples fuentes
+const resultado = Object.assign({}, { x: 1 }, { y: 2 }, { z: 3 });
+console.log(resultado); // { x: 1, y: 2, z: 3 }
+
+// Equivalente moderno con spread — preferible porque no muta
+const resultadoSpread = { ...{ x: 1 }, ...{ y: 2 }, ...{ z: 3 } };
+
+// Cuándo sí usar assign: inicializar propiedades en un objeto existente
+class Configuracion {
+  constructor(opciones) {
+    Object.assign(this, {
+      timeout: 5000,
+      reintentos: 3,
+      ...opciones,
+    });
+  }
+}
+
+const config = new Configuracion({ timeout: 10000 });
+console.log(config.timeout);    // 10000
+console.log(config.reintentos); // 3`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface OpcionesBase {
+  timeout: number;
+  reintentos: number;
+  modo: "produccion" | "desarrollo";
+}
+
+// Usar spread es preferible en TypeScript porque preserva tipos
+function crearConfiguracion(
+  opciones: Partial<OpcionesBase>
+): OpcionesBase {
+  const defaults: OpcionesBase = {
+    timeout: 5000,
+    reintentos: 3,
+    modo: "desarrollo",
+  };
+
+  // Spread es más predecible que Object.assign en TS
+  return { ...defaults, ...opciones };
+}
+
+const config = crearConfiguracion({ timeout: 10000, modo: "produccion" });
+console.log(config);
+// { timeout: 10000, reintentos: 3, modo: "produccion" }`
+    }
+  ]}
+  output={`{ a: 1, b: 3, c: 4 }\n{ x: 1, y: 2, z: 3 }\n10000\n3`}
+/>
+
+<Callout variant="tip" title="assign vs spread">
+Prefiere spread (`{ ...obj1, ...obj2 }`) sobre `Object.assign` en código nuevo. El spread no muta, es más legible y TypeScript infiere los tipos correctamente.
+</Callout>
+
+</Section>
+
+<Section id="freeze" title="Object.freeze() — inmutabilidad superficial">
+
+`Object.freeze()` congela un objeto: impide agregar, eliminar o modificar propiedades. Es una inmutabilidad superficial — los objetos anidados siguen siendo mutables.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Object.freeze",
+      code: `const configuracion = Object.freeze({
+  version: "2.1.0",
+  apiUrl: "https://api.ejemplo.com",
+  maxReintentos: 3,
+});
+
+// En modo estricto lanza TypeError. En modo no-estricto falla silenciosamente.
+configuracion.version = "3.0.0"; // Error en strict mode
+configuracion.nuevosCampos = "algo"; // Error en strict mode
+
+console.log(Object.isFrozen(configuracion)); // true
+console.log(configuracion.version);          // "2.1.0" — sin cambios
+
+// ⚠️ Shallow freeze — objetos anidados NO están congelados
+const app = Object.freeze({
+  nombre: "MiApp",
+  db: { host: "localhost", puerto: 5432 }, // este objeto sí es mutable
+});
+
+app.db.puerto = 9999; // ¡funciona! — db no está congelado
+console.log(app.db.puerto); // 9999
+
+// Para congelar en profundidad necesitas una función recursiva
+function congelarProfundo(obj) {
+  Object.keys(obj).forEach((clave) => {
+    if (typeof obj[clave] === "object" && obj[clave] !== null) {
+      congelarProfundo(obj[clave]);
+    }
+  });
+  return Object.freeze(obj);
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Readonly en TypeScript es una alternativa en tiempo de compilación
+// Object.freeze es runtime, Readonly es solo una garantía de tipos
+
+const COLORES = Object.freeze({
+  primario: "#7C3AED",
+  secundario: "#A78BFA",
+  fondo: "#0F172A",
+} as const);
+
+// TypeScript sabe los tipos exactos gracias a 'as const'
+// COLORES.primario es "#7C3AED", no solo string
+console.log(COLORES.primario); // "#7C3AED"
+
+// Error de compilación — TypeScript lo detecta
+// COLORES.primario = "#FF0000"; // TS2540: Cannot assign to read only property
+
+// Tipo inferido: { readonly primario: "#7C3AED"; readonly secundario: "..."; ... }
+type Colores = typeof COLORES;`
+    }
+  ]}
+  output={`true\n2.1.0\n9999`}
+/>
+
+</Section>
+
+<Section id="fromEntries" title="Object.fromEntries() — de array de pares a objeto">
+
+`Object.fromEntries()` es el inverso de `Object.entries()`: convierte un array de pares `[clave, valor]` (o cualquier iterable de pares) en un objeto. Es perfecto para transformar objetos mediante el pipeline de arrays.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "fromEntries en práctica",
+      code: `// Invertir las claves y valores de un objeto
+const abreviaciones = { js: "JavaScript", ts: "TypeScript", py: "Python" };
+
+const invertido = Object.fromEntries(
+  Object.entries(abreviaciones).map(([clave, valor]) => [valor, clave])
+);
+console.log(invertido);
+// { JavaScript: "js", TypeScript: "ts", Python: "py" }
+
+// Filtrar propiedades de un objeto
+const config = { host: "localhost", puerto: 5432, password: "secreto", usuario: "admin" };
+const clavesSensibles = ["password", "token", "secret"];
+
+const configSegura = Object.fromEntries(
+  Object.entries(config).filter(([clave]) => !clavesSensibles.includes(clave))
+);
+console.log(configSegura);
+// { host: "localhost", puerto: 5432, usuario: "admin" }
+
+// Convertir un Map a objeto plano
+const mapaPrecios = new Map([
+  ["teclado", 80],
+  ["mouse", 35],
+  ["monitor", 320],
+]);
+
+const objetoPrecios = Object.fromEntries(mapaPrecios);
+console.log(objetoPrecios);
+// { teclado: 80, mouse: 35, monitor: 320 }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// fromEntries con tipos precisos
+function filtrarPropiedades<T extends object>(
+  obj: T,
+  claves: (keyof T)[]
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([clave]) =>
+      claves.includes(clave as keyof T)
+    )
+  ) as Partial<T>;
+}
+
+interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+  password: string;
+}
+
+const usuario: Usuario = {
+  id: 1,
+  nombre: "Ana García",
+  email: "ana@ejemplo.com",
+  password: "hash-secreto",
+};
+
+const publico = filtrarPropiedades(usuario, ["id", "nombre", "email"]);
+console.log(publico);
+// { id: 1, nombre: "Ana García", email: "ana@ejemplo.com" }
+
+// Transformar valores con fromEntries
+const precios: Record<string, number> = { teclado: 100, mouse: 40 };
+const conIVA = Object.fromEntries(
+  Object.entries(precios).map(([k, v]) => [k, v * 1.21])
+) as Record<string, number>;
+console.log(conIVA); // { teclado: 121, mouse: 48.4 }`
+    }
+  ]}
+  output={`{ JavaScript: "js", TypeScript: "ts", Python: "py" }\n{ host: "localhost", puerto: 5432, usuario: "admin" }\n{ teclado: 80, mouse: 35, monitor: 320 }`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Itera un objeto con Object.entries() y map", diff: "easy", minutes: 5 },
+    { num: "02", name: "Convierte un Map a objeto con fromEntries", diff: "med", minutes: 8 },
+    { num: "03", name: "Filtra propiedades de un objeto por valor", diff: "med", minutes: 8 },
+    { num: "04", name: "Crea un merge profundo usando Object.entries", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

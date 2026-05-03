@@ -1,0 +1,356 @@
+---
+title: "El Event Loop: cómo JavaScript <em>nunca se bloquea</em>"
+short: "Event Loop"
+chapter: "06"
+num: "05"
+chapterTitle: "Asincronía"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["js", "ts"]
+exercises: 3
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "JavaScript ejecuta código en un solo hilo. El Event Loop es el mecanismo que le permite manejar operaciones asíncronas sin bloquearse — es la razón por la que puedes hacer click en un botón mientras se carga una imagen."
+pro: true
+---
+
+<Section id="single-threaded" title="JavaScript es single-threaded">
+
+Un solo hilo significa que JavaScript ejecuta una sola instrucción a la vez. No hay paralelismo real — pero hay concurrencia gracias al Event Loop:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Todo esto se ejecuta en el mismo hilo, en secuencia
+console.log("1 — síncrono");
+
+setTimeout(() => {
+  console.log("3 — macrotask");
+}, 0);
+
+Promise.resolve().then(() => {
+  console.log("2 — microtask");
+});
+
+console.log("1b — también síncrono");
+
+// Orden de salida:
+// 1 — síncrono
+// 1b — también síncrono
+// 2 — microtask
+// 3 — macrotask`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript compila a JavaScript — el runtime es idéntico
+console.log("1 — síncrono");
+
+setTimeout((): void => {
+  console.log("3 — macrotask");
+}, 0);
+
+Promise.resolve().then((): void => {
+  console.log("2 — microtask");
+});
+
+console.log("1b — también síncrono");
+
+// Orden de salida:
+// 1 — síncrono
+// 1b — también síncrono
+// 2 — microtask
+// 3 — macrotask`
+    }
+  ]}
+  output={`1 — síncrono\n1b — también síncrono\n2 — microtask\n3 — macrotask`}
+/>
+
+<Callout variant="info" title="El orden de ejecución siempre es el mismo">
+1. Código síncrono (Call Stack) — hasta que el stack quede vacío
+2. Microtask Queue — todas las microtasks pendientes (Promises, queueMicrotask)
+3. Macrotask Queue — una sola macrotask (setTimeout, setInterval, I/O)
+4. Volver al paso 2 si hay microtasks nuevas
+</Callout>
+
+</Section>
+
+<Section id="call-stack" title="El Call Stack — LIFO">
+
+El Call Stack registra qué función está ejecutando el motor. Funciona como una pila: la última en entrar es la primera en salir (LIFO):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Observa cómo el stack crece y decrece
+function sumar(a, b) {
+  return a + b;       // [sumar] ← tope del stack
+}
+
+function calcular(x) {
+  const resultado = sumar(x, 10); // [calcular, sumar]
+  return resultado;
+}
+
+function iniciar() {
+  const valor = calcular(5); // [iniciar, calcular]
+  console.log(valor);        // [iniciar] → imprime 15
+}
+
+iniciar(); // [iniciar] entra al stack
+
+// Stack en cada momento:
+// → [iniciar]
+// → [iniciar, calcular]
+// → [iniciar, calcular, sumar]
+// → [iniciar, calcular]  (sumar retorna 15)
+// → [iniciar]            (calcular retorna 15)
+// → []                   (iniciar termina)
+
+// Un stack overflow ocurre si las llamadas no terminan
+function infinita() {
+  return infinita(); // Maximum call stack size exceeded
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function sumar(a: number, b: number): number {
+  return a + b;
+}
+
+function calcular(x: number): number {
+  const resultado = sumar(x, 10);
+  return resultado;
+}
+
+function iniciar(): void {
+  const valor = calcular(5);
+  console.log(valor); // 15
+}
+
+iniciar();
+
+// Stack en cada momento:
+// → [iniciar]
+// → [iniciar, calcular]
+// → [iniciar, calcular, sumar]
+// → [iniciar, calcular]
+// → [iniciar]
+// → []`
+    }
+  ]}
+  output={`15`}
+/>
+
+</Section>
+
+<Section id="web-apis" title="Las Web APIs — donde vive el código async">
+
+Cuando el motor encuentra `setTimeout`, `fetch`, o un event listener, delega la operación a las Web APIs (browser) o a las libuv APIs (Node.js) — liberando el Call Stack:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `console.log("A — inicio");
+
+// 1. fetch() sale del stack y va a las Web APIs
+// El stack queda libre para seguir ejecutando
+fetch("https://jsonplaceholder.typicode.com/todos/1")
+  .then(respuesta => respuesta.json())
+  .then(datos => {
+    // Este código no bloquea — llega aquí cuando la red responde
+    console.log("C — datos:", datos.title);
+  });
+
+// 2. setTimeout también va a las Web APIs
+setTimeout(() => {
+  console.log("D — timeout completado");
+}, 100);
+
+// 3. Este código se ejecuta INMEDIATAMENTE mientras fetch/setTimeout esperan
+console.log("B — código síncrono continúa");
+
+// Orden:
+// A — inicio
+// B — código síncrono continúa
+// C — datos: ... (cuando la red responde)
+// D — timeout completado (después de ~100ms)`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `type Todo = { id: number; title: string; completed: boolean };
+
+console.log("A — inicio");
+
+fetch("https://jsonplaceholder.typicode.com/todos/1")
+  .then((respuesta: Response) => respuesta.json())
+  .then((datos: Todo) => {
+    console.log("C — datos:", datos.title);
+  });
+
+setTimeout((): void => {
+  console.log("D — timeout completado");
+}, 100);
+
+console.log("B — código síncrono continúa");
+
+// Orden:
+// A — inicio
+// B — código síncrono continúa
+// C — datos: ... (cuando la red responde)
+// D — timeout completado`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="macrotask-queue" title="La Macrotask Queue — tareas del sistema">
+
+Cuando un `setTimeout`, `setInterval`, o evento de I/O completa, su callback entra a la Macrotask Queue. El Event Loop lo recoge cuando el stack está vacío y las microtasks procesadas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Los macrotasks se ejecutan uno por uno, con un "tick" entre cada uno
+setTimeout(() => console.log("Macrotask 1"), 0);
+setTimeout(() => console.log("Macrotask 2"), 0);
+setTimeout(() => console.log("Macrotask 3"), 0);
+
+// El Event Loop procesa microtasks entre cada macrotask
+setTimeout(() => {
+  console.log("Macrotask A");
+  Promise.resolve().then(() => {
+    console.log("  Microtask dentro de Macrotask A");
+  });
+}, 0);
+
+setTimeout(() => {
+  console.log("Macrotask B");
+}, 0);
+
+// Salida:
+// Macrotask 1
+// Macrotask 2
+// Macrotask 3
+// Macrotask A
+//   Microtask dentro de Macrotask A   ← procesada ANTES de la siguiente macrotask
+// Macrotask B`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `setTimeout((): void => console.log("Macrotask 1"), 0);
+setTimeout((): void => console.log("Macrotask 2"), 0);
+setTimeout((): void => console.log("Macrotask 3"), 0);
+
+setTimeout((): void => {
+  console.log("Macrotask A");
+  Promise.resolve().then((): void => {
+    console.log("  Microtask dentro de Macrotask A");
+  });
+}, 0);
+
+setTimeout((): void => {
+  console.log("Macrotask B");
+}, 0);
+
+// Salida:
+// Macrotask 1
+// Macrotask 2
+// Macrotask 3
+// Macrotask A
+//   Microtask dentro de Macrotask A
+// Macrotask B`
+    }
+  ]}
+  output={`Macrotask 1\nMacrotask 2\nMacrotask 3\nMacrotask A\n  Microtask dentro de Macrotask A\nMacrotask B`}
+/>
+
+</Section>
+
+<Section id="microtask-queue" title="La Microtask Queue — prioridad máxima">
+
+Las microtasks (Promises, `queueMicrotask`) tienen prioridad sobre las macrotasks. El motor vacía todas las microtasks antes de procesar la siguiente macrotask:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// queueMicrotask — forma explícita de agregar microtasks
+console.log("1 — sync");
+
+queueMicrotask(() => console.log("3 — microtask (queueMicrotask)"));
+
+Promise.resolve()
+  .then(() => {
+    console.log("4 — microtask (Promise)");
+    // Agregar microtask desde microtask — se procesa antes del próximo macrotask
+    queueMicrotask(() => console.log("5 — microtask anidada"));
+  });
+
+setTimeout(() => console.log("6 — macrotask"), 0);
+
+console.log("2 — sync");
+
+// 1 — sync
+// 2 — sync
+// 3 — microtask (queueMicrotask)
+// 4 — microtask (Promise)
+// 5 — microtask anidada    ← se inserta y procesa antes del macrotask
+// 6 — macrotask`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `console.log("1 — sync");
+
+queueMicrotask((): void => console.log("3 — microtask (queueMicrotask)"));
+
+Promise.resolve()
+  .then((): void => {
+    console.log("4 — microtask (Promise)");
+    queueMicrotask((): void => console.log("5 — microtask anidada"));
+  });
+
+setTimeout((): void => console.log("6 — macrotask"), 0);
+
+console.log("2 — sync");
+
+// 1 — sync
+// 2 — sync
+// 3 — microtask (queueMicrotask)
+// 4 — microtask (Promise)
+// 5 — microtask anidada
+// 6 — macrotask`
+    }
+  ]}
+  output={`1 — sync\n2 — sync\n3 — microtask (queueMicrotask)\n4 — microtask (Promise)\n5 — microtask anidada\n6 — macrotask`}
+/>
+
+<Callout variant="warn" title="Cuidado con las microtasks infinitas">
+Si una microtask agrega otra microtask que agrega otra, y así sucesivamente, el motor nunca llega a procesar macrotasks ni a repintar el browser. Usa `queueMicrotask` con cuidado — para diferir trabajo pequeño, no para reemplazar `setTimeout`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Predice el orden de salida de este código async", diff: "med", minutes: 8 },
+    { num: "02", name: "Explica por qué setTimeout 0 no es inmediato", diff: "med", minutes: 10 },
+    { num: "03", name: "Usa queueMicrotask para diferir código correctamente", diff: "hard", minutes: 15 },
+  ]}
+/>
+</Section>

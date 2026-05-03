@@ -1,0 +1,311 @@
+---
+title: "Conditional types: <em>tipos que toman decisiones</em>"
+short: "Conditional types"
+chapter: "12"
+num: "03"
+chapterTitle: "TypeScript avanzado"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los conditional types llevan la lógica condicional al nivel de los tipos. Con ellos puedes construir tipos que se adaptan según lo que reciben — la misma idea que un ternario, pero en el sistema de tipos."
+pro: true
+---
+
+<Section id="sintaxis" title="Sintaxis — T extends U ? X : Y">
+
+Un conditional type evalúa una condición sobre un tipo y devuelve uno de dos tipos posibles. La sintaxis es idéntica al operador ternario de JavaScript, pero todo ocurre en tiempo de compilación.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Forma básica: T extends U ? X : Y
+// "Si T es asignable a U, el tipo es X; si no, es Y"
+
+type EsString<T> = T extends string ? "sí" : "no";
+
+type R1 = EsString<string>;   // "sí"
+type R2 = EsString<number>;   // "no"
+type R3 = EsString<"hola">;   // "sí" — el literal "hola" extiende string
+
+// Un uso muy frecuente: IsArray<T>
+type EsArray<T> = T extends any[] ? true : false;
+
+type A1 = EsArray<number[]>;   // true
+type A2 = EsArray<string>;     // false
+type A3 = EsArray<never[]>;    // true
+
+// Conditional types con restricciones genéricas
+type Aplanar<T> = T extends any[] ? T[number] : T;
+
+type F1 = Aplanar<string[]>;  // string
+type F2 = Aplanar<number[]>;  // number
+type F3 = Aplanar<boolean>;   // boolean — no es array, devuelve T
+
+function aplanar<T>(valor: T): Aplanar<T> {
+  if (Array.isArray(valor)) {
+    return valor[0] as Aplanar<T>;
+  }
+  return valor as Aplanar<T>;
+}
+
+console.log(aplanar([1, 2, 3]));   // 1
+console.log(aplanar("texto"));     // "texto"`
+    }
+  ]}
+  output={`1\ntexto`}
+/>
+
+</Section>
+
+<Section id="infer" title="infer — extraer partes de un tipo">
+
+`infer` es una palabra clave especial dentro de conditional types que **captura** una parte del tipo que estás verificando y la pone disponible como variable de tipo. Permite diseccionar tipos complejos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Extraer el tipo de retorno de una función (así funciona ReturnType<T>)
+type MiReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
+
+function obtenerUsuario(id: number) {
+  return { id, nombre: "Ana", activo: true };
+}
+
+type TipoRetorno = MiReturnType<typeof obtenerUsuario>;
+// { id: number; nombre: string; activo: boolean }
+
+// Extraer el tipo de los parámetros (así funciona Parameters<T>)
+type MisParameters<T> = T extends (...args: infer P) => any ? P : never;
+
+function crearElemento(tag: string, clase: string, id: number): HTMLElement {
+  return document.createElement(tag);
+}
+
+type Params = MisParameters<typeof crearElemento>;
+// [tag: string, clase: string, id: number]
+
+// Extraer el tipo del primer elemento de una tupla
+type Primero<T extends any[]> = T extends [infer F, ...any[]] ? F : never;
+
+type P1 = Primero<[string, number, boolean]>; // string
+type P2 = Primero<[number, ...string[]]>;      // number
+
+// Extraer el tipo de una Promise (así funciona Awaited<T> en parte)
+type Desenvuelto<T> = T extends Promise<infer V> ? V : T;
+
+type D1 = Desenvuelto<Promise<string>>;   // string
+type D2 = Desenvuelto<Promise<number[]>>; // number[]
+type D3 = Desenvuelto<boolean>;           // boolean
+
+// Extraer el tipo de los elementos de un array
+type ElementoArray<T> = T extends (infer E)[] ? E : never;
+
+type E1 = ElementoArray<string[]>;   // string
+type E2 = ElementoArray<number[][]>; // number[]
+
+console.log("infer funciona en tiempo de compilación");`
+    }
+  ]}
+  output={`infer funciona en tiempo de compilación`}
+/>
+
+<Callout variant="info" title="infer solo dentro de extends">
+`infer` solo es válido dentro de la cláusula `extends` de un conditional type. No puedes usarlo en posición de tipo directamente. Siempre aparece como `T extends ... infer R ...`.
+</Callout>
+
+</Section>
+
+<Section id="distributive" title="Distributive conditional types — se distribuyen sobre unions">
+
+Cuando aplicas un conditional type a un **tipo genérico** y le pasas una union, TypeScript lo **distribuye** automáticamente: aplica el conditional a cada miembro por separado y combina los resultados.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Conditional type distribuido: T es genérico (no wrapping)
+type Distribuido<T> = T extends string ? "string" : "otro";
+
+// Con una union:
+type R1 = Distribuido<string | number | boolean>;
+// Aplica a cada miembro:
+// string  → "string"
+// number  → "otro"
+// boolean → "otro"
+// Resultado: "string" | "otro" | "otro" = "string" | "otro"
+
+// Exclude<T, U> se implementa exactamente así:
+type MiExclude<T, U> = T extends U ? never : T;
+
+type SinStrings = MiExclude<string | number | boolean, string>;
+// string → never (excluido)
+// number → number
+// boolean → boolean
+// Resultado: number | boolean
+
+// Extract<T, U> — lo contrario:
+type MiExtract<T, U> = T extends U ? T : never;
+
+type SoloStrings = MiExtract<string | number | boolean, string>;
+// string  → string
+// number  → never
+// boolean → never
+// Resultado: string
+
+// Para EVITAR la distribución: envuelve en tupla
+type NoDistribuido<T> = [T] extends [string] ? "string" : "otro";
+
+type R2 = NoDistribuido<string | number>;
+// [string | number] extends [string]? → No → "otro"
+// No se distribuye — evalúa la union completa
+
+console.log("Distribución automática en unions");`
+    }
+  ]}
+  output={`Distribución automática en unions`}
+/>
+
+</Section>
+
+<Section id="utility-implementados" title="Utility types implementados con conditional types">
+
+Muchos utility types de la stdlib de TypeScript son conditional types. Verlos implementados consolida la comprensión:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Reimplementaciones de la stdlib — idénticas al original
+
+// NonNullable<T>
+type MiNonNullable<T> = T extends null | undefined ? never : T;
+type Test1 = MiNonNullable<string | null | undefined>; // string
+
+// ReturnType<T>
+type MiReturnType<T extends (...args: any) => any> =
+  T extends (...args: any) => infer R ? R : never;
+
+// Parameters<T>
+type MiParameters<T extends (...args: any) => any> =
+  T extends (...args: infer P) => any ? P : never;
+
+// ConstructorParameters<T> — parámetros del constructor
+type MiConstructorParams<T extends new (...args: any) => any> =
+  T extends new (...args: infer P) => any ? P : never;
+
+class Servicio {
+  constructor(public url: string, public timeout: number) {}
+}
+
+type ParamsServicio = MiConstructorParams<typeof Servicio>;
+// [url: string, timeout: number]
+
+// InstanceType<T> — tipo de la instancia de un constructor
+type MiInstanceType<T extends new (...args: any) => any> =
+  T extends new (...args: any) => infer I ? I : never;
+
+type InstanciaServicio = MiInstanceType<typeof Servicio>;
+// Servicio
+
+// Awaited<T> — recursivo para Promises anidadas
+type MiAwaited<T> =
+  T extends null | undefined
+    ? T
+    : T extends object & { then(onfulfilled: infer F, ...args: any): any }
+      ? F extends (value: infer V, ...args: any) => any
+        ? MiAwaited<V>
+        : never
+      : T;
+
+type A1 = MiAwaited<Promise<string>>;           // string
+type A2 = MiAwaited<Promise<Promise<number>>>;  // number`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="avanzados" title="Casos avanzados — tipos recursivos">
+
+Los conditional types pueden ser **recursivos**, lo que permite construir tipos que operan sobre estructuras anidadas. TypeScript 4.1+ soporta recursión con límite de profundidad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// DeepReadonly<T> — hace readonly todas las propiedades, en profundidad
+type DeepReadonly<T> =
+  T extends (infer E)[]
+    ? ReadonlyArray<DeepReadonly<E>>              // array → aplica recursión
+    : T extends object
+      ? { readonly [K in keyof T]: DeepReadonly<T[K]> } // objeto → aplica a cada prop
+      : T;                                         // primitivo → tal cual
+
+interface Config {
+  servidor: {
+    host: string;
+    puerto: number;
+    ssl: {
+      certificado: string;
+      expiresAt: Date;
+    };
+  };
+  caracteristicas: string[];
+}
+
+type ConfigInmutable = DeepReadonly<Config>;
+
+const config: ConfigInmutable = {
+  servidor: {
+    host: "api.ejemplo.com",
+    puerto: 443,
+    ssl: { certificado: "cert.pem", expiresAt: new Date() },
+  },
+  caracteristicas: ["autenticacion", "cache"],
+};
+
+// config.servidor.puerto = 80; // ❌ Error — readonly en profundidad
+// config.caracteristicas.push("x"); // ❌ Error — ReadonlyArray
+
+// Flatten recursivo (profundidad fija con recursión)
+type Flatten<T> =
+  T extends Array<infer E>
+    ? Flatten<E>
+    : T;
+
+type F1 = Flatten<number[][][]>;         // number
+type F2 = Flatten<string[]>;             // string
+type F3 = Flatten<Promise<string>>;      // Promise<string> — no es array
+
+console.log("Tipos recursivos resueltos en compilación");`
+    }
+  ]}
+  output={`Tipos recursivos resueltos en compilación`}
+/>
+
+<Callout variant="warn" title="Límite de recursión">
+TypeScript tiene un límite de profundidad de recursión en tipos (alrededor de 100 niveles). Para estructuras muy profundas, puede que necesites estrategias alternativas. Siempre verifica que tu tipo recursivo converge.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa IsArray<T> con conditional type", diff: "med", minutes: 10 },
+    { num: "02", name: "Implementa Flatten<T> para arrays de cualquier nivel", diff: "med", minutes: 12 },
+    { num: "03", name: "Crea UnwrapPromise<T> con infer para Promises anidadas", diff: "hard", minutes: 15 },
+    { num: "04", name: "Implementa DeepReadonly<T> recursivo completo", diff: "hard", minutes: 20 },
+  ]}
+/>
+</Section>

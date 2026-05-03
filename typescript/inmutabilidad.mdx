@@ -1,0 +1,306 @@
+---
+title: "Inmutabilidad: código <em>predecible</em> sin mutaciones"
+short: "Inmutabilidad"
+chapter: "13"
+num: "04"
+chapterTitle: "Conceptos profundos de JavaScript"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Mutar objetos y arrays directamente genera bugs difíciles de rastrear. La inmutabilidad — crear nuevos valores en vez de modificar los existentes — hace el código más predecible, testeable y compatible con React."
+pro: false
+---
+
+<Section id="valores-vs-referencias" title="Valores vs referencias">
+
+Los tipos primitivos son **inmutables por naturaleza** — cada operación crea un nuevo valor. Los objetos y arrays son **mutables** — operan sobre la misma referencia en memoria.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// Primitivos — inmutables, copiados por valor
+let a = 10;
+let b = a;
+b = 20;
+console.log(a); // 10 — no cambia
+console.log(b); // 20
+
+// Objetos — mutables, copiados por referencia
+const usuario1 = { nombre: "Ana", puntos: 100 };
+const usuario2 = usuario1; // misma referencia en memoria
+
+usuario2.puntos = 999; // muta el objeto original
+console.log(usuario1.puntos); // 999 ← ¡también cambió!
+console.log(usuario1 === usuario2); // true — misma referencia
+
+// Arrays — mismo comportamiento
+const original = [1, 2, 3];
+const alias = original;
+alias.push(4);
+console.log(original); // [1, 2, 3, 4] — mutado`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Primitivos — inmutables
+let a: number = 10;
+let b: number = a;
+b = 20;
+console.log(a); // 10
+console.log(b); // 20
+
+// Objetos — por referencia
+interface Usuario {
+  nombre: string;
+  puntos: number;
+}
+
+const usuario1: Usuario = { nombre: "Ana", puntos: 100 };
+const usuario2: Usuario = usuario1; // misma referencia
+
+usuario2.puntos = 999; // TypeScript no lo impide por defecto
+console.log(usuario1.puntos); // 999
+
+// Readonly para proteger en TypeScript
+const usuario3: Readonly<Usuario> = { nombre: "Carlos", puntos: 50 };
+// usuario3.puntos = 100; // ❌ Error de compilación`
+    }
+  ]}
+  output={`10\n20\n999\ntrue\n[1, 2, 3, 4]`}
+/>
+
+</Section>
+
+<Section id="por-que-importa" title="Por qué la inmutabilidad importa">
+
+Mutar estado compartido hace que el código sea difícil de seguir. La inmutabilidad hace que los cambios sean **explícitos y rastreables**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "El problema y la solución",
+      code: `// ❌ Mutación — difícil de rastrear
+function agregarPuntos_MALO(usuario, puntos) {
+  usuario.puntos += puntos; // muta el objeto original
+  return usuario;
+}
+
+const jugador = { nombre: "Ana", puntos: 100 };
+agregarPuntos_MALO(jugador, 50);
+console.log(jugador.puntos); // 150 — el caller no lo esperaba
+
+// ✅ Inmutable — predecible
+function agregarPuntos(usuario, puntos) {
+  return { ...usuario, puntos: usuario.puntos + puntos }; // nuevo objeto
+}
+
+const jugador2 = { nombre: "Ana", puntos: 100 };
+const jugador2Actualizado = agregarPuntos(jugador2, 50);
+
+console.log(jugador2.puntos);         // 100 — sin cambios
+console.log(jugador2Actualizado.puntos); // 150 — nuevo objeto`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Usuario {
+  nombre: string;
+  puntos: number;
+}
+
+// ❌ Mutación
+function agregarPuntos_MALO(usuario: Usuario, puntos: number): Usuario {
+  usuario.puntos += puntos;
+  return usuario;
+}
+
+// ✅ Inmutable
+function agregarPuntos(usuario: Readonly<Usuario>, puntos: number): Usuario {
+  return { ...usuario, puntos: usuario.puntos + puntos };
+}
+
+const jugador: Usuario = { nombre: "Ana", puntos: 100 };
+const jugadorActualizado = agregarPuntos(jugador, 50);
+
+console.log(jugador.puntos);          // 100
+console.log(jugadorActualizado.puntos); // 150
+console.log(jugador === jugadorActualizado); // false — objetos distintos`
+    }
+  ]}
+  output={`150\n100\n150\nfalse`}
+/>
+
+<Callout variant="info" title="React y la inmutabilidad">
+React detecta cambios comparando referencias (`===`). Si mutas el estado directamente en vez de crear un nuevo objeto, React no detecta el cambio y no re-renderiza. Por eso `setState` siempre debe recibir un nuevo objeto.
+</Callout>
+
+</Section>
+
+<Section id="patrones-inmutables" title="Patrones inmutables — spread y métodos no mutantes">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Patrones inmutables",
+      code: `const config = { tema: "oscuro", idioma: "es", puntos: 0 };
+
+// Actualizar una propiedad — spread
+const nuevaConfig = { ...config, tema: "claro" };
+console.log(config.tema);      // "oscuro"
+console.log(nuevaConfig.tema); // "claro"
+
+// Eliminar una propiedad — destructuring
+const { puntos, ...sinPuntos } = config;
+console.log(sinPuntos); // { tema: "oscuro", idioma: "es" }
+
+// Arrays — métodos NO mutantes
+const numeros = [3, 1, 4, 1, 5, 9];
+
+const agregado    = [...numeros, 2, 6];       // push inmutable
+const sinPrimero  = numeros.slice(1);          // shift inmutable
+const ordenados   = [...numeros].sort();       // sort inmutable (sort muta!)
+const filtrados   = numeros.filter(n => n > 3); // [4, 5, 9]
+const duplicados  = numeros.map(n => n * 2);   // [6, 2, 8, 2, 10, 18]
+
+console.log(numeros); // [3, 1, 4, 1, 5, 9] — original intacto
+console.log(filtrados); // [4, 5, 9]`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Config {
+  tema: string;
+  idioma: string;
+  puntos: number;
+}
+
+const config: Readonly<Config> = { tema: "oscuro", idioma: "es", puntos: 0 };
+
+// Actualizar con spread
+const nuevaConfig: Config = { ...config, tema: "claro" };
+console.log(config.tema);      // "oscuro"
+console.log(nuevaConfig.tema); // "claro"
+
+// Eliminar propiedad con destructuring
+const { puntos, ...sinPuntos } = config;
+console.log(sinPuntos); // { tema: "oscuro", idioma: "es" }
+
+// Arrays inmutables
+const numeros: readonly number[] = [3, 1, 4, 1, 5, 9];
+
+const filtrados = numeros.filter(n => n > 3); // [4, 5, 9]
+const duplicados = numeros.map(n => n * 2);   // [6, 2, 8, 2, 10, 18]
+// numeros.push(7); // ❌ Error — readonly array
+
+console.log(numeros.join(",")); // "3,1,4,1,5,9" — intacto`
+    }
+  ]}
+  output={`oscuro\nclaro\n{ tema: 'oscuro', idioma: 'es' }\n[3, 1, 4, 1, 5, 9]\n[4, 5, 9]`}
+/>
+
+</Section>
+
+<Section id="object-freeze" title="Object.freeze() — inmutabilidad superficial">
+
+`Object.freeze()` previene modificaciones en un objeto. Es **superficial** — los objetos anidados siguen siendo mutables.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "freeze() en profundidad",
+      code: `const constantes = Object.freeze({
+  MAX_INTENTOS: 3,
+  TIMEOUT_MS: 5000,
+  MODO: "produccion",
+});
+
+constantes.MAX_INTENTOS = 99; // silencioso en modo normal
+console.log(constantes.MAX_INTENTOS); // 3 — no cambió
+
+// "use strict" lanza TypeError en la mutación anterior
+
+// ⚠️ Freeze es SUPERFICIAL
+const estado = Object.freeze({
+  usuario: { nombre: "Ana", puntos: 100 }, // este objeto NO está frozen
+  tema: "oscuro",
+});
+
+// estado.tema = "claro"; // ❌ no funciona (nivel 1)
+estado.usuario.puntos = 999; // ✅ funciona (nivel profundo)
+console.log(estado.usuario.puntos); // 999 — fue mutado
+
+// Para deep freeze necesitas una función recursiva
+function deepFreeze(obj) {
+  Object.getOwnPropertyNames(obj).forEach(nombre => {
+    const valor = obj[nombre];
+    if (valor && typeof valor === "object") {
+      deepFreeze(valor);
+    }
+  });
+  return Object.freeze(obj);
+}
+
+const estadoFijo = deepFreeze({ usuario: { nombre: "Carlos", puntos: 50 } });
+estadoFijo.usuario.puntos = 999; // silencioso
+console.log(estadoFijo.usuario.puntos); // 50 — no cambió`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const constantes = Object.freeze({
+  MAX_INTENTOS: 3,
+  TIMEOUT_MS: 5000,
+  MODO: "produccion" as const,
+} as const);
+
+// TypeScript infiere el tipo como readonly con valores literales
+// constantes.MAX_INTENTOS = 99; // ❌ Error de compilación
+
+// Deep freeze con tipado
+function deepFreeze<T extends object>(obj: T): Readonly<T> {
+  Object.getOwnPropertyNames(obj).forEach(nombre => {
+    const valor = (obj as Record<string, unknown>)[nombre];
+    if (valor && typeof valor === "object") {
+      deepFreeze(valor as object);
+    }
+  });
+  return Object.freeze(obj);
+}
+
+interface Estado {
+  usuario: { nombre: string; puntos: number };
+  tema: string;
+}
+
+const estado = deepFreeze<Estado>({
+  usuario: { nombre: "Carlos", puntos: 50 },
+  tema: "oscuro",
+});
+
+// TypeScript + deepFreeze protegen tanto nivel 1 como niveles profundos
+console.log(estado.usuario.puntos); // 50`
+    }
+  ]}
+  output={`3\n999\n50`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Actualiza un objeto inmutablemente con spread", diff: "easy", minutes: 5 },
+    { num: "02", name: "Transforma un array sin mutarlo", diff: "easy", minutes: 5 },
+    { num: "03", name: "Implementa un reducer puro (patrón Redux)", diff: "med", minutes: 10 },
+    { num: "04", name: "Deep freeze de un objeto anidado", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

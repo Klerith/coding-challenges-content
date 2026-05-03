@@ -1,0 +1,211 @@
+---
+title: "static y readonly: propiedades de <em>clase</em>"
+short: "static y readonly"
+chapter: "09"
+num: "05"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Las propiedades y métodos estáticos pertenecen a la clase, no a las instancias. Son perfectos para factories, contadores compartidos y constantes de configuración."
+pro: false
+---
+
+<Section id="static" title="static: pertenece a la clase">
+
+Una propiedad o método `static` existe en la **clase misma**, no en cada instancia. Se accede usando el nombre de la clase, no `this`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `class Matematica {
+  static PI = 3.14159265;
+
+  static circunferencia(radio: number): number {
+    return 2 * Matematica.PI * radio;
+  }
+
+  static area(radio: number): number {
+    return Matematica.PI * radio ** 2;
+  }
+}
+
+// Se accede por la clase, no por una instancia
+console.log(Matematica.PI);                    // 3.14159265
+console.log(Matematica.circunferencia(5));     // 31.415...
+console.log(Matematica.area(3));               // 28.274...
+
+// ❌ No se accede por instancia
+// const m = new Matematica();
+// m.PI // Error: Property 'PI' does not exist on instance`
+    }
+  ]}
+  output={`3.14159265\n31.41592653589793\n28.274333882308138`}
+/>
+
+<Callout variant="info" title="Ya usas static todos los días">
+`Math.random()`, `Array.isArray()`, `Object.keys()`, `JSON.parse()` — todos son métodos estáticos de sus respectivas clases. No necesitas crear `new Math()` para usarlos.
+</Callout>
+
+</Section>
+
+<Section id="casos-de-uso" title="Casos de uso: factories y contadores">
+
+Los usos más comunes de `static` son: contadores compartidos entre instancias, métodos factory y utilidades de la clase:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Contador de instancias y factory",
+      code: `class Conexion {
+  private static totalConexiones: number = 0;
+  private static readonly MAX_CONEXIONES = 10;
+
+  private id: number;
+  private url: string;
+
+  private constructor(url: string) {
+    Conexion.totalConexiones++;
+    this.id = Conexion.totalConexiones;
+    this.url = url;
+  }
+
+  // Factory method estático
+  static crear(url: string): Conexion {
+    if (Conexion.totalConexiones >= Conexion.MAX_CONEXIONES) {
+      throw new Error("Límite de conexiones alcanzado");
+    }
+    return new Conexion(url);
+  }
+
+  static getTotal(): number {
+    return Conexion.totalConexiones;
+  }
+
+  describir(): string {
+    return \`Conexión #\${this.id} → \${this.url}\`;
+  }
+}
+
+const c1 = Conexion.crear("https://api.ejemplo.com");
+const c2 = Conexion.crear("https://db.ejemplo.com");
+
+console.log(c1.describir());      // "Conexión #1 → https://api.ejemplo.com"
+console.log(c2.describir());      // "Conexión #2 → https://db.ejemplo.com"
+console.log(Conexion.getTotal()); // 2`
+    }
+  ]}
+  output={`Conexión #1 → https://api.ejemplo.com\nConexión #2 → https://db.ejemplo.com\n2`}
+/>
+
+<Callout variant="tip" title="Constructor private + factory static">
+Marcar el constructor como `private` y exponer un método estático `crear()` o `from()` da control total sobre cómo se crean instancias. Este patrón es muy común en librerías como `Date.now()` o `Buffer.from()`.
+</Callout>
+
+</Section>
+
+<Section id="readonly-estatico" title="readonly en propiedades estáticas">
+
+Combinar `static` con `readonly` crea constantes de clase que no pueden cambiar una vez definidas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Constantes estáticas",
+      code: `class Config {
+  static readonly APP_NAME = "MiApp";
+  static readonly VERSION = "2.1.0";
+  static readonly MAX_INTENTOS = 3;
+  static readonly TIEMPO_ESPERA_MS = 5000;
+
+  static describir(): string {
+    return \`\${Config.APP_NAME} v\${Config.VERSION}\`;
+  }
+}
+
+console.log(Config.APP_NAME);   // "MiApp"
+console.log(Config.describir()); // "MiApp v2.1.0"
+
+// ❌ Error: Cannot assign to 'APP_NAME' because it is a read-only property
+// Config.APP_NAME = "OtraApp";
+
+// Uso en lógica de la app
+function intentarConexion(url: string): void {
+  for (let i = 0; i < Config.MAX_INTENTOS; i++) {
+    console.log(\`Intento \${i + 1} de \${Config.MAX_INTENTOS}...\`);
+    // lógica de conexión...
+  }
+}
+
+intentarConexion("https://api.ejemplo.com");`
+    }
+  ]}
+  output={`MiApp\nMiApp v2.1.0\nIntento 1 de 3...\nIntento 2 de 3...\nIntento 3 de 3...`}
+/>
+
+</Section>
+
+<Section id="metodos-estaticos" title="Métodos estáticos como utilidades">
+
+Los métodos estáticos son ideales para lógica que no necesita estado de instancia — transformaciones, validaciones y helpers:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "Clase de utilidades",
+      code: `class Cadena {
+  static capitalizar(texto: string): string {
+    if (!texto) return texto;
+    return texto[0].toUpperCase() + texto.slice(1).toLowerCase();
+  }
+
+  static truncar(texto: string, max: number): string {
+    if (texto.length <= max) return texto;
+    return texto.slice(0, max - 3) + "...";
+  }
+
+  static slugify(texto: string): string {
+    return texto
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+  }
+}
+
+console.log(Cadena.capitalizar("hola mundo"));   // "Hola mundo"
+console.log(Cadena.truncar("Una cadena muy larga que debe cortarse", 20)); // "Una cadena muy la..."
+console.log(Cadena.slugify("Programación en TypeScript")); // "programacion-en-typescript"`
+    }
+  ]}
+  output={`Hola mundo\nUna cadena muy la...\nprogramacion-en-typescript`}
+/>
+
+<Rules>
+  <Rule>Usa `static` cuando la lógica no depende del estado de una instancia específica</Rule>
+  <Rule>Usa `static readonly` para constantes que pertenecen a la clase entera</Rule>
+  <Rule>Los métodos factory estáticos dan nombres descriptivos a diferentes formas de construir objetos</Rule>
+  <Rule>No abuses de clases estáticas como sustituto de módulos — un simple objeto o función exportada es más simple</Rule>
+</Rules>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea un contador de instancias con static", diff: "easy", minutes: 8 },
+    { num: "02", name: "Factory method estático para crear instancias", diff: "med", minutes: 10 },
+    { num: "03", name: "Constantes estáticas en una clase de configuración", diff: "easy", minutes: 5 },
+    { num: "04", name: "Singleton con static instance privado", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

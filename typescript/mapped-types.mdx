@@ -1,0 +1,355 @@
+---
+title: "Mapped types: <em>transformar tipos</em> con iteración"
+short: "Mapped types"
+chapter: "12"
+num: "04"
+chapterTitle: "TypeScript avanzado"
+difficulty: "advanced"
+readingMinutes: 11
+appliesTo: ["ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Los mapped types iteran sobre las claves de un tipo y producen uno nuevo transformado. Son el mecanismo detrás de Partial, Required, Readonly y Record — y puedes crear los tuyos propios."
+pro: true
+---
+
+<Section id="sintaxis" title="Sintaxis de mapped types">
+
+Un mapped type itera sobre una union de claves y define el tipo de cada propiedad resultante. La sintaxis usa `in` dentro de corchetes — similar a un `for...of` en el nivel de tipos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Forma básica: { [K in Union]: Tipo }
+// Itera sobre cada miembro de Union y produce una propiedad
+
+// Un tipo que pone string en cada propiedad de un conjunto de claves
+type TodosString<T extends string> = {
+  [K in T]: string;
+};
+
+type Ejemplo = TodosString<"nombre" | "email" | "telefono">;
+// { nombre: string; email: string; telefono: string }
+
+// Lo más común: iterar sobre keyof T para transformar un tipo existente
+interface Producto {
+  id: number;
+  nombre: string;
+  precio: number;
+  activo: boolean;
+}
+
+// Convierte todas las propiedades a string
+type TodosStringProducto = {
+  [K in keyof Producto]: string;
+};
+// { id: string; nombre: string; precio: string; activo: string }
+
+// Convierte todas las propiedades a boolean
+type Flags<T> = {
+  [K in keyof T]: boolean;
+};
+
+type ProductoFlags = Flags<Producto>;
+// { id: boolean; nombre: boolean; precio: boolean; activo: boolean }
+
+// Útil para formularios "¿cuáles campos están tocados?"
+const camposTocados: ProductoFlags = {
+  id:     false,
+  nombre: true,
+  precio: true,
+  activo: false,
+};
+console.log(camposTocados.nombre); // true`
+    }
+  ]}
+  output={`true`}
+/>
+
+</Section>
+
+<Section id="modificadores" title="Modificadores — +?, -?, +readonly, -readonly">
+
+Los mapped types permiten agregar (`+`) o quitar (`-`) los modificadores `?` (opcional) y `readonly` en las propiedades resultantes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Configuracion {
+  readonly apiUrl: string;
+  readonly timeout: number;
+  debug?: boolean;
+  clave?: string;
+}
+
+// +? agrega optional (el + es implícito — no hace falta escribirlo)
+type TodosOpcional<T> = {
+  [K in keyof T]+?: T[K];
+};
+
+// -? quita optional — todas las propiedades pasan a ser obligatorias
+type TodosObligatorio<T> = {
+  [K in keyof T]-?: T[K];
+};
+
+type ConfigCompleta = TodosObligatorio<Configuracion>;
+// { readonly apiUrl: string; readonly timeout: number; debug: boolean; clave: string }
+// ↑ debug y clave ya no son opcionales
+
+// -readonly quita el readonly
+type Mutable<T> = {
+  -readonly [K in keyof T]: T[K];
+};
+
+type ConfigMutable = Mutable<Configuracion>;
+// { apiUrl: string; timeout: number; debug?: boolean; clave?: string }
+// ↑ apiUrl y timeout ya no son readonly
+
+// +readonly agrega readonly
+type Immutable<T> = {
+  +readonly [K in keyof T]: T[K];
+};
+
+// Combinando: quita optional Y quita readonly
+type Concreta<T> = {
+  -readonly [K in keyof T]-?: T[K];
+};
+
+type ConfigConcreta = Concreta<Configuracion>;
+// { apiUrl: string; timeout: number; debug: boolean; clave: string }
+
+const config: ConfigConcreta = {
+  apiUrl: "https://api.com",
+  timeout: 5000,
+  debug: false,
+  clave: "abc123",
+};
+console.log(config.apiUrl); // "https://api.com"`
+    }
+  ]}
+  output={`https://api.com`}
+/>
+
+</Section>
+
+<Section id="key-remapping" title="Key remapping con as — renombrar claves">
+
+TypeScript 4.1 añadió la posibilidad de renombrar las claves en un mapped type usando la cláusula `as`. Esto abre la puerta a transformaciones mucho más expresivas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Modelo {
+  nombre: string;
+  precio: number;
+  activo: boolean;
+}
+
+// Agregar prefijo "get" a cada clave → getters tipados
+type Getters<T> = {
+  [K in keyof T as \`get\${Capitalize<string & K>}\`]: () => T[K];
+};
+
+type ModeloGetters = Getters<Modelo>;
+// {
+//   getNombre: () => string;
+//   getPrecio: () => number;
+//   getActivo: () => boolean;
+// }
+
+// Agregar prefijo "set" a cada clave → setters tipados
+type Setters<T> = {
+  [K in keyof T as \`set\${Capitalize<string & K>}\`]: (val: T[K]) => void;
+};
+
+// Filtrar claves — excluir con never
+type SinId<T> = {
+  [K in keyof T as K extends "id" ? never : K]: T[K];
+};
+
+interface ConId {
+  id: number;
+  nombre: string;
+  precio: number;
+}
+
+type SinIdConId = SinId<ConId>;
+// { nombre: string; precio: number }  ← id filtrado
+
+// Remapear a un prefijo de evento
+type EventHandlers<T extends string> = {
+  [K in T as \`on\${Capitalize<K>}\`]: (event: Event) => void;
+};
+
+type ClickHandlers = EventHandlers<"click" | "hover" | "focus">;
+// {
+//   onClick:  (event: Event) => void;
+//   onHover:  (event: Event) => void;
+//   onFocus:  (event: Event) => void;
+// }
+
+const handlers: ClickHandlers = {
+  onClick:  (e) => console.log("click"),
+  onHover:  (e) => console.log("hover"),
+  onFocus:  (e) => console.log("focus"),
+};
+console.log("Key remapping funciona");`
+    }
+  ]}
+  output={`Key remapping funciona`}
+/>
+
+</Section>
+
+<Section id="utility-implementados" title="Utility types implementados — Partial, Required, Readonly, Record">
+
+Entender cómo se implementan los utility types estándar con mapped types es el mejor ejercicio para dominarlos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Partial<T> — agrega ? a todas las propiedades
+type MiPartial<T> = {
+  [K in keyof T]?: T[K];
+};
+
+// Required<T> — quita ? de todas las propiedades
+type MiRequired<T> = {
+  [K in keyof T]-?: T[K];
+};
+
+// Readonly<T> — agrega readonly a todas las propiedades
+type MiReadonly<T> = {
+  readonly [K in keyof T]: T[K];
+};
+
+// Record<K, V> — crea objeto con claves K y valores V
+type MiRecord<K extends keyof any, V> = {
+  [P in K]: V;
+};
+
+// Pick<T, K> — selecciona solo las claves K de T
+type MiPick<T, K extends keyof T> = {
+  [P in K]: T[P];
+};
+
+// Omit<T, K> — excluye las claves K de T
+type MiOmit<T, K extends keyof T> = MiPick<T, Exclude<keyof T, K>>;
+
+// Verificar que funcionan igual que los originales
+interface Libro {
+  titulo: string;
+  autor: string;
+  paginas: number;
+  isbn?: string;
+}
+
+type LibroOpcional    = MiPartial<Libro>;     // igual que Partial<Libro>
+type LibroObligatorio = MiRequired<Libro>;     // igual que Required<Libro>
+type LibroInmutable   = MiReadonly<Libro>;     // igual que Readonly<Libro>
+type LibroSinIsbn     = MiOmit<Libro, "isbn">; // igual que Omit<Libro, "isbn">
+
+const libro: LibroSinIsbn = {
+  titulo: "Clean Code",
+  autor: "Robert C. Martin",
+  paginas: 464,
+};
+console.log(libro.titulo); // "Clean Code"`
+    }
+  ]}
+  output={`Clean Code`}
+/>
+
+</Section>
+
+<Section id="mapped-condicionales" title="Mapped types condicionales">
+
+Combinar mapped types con conditional types produce transformaciones altamente específicas sobre cada propiedad según su tipo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// Solo hace optional las propiedades que son string
+type OptionalStrings<T> = {
+  [K in keyof T]: T[K] extends string ? T[K] | undefined : T[K];
+};
+
+interface Entidad {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  activo: boolean;
+  peso: number;
+}
+
+type EntidadOpt = OptionalStrings<Entidad>;
+// {
+//   id:          number;         ← no cambia
+//   nombre:      string | undefined;  ← string → optional
+//   descripcion: string | undefined;  ← string → optional
+//   activo:      boolean;        ← no cambia
+//   peso:        number;         ← no cambia
+// }
+
+// Convierte métodos a sus versiones async
+type Asyncify<T> = {
+  [K in keyof T]: T[K] extends (...args: infer A) => infer R
+    ? (...args: A) => Promise<R>
+    : T[K];
+};
+
+interface ServicioSync {
+  calcular(x: number, y: number): number;
+  formatear(s: string): string;
+  version: string; // no es función — queda igual
+}
+
+type ServicioAsync = Asyncify<ServicioSync>;
+// {
+//   calcular:  (x: number, y: number) => Promise<number>;
+//   formatear: (s: string) => Promise<string>;
+//   version:   string;
+// }
+
+// Nullable<T> — agrega null a cada propiedad
+type Nullable<T> = {
+  [K in keyof T]: T[K] | null;
+};
+
+type EntidadNullable = Nullable<Entidad>;
+const entidad: EntidadNullable = {
+  id: 1,
+  nombre: null,     // válido — puede ser null
+  descripcion: "desc",
+  activo: true,
+  peso: null,       // válido
+};
+console.log(entidad.id); // 1`
+    }
+  ]}
+  output={`1`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa Partial<T> desde cero con mapped type", diff: "med", minutes: 10 },
+    { num: "02", name: "Crea Nullable<T> que añade null a cada propiedad", diff: "med", minutes: 12 },
+    { num: "03", name: "Mapped type que convierte métodos a versiones async", diff: "hard", minutes: 15 },
+    { num: "04", name: "Implementa EventMap<T> para un event emitter tipado", diff: "hard", minutes: 20 },
+  ]}
+/>
+</Section>

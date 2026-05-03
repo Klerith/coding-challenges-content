@@ -1,0 +1,292 @@
+---
+title: "Tipos de error: la jerarquía de errores nativa"
+short: "Tipos de error"
+chapter: "07"
+num: "03"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "JavaScript tiene varios tipos de error integrados. Conocerlos te permite identificar qué salió mal en segundos y lanzar el tipo correcto cuando escribes tus propias validaciones."
+pro: false
+---
+
+<Section id="jerarquia" title="La jerarquía de errores nativa">
+
+Todos los errores en JavaScript heredan de `Error`. Las subclases especializadas describen la causa con más precisión. El motor del lenguaje las lanza automáticamente; tú también puedes usarlas cuando semánticamente corresponde.
+
+<CompareTable
+  headers={["Tipo", "Cuándo ocurre", "Ejemplo"]}
+  rows={[
+    [
+      { kind: "good", value: "Error" },
+      { value: "Error genérico, base de todos" },
+      { value: 'throw new Error("algo falló")' }
+    ],
+    [
+      { kind: "good", value: "TypeError" },
+      { value: "Operación inválida para el tipo del valor" },
+      { value: "null.toString()" }
+    ],
+    [
+      { kind: "good", value: "RangeError" },
+      { value: "Valor fuera del rango permitido" },
+      { value: "new Array(-1)" }
+    ],
+    [
+      { kind: "good", value: "ReferenceError" },
+      { value: "Variable no declarada o no accesible" },
+      { value: "console.log(noExiste)" }
+    ],
+    [
+      { kind: "good", value: "SyntaxError" },
+      { value: "Código mal formado (suele ser en parse)" },
+      { value: 'JSON.parse("{mal}")' }
+    ],
+    [
+      { kind: "good", value: "URIError" },
+      { value: "URI malformada en decodeURIComponent" },
+      { value: 'decodeURIComponent("%")' }
+    ],
+  ]}
+/>
+
+</Section>
+
+<Section id="cuando-ocurre" title="Cuándo ocurre cada uno — ejemplos concretos">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Errores en acción",
+      code: `// TypeError — operación inválida sobre el tipo
+try {
+  const n = null;
+  n.toString(); // null no tiene métodos
+} catch (e) {
+  console.log(e.name, "->", e.message);
+  // TypeError -> Cannot read properties of null (reading 'toString')
+}
+
+// RangeError — valor fuera de rango
+try {
+  const arr = new Array(-5); // longitud negativa
+} catch (e) {
+  console.log(e.name, "->", e.message);
+  // RangeError -> Invalid array length
+}
+
+// ReferenceError — variable no declarada
+try {
+  console.log(variableFantasma);
+} catch (e) {
+  console.log(e.name, "->", e.message);
+  // ReferenceError -> variableFantasma is not defined
+}
+
+// SyntaxError (en runtime) — JSON mal formado
+try {
+  JSON.parse("{ clave: valor }"); // las claves deben ir entre comillas
+} catch (e) {
+  console.log(e.name, "->", e.message);
+  // SyntaxError -> Unexpected token c in JSON at position 2
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeError
+try {
+  const texto: string | null = null;
+  (texto as string).toUpperCase();
+} catch (e) {
+  if (e instanceof TypeError) {
+    console.log("TypeError ->", e.message);
+  }
+}
+
+// RangeError — número fuera de rango
+try {
+  const num = (1.23456789).toFixed(200); // máximo es ~100
+} catch (e) {
+  if (e instanceof RangeError) {
+    console.log("RangeError ->", e.message);
+  }
+}
+
+// SyntaxError en JSON
+try {
+  JSON.parse("{ clave: valor }");
+} catch (e) {
+  if (e instanceof SyntaxError) {
+    console.log("SyntaxError ->", e.message);
+  }
+}`
+    }
+  ]}
+  output={`TypeError -> Cannot read properties of null (reading 'toString')\nRangeError -> Invalid array length\nReferenceError -> variableFantasma is not defined\nSyntaxError -> Unexpected token c in JSON at position 2`}
+/>
+
+</Section>
+
+<Section id="identificar" title="Identificar el tipo con instanceof y error.name">
+
+Hay dos formas de detectar el tipo de un error: `instanceof` y comparar `error.name`. `instanceof` es preferible porque funciona con la herencia de clases y hace type narrowing en TypeScript.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "instanceof vs error.name",
+      code: `function manejarError(error) {
+  // ✅ instanceof — recomendado
+  if (error instanceof TypeError) {
+    console.log("Problema de tipos — revisa los argumentos");
+  } else if (error instanceof RangeError) {
+    console.log("Valor fuera de rango — verifica los límites");
+  } else if (error instanceof SyntaxError) {
+    console.log("Datos mal formados — valida el input");
+  } else if (error instanceof Error) {
+    console.log("Error genérico:", error.message);
+  }
+}
+
+// error.name como alternativa (útil cuando instanceof no está disponible)
+function identificarPorNombre(error) {
+  switch (error.name) {
+    case "TypeError":      return "tipo inválido";
+    case "RangeError":     return "fuera de rango";
+    case "ReferenceError": return "referencia inválida";
+    case "SyntaxError":    return "sintaxis incorrecta";
+    default:               return "error desconocido";
+  }
+}
+
+try {
+  null.propiedad;
+} catch (e) {
+  manejarError(e);
+  console.log(identificarPorNombre(e));
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// TypeScript estrecha el tipo con instanceof
+function manejarError(error: unknown): string {
+  if (error instanceof TypeError) {
+    // TypeScript sabe que error es TypeError aquí
+    return \`Tipo inválido: \${error.message}\`;
+  }
+  if (error instanceof RangeError) {
+    return \`Fuera de rango: \${error.message}\`;
+  }
+  if (error instanceof SyntaxError) {
+    return \`Sintaxis incorrecta: \${error.message}\`;
+  }
+  if (error instanceof Error) {
+    return \`Error: \${error.message}\`;
+  }
+  return "Valor lanzado desconocido";
+}
+
+try {
+  const x: any = null;
+  x.propiedad;
+} catch (e) {
+  console.log(manejarError(e));
+}`
+    }
+  ]}
+  output={`Problema de tipos — revisa los argumentos\ntipo inválido`}
+/>
+
+<Callout variant="tip" title="instanceof falla entre iframes/workers">
+En entornos con múltiples contextos JavaScript (iframes, web workers), `instanceof Error` puede dar `false` aunque el objeto sea un error. En esos casos, compara `error?.constructor?.name` o usa `error?.name`.
+</Callout>
+
+</Section>
+
+<Section id="cuando-usar" title="Cuándo usar cada tipo en tu propio código">
+
+Lanzar el tipo correcto hace que tu código sea más predecible y fácil de depurar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Elegir el tipo correcto",
+      code: `// TypeError — cuando el tipo del argumento es incorrecto
+function sumar(a, b) {
+  if (typeof a !== "number" || typeof b !== "number") {
+    throw new TypeError(\`Se esperaban números, recibí \${typeof a} y \${typeof b}\`);
+  }
+  return a + b;
+}
+
+// RangeError — cuando el valor está fuera de un rango válido
+function crearPagina(numero, total) {
+  if (numero < 1 || numero > total) {
+    throw new RangeError(\`Página \${numero} fuera del rango 1-\${total}\`);
+  }
+  return { pagina: numero };
+}
+
+// Error genérico — para todo lo demás
+function buscarProducto(id) {
+  if (!id) throw new Error("El ID del producto es requerido");
+  // simulación de búsqueda fallida
+  throw new Error(\`Producto \${id} no encontrado\`);
+}
+
+try { sumar("dos", 3); } catch(e) { console.log(e.name + ":", e.message); }
+try { crearPagina(0, 10); } catch(e) { console.log(e.name + ":", e.message); }
+try { buscarProducto(null); } catch(e) { console.log(e.name + ":", e.message); }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `function sumar(a: number, b: number): number {
+  // En TS los tipos se verifican en compilación,
+  // pero los datos de APIs/usuarios son unknown en runtime
+  if (typeof a !== "number" || typeof b !== "number") {
+    throw new TypeError(\`Se esperaban números\`);
+  }
+  return a + b;
+}
+
+function crearPagina(numero: number, total: number): { pagina: number } {
+  if (numero < 1 || numero > total) {
+    throw new RangeError(\`Página \${numero} fuera del rango 1-\${total}\`);
+  }
+  return { pagina: numero };
+}
+
+try {
+  crearPagina(0, 10);
+} catch (e) {
+  if (e instanceof RangeError) {
+    console.log("RangeError:", e.message);
+  }
+}`
+    }
+  ]}
+  output={`TypeError: Se esperaban números, recibí string y number\nRangeError: Página 0 fuera del rango 1-10\nError: El ID del producto es requerido`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Identifica el tipo de error en 5 escenarios", diff: "easy", minutes: 5 },
+    { num: "02", name: "Usa instanceof para manejar errores distintos", diff: "med", minutes: 8 },
+    { num: "03", name: "Lanza el tipo correcto según la situación", diff: "med", minutes: 8 },
+    { num: "04", name: "Escribe un handler genérico que distingue tipos", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

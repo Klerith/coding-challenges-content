@@ -1,0 +1,317 @@
+---
+title: "Funciones puras: código <em>predecible</em> y testeable"
+short: "Funciones puras"
+chapter: "13"
+num: "05"
+chapterTitle: "Conceptos profundos de JavaScript"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["js", "ts"]
+exercises: 4
+updatedAt: "2026-05-02"
+author: "Fernando Herrera"
+lede: "Una función pura siempre produce el mismo resultado para los mismos argumentos y no modifica nada fuera de ella. Son la base de código testeable, componible y libre de bugs silenciosos."
+pro: false
+---
+
+<Section id="que-es-pura" title="¿Qué es una función pura?">
+
+Una función es pura si cumple dos condiciones: **determinismo** (misma entrada → misma salida siempre) y **sin side effects** (no modifica nada fuera de su scope).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "JavaScript",
+      code: `// ✅ Función pura — determinista, sin side effects
+function sumar(a, b) {
+  return a + b;
+}
+
+console.log(sumar(2, 3)); // 5 — siempre
+console.log(sumar(2, 3)); // 5 — siempre
+console.log(sumar(2, 3)); // 5 — siempre
+
+// ✅ Pura — transforma sin mutar
+function agregarImpuesto(precio, tasa) {
+  return precio * (1 + tasa);
+}
+
+// ❌ Impura — resultado varía con el tiempo
+function obtenerPrecioActual(producto) {
+  return producto.precio * (1 + Math.random() * 0.1); // aleatorio
+}
+
+// ❌ Impura — modifica estado externo
+let totalVentas = 0;
+function registrarVenta(monto) {
+  totalVentas += monto; // side effect: muta variable externa
+  return monto;
+}`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ✅ Función pura con tipos
+function sumar(a: number, b: number): number {
+  return a + b;
+}
+
+function agregarImpuesto(precio: number, tasa: number): number {
+  return precio * (1 + tasa);
+}
+
+// El tipo de retorno explícito en TS fuerza la consistencia
+function formatearPrecio(precio: number, moneda: string): string {
+  return \`\${moneda}\${precio.toFixed(2)}\`;
+}
+
+console.log(sumar(2, 3));              // 5
+console.log(agregarImpuesto(100, 0.16)); // 116
+console.log(formatearPrecio(99.9, "$")); // "$99.90"
+
+// TypeScript no detecta impureza automáticamente,
+// pero readonly en parámetros ayuda a evitar mutaciones
+function procesarItems(items: readonly string[]): string[] {
+  return items.map(item => item.toUpperCase());
+}`
+    }
+  ]}
+  output={`5\n5\n5\n116\n$99.90`}
+/>
+
+</Section>
+
+<Section id="side-effects" title="Side effects — qué son y cómo reconocerlos">
+
+Un **side effect** es cualquier interacción de la función con el mundo exterior: I/O, mutación de estado, fechas, números aleatorios, red.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Tipos de side effects",
+      code: `// Side effect: I/O (lectura/escritura)
+function guardarUsuario(usuario) {
+  localStorage.setItem("usuario", JSON.stringify(usuario)); // I/O
+  console.log("Guardado"); // I/O
+}
+
+// Side effect: mutación de argumento
+function ordenar_MALO(arr) {
+  return arr.sort(); // ❌ muta el array original
+}
+
+const numeros = [3, 1, 4, 1, 5];
+ordenar_MALO(numeros);
+console.log(numeros); // [1, 1, 3, 4, 5] — ¡mutado!
+
+// ✅ Sin side effect — no muta
+function ordenar(arr) {
+  return [...arr].sort((a, b) => a - b);
+}
+
+const nums = [3, 1, 4, 1, 5];
+const ordenados = ordenar(nums);
+console.log(nums);      // [3, 1, 4, 1, 5] — intacto
+console.log(ordenados); // [1, 1, 3, 4, 5]
+
+// Side effect: estado global / fecha / random
+function esBisiesto_MALO() {
+  return new Date().getFullYear() % 4 === 0; // depende de cuando se llame
+}
+
+// ✅ Pura — recibe el año como parámetro
+function esBisiesto(anio) {
+  return (anio % 4 === 0 && anio % 100 !== 0) || anio % 400 === 0;
+}
+
+console.log(esBisiesto(2024)); // true
+console.log(esBisiesto(2025)); // false`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `// ✅ Sin mutación de argumentos
+function ordenar(arr: readonly number[]): number[] {
+  return [...arr].sort((a, b) => a - b);
+}
+
+const nums: number[] = [3, 1, 4, 1, 5];
+const ordenados = ordenar(nums);
+console.log(nums);      // [3, 1, 4, 1, 5]
+console.log(ordenados); // [1, 1, 3, 4, 5]
+
+// ✅ Pura — recibe datos como parámetros
+function esBisiesto(anio: number): boolean {
+  return (anio % 4 === 0 && anio % 100 !== 0) || anio % 400 === 0;
+}
+
+console.log(esBisiesto(2024)); // true
+console.log(esBisiesto(2025)); // false
+
+// ✅ Transformación pura de datos
+interface Producto {
+  nombre: string;
+  precio: number;
+}
+
+function aplicarDescuento(
+  productos: readonly Producto[],
+  descuento: number
+): Producto[] {
+  return productos.map(p => ({
+    ...p,
+    precio: p.precio * (1 - descuento),
+  }));
+}`
+    }
+  ]}
+  output={`[1, 1, 3, 4, 5]\n[3, 1, 4, 1, 5]\n[1, 1, 3, 4, 5]\ntrue\nfalse`}
+/>
+
+</Section>
+
+<Section id="por-que-preferir" title="Por qué preferir funciones puras">
+
+<CompareTable
+  headers={["Característica", "Función pura", "Función impura"]}
+  rows={[
+    [
+      { kind: "good", value: "Testabilidad" },
+      { kind: "good", value: "Trivial — solo input/output" },
+      { kind: "bad", value: "Requiere mocks, stubs, setup" }
+    ],
+    [
+      { kind: "good", value: "Predecibilidad" },
+      { kind: "good", value: "Misma entrada → mismo resultado" },
+      { kind: "bad", value: "Resultado depende del estado externo" }
+    ],
+    [
+      { kind: "good", value: "Composición" },
+      { kind: "good", value: "Fácil de combinar con otras funciones" },
+      { kind: "bad", value: "Difícil — side effects se acumulan" }
+    ],
+    [
+      { kind: "good", value: "Cacheabilidad" },
+      { kind: "good", value: "Se puede memoizar sin riesgo" },
+      { kind: "bad", value: "No — el resultado puede variar" }
+    ],
+    [
+      { kind: "good", value: "Concurrencia" },
+      { kind: "good", value: "Segura — no hay estado compartido" },
+      { kind: "bad", value: "Race conditions posibles" }
+    ]
+  ]}
+/>
+
+<Callout variant="tip" title="Test trivial de funciones puras">
+Si puedes testear una función con `expect(fn(input)).toBe(output)` sin ningún setup adicional, probablemente es pura. Los mocks y `beforeEach` complejos son señal de que estás lidiando con side effects.
+</Callout>
+
+</Section>
+
+<Section id="cuando-inevitables" title="Cuándo los side effects son inevitables">
+
+Los side effects no son malos — son necesarios. La clave es **aislarlos** en el borde del sistema y mantener el núcleo puro.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "js",
+      label: "Aislar side effects",
+      code: `// ✅ Núcleo puro — calcula, no actúa
+function calcularTotal(items) {
+  return items.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
+}
+
+function formatearResumen(total, moneda) {
+  return \`Total: \${moneda}\${total.toFixed(2)}\`;
+}
+
+function aplicarDescuento(total, porcentaje) {
+  return total * (1 - porcentaje / 100);
+}
+
+// ❌ → ✅ Side effect aislado al borde
+function procesarOrden(items, descuento) {
+  // Núcleo puro
+  const subtotal = calcularTotal(items);
+  const totalFinal = aplicarDescuento(subtotal, descuento);
+  const resumen = formatearResumen(totalFinal, "$");
+
+  // Side effect inevitable — solo aquí, al final
+  console.log(resumen); // I/O inevitable
+  return { subtotal, totalFinal, resumen };
+}
+
+const carrito = [
+  { nombre: "Curso JS", precio: 299, cantidad: 1 },
+  { nombre: "Curso TS", precio: 199, cantidad: 2 },
+];
+
+const orden = procesarOrden(carrito, 10);
+console.log(orden.totalFinal.toFixed(2)); // "628.20"`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `interface Item {
+  nombre: string;
+  precio: number;
+  cantidad: number;
+}
+
+interface ResultadoOrden {
+  subtotal: number;
+  totalFinal: number;
+  resumen: string;
+}
+
+// Núcleo puro — testeables sin I/O
+function calcularTotal(items: readonly Item[]): number {
+  return items.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
+}
+
+function aplicarDescuento(total: number, porcentaje: number): number {
+  return total * (1 - porcentaje / 100);
+}
+
+function formatearResumen(total: number, moneda: string): string {
+  return \`Total: \${moneda}\${total.toFixed(2)}\`;
+}
+
+// Side effect aislado al borde
+function procesarOrden(items: readonly Item[], descuento: number): ResultadoOrden {
+  const subtotal = calcularTotal(items);
+  const totalFinal = aplicarDescuento(subtotal, descuento);
+  const resumen = formatearResumen(totalFinal, "$");
+
+  console.log(resumen); // side effect inevitable — aislado aquí
+  return { subtotal, totalFinal, resumen };
+}
+
+const carrito: Item[] = [
+  { nombre: "Curso JS", precio: 299, cantidad: 1 },
+  { nombre: "Curso TS", precio: 199, cantidad: 2 },
+];
+
+const orden = procesarOrden(carrito, 10);
+console.log(orden.totalFinal.toFixed(2)); // "628.20"`
+    }
+  ]}
+  output={`Total: $628.20\n628.20`}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Identifica cuáles funciones son puras", diff: "easy", minutes: 5 },
+    { num: "02", name: "Convierte función impura en pura extrayendo side effects", diff: "med", minutes: 8 },
+    { num: "03", name: "Refactoriza módulo para aislar side effects", diff: "med", minutes: 10 },
+    { num: "04", name: "Escribe tests para funciones puras", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>
