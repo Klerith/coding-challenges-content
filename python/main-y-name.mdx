@@ -1,0 +1,155 @@
+---
+title: '__name__ == "__main__": el punto de entrada de un script'
+short: '__name__ == "__main__"'
+chapter: "10"
+num: "03"
+chapterTitle: "Módulos y paquetes"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: 'El guardián `if __name__ == "__main__"` es omnipresente en Python. Permite que un archivo funcione tanto como script ejecutable como módulo importable — el mismo código, dos modos.'
+pro: false
+---
+
+<Section id="como-funciona-name" title="Cómo funciona __name__">
+
+Cada módulo Python tiene una variable especial `__name__`. Su valor depende de cómo se ejecuta el archivo: si lo ejecutas directamente, vale `"__main__"`; si lo importas desde otro módulo, vale el nombre del módulo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Archivo: info.py
+print(f"__name__ en info.py = {__name__!r}")
+
+# Caso 1: ejecutar directamente
+# $ python info.py
+# __name__ en info.py = '__main__'
+
+# Caso 2: importar desde otro archivo
+# main.py:  import info
+# __name__ en info.py = 'info'
+
+# Caso 3: importar como parte de un paquete
+# from mypackage import info
+# __name__ en info.py = 'mypackage.info'
+
+# Python siempre asigna '__main__' al script que se invoca directamente
+# y el nombre del módulo a cualquier import`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="__main__ es el punto de entrada del intérprete">
+Cuando ejecutas `python script.py`, Python asigna `__name__ = '__main__'` a ese archivo. Es la forma en que Python identifica el script principal, sin importar su nombre de archivo.
+</Callout>
+
+</Section>
+
+<Section id="patron-if-name-main" title='El patrón if __name__ == "__main__"'>
+
+Envolver el código de ejecución en este if permite que el archivo sea tanto un script ejecutable como un módulo importable. Sin este guardián, el código de ejecución correría automáticamente al importar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Archivo: calculator.py
+
+def add(a: float, b: float) -> float:
+    return a + b
+
+def subtract(a: float, b: float) -> float:
+    return a - b
+
+def multiply(a: float, b: float) -> float:
+    return a * b
+
+# ❌ Sin guardián — este código corre también al importar
+# print("Iniciando calculadora...")   ← se ejecutaría con 'import calculator'
+# resultado = add(5, 3)
+# print(resultado)
+
+# ✅ Con guardián — solo corre cuando se ejecuta directamente
+if __name__ == "__main__":
+    print("Iniciando calculadora...")
+    print(f"5 + 3 = {add(5, 3)}")
+    print(f"10 - 4 = {subtract(10, 4)}")
+    print(f"6 × 7 = {multiply(6, 7)}")
+
+# Cuando otro archivo hace 'from calculator import add':
+# - Las funciones se cargan ✅
+# - El bloque if __name__ == "__main__" NO se ejecuta ✅`
+    }
+  ]}
+  output={"Iniciando calculadora...\n5 + 3 = 8\n10 - 4 = 6\n6 × 7 = 42"}
+/>
+
+</Section>
+
+<Section id="separar-logica-de-ejecucion" title="Separar lógica de ejecución">
+
+La buena práctica es separar todo en funciones y llamarlas desde `main()`. El bloque `if __name__` solo llama a `main()`. Esto facilita los tests, el import y la legibilidad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Archivo: word_counter.py
+import sys
+from collections import Counter
+
+def count_words(text: str) -> Counter:
+    """Cuenta la frecuencia de cada palabra en el texto."""
+    words = text.lower().split()
+    return Counter(words)
+
+def top_words(counter: Counter, n: int = 5) -> list[tuple[str, int]]:
+    """Retorna las n palabras más frecuentes."""
+    return counter.most_common(n)
+
+def format_results(results: list[tuple[str, int]]) -> str:
+    lines = [f"  {word:<20} {count}" for word, count in results]
+    return "\n".join(lines)
+
+def main() -> None:
+    texto = "python es genial python es poderoso python es limpio"
+    contador = count_words(texto)
+    top = top_words(contador, n=3)
+    print("Palabras más frecuentes:")
+    print(format_results(top))
+
+# Solo ejecuta main() cuando se llama directamente
+if __name__ == "__main__":
+    main()`
+    }
+  ]}
+  output={"Palabras más frecuentes:\n  python               3\n  es                   3\n  genial               1"}
+/>
+
+<CompareTable
+  headers={["Sin separar", "Con main() separada"]}
+  rows={[
+    [{ kind: "bad", value: "Código suelto en el nivel del módulo" }, { kind: "good", value: "Todo dentro de main()" }],
+    [{ kind: "bad", value: "Imposible testear sin ejecutar el script" }, { kind: "good", value: "from word_counter import count_words — testeable" }],
+    [{ kind: "bad", value: "Corre al importar si falta el guardián" }, { kind: "good", value: "Seguro para importar en cualquier contexto" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte un script en módulo importable", diff: "easy", minutes: 5 },
+    { num: "02", name: "Añade función main() con argumentos de CLI", diff: "med", minutes: 6 },
+    { num: "03", name: "Importa funciones de un módulo sin ejecutar el script", diff: "easy", minutes: 4 },
+  ]}
+/>
+</Section>

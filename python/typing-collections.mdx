@@ -1,0 +1,231 @@
+---
+title: "typing: list, dict, tuple, Optional y Union"
+short: "typing y colecciones"
+chapter: "05"
+num: "02"
+chapterTitle: "Type hints"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Anotar colecciones es donde los type hints se vuelven poderosos. list[int], dict[str, Any], tuple[int, str, bool] — Python moderno (3.9+) permite la sintaxis inline sin imports."
+pro: false
+---
+
+<Section id="list-dict" title="list[T] y dict[K, V]">
+
+Antes de Python 3.9, para anotar una lista de enteros necesitabas `from typing import List` y escribir `List[int]`. Desde 3.9, puedes usar directamente `list[int]` en minúsculas — más limpio y sin imports.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Python 3.9+: sintaxis inline (preferida)
+def sumar_lista(numeros: list[int]) -> int:
+    return sum(numeros)
+
+def obtener_nombres(usuarios: list[dict[str, str]]) -> list[str]:
+    return [u["nombre"] for u in usuarios]
+
+# dict[K, V]: clave y valor tipados
+def contar_palabras(texto: str) -> dict[str, int]:
+    conteo: dict[str, int] = {}
+    for palabra in texto.split():
+        conteo[palabra] = conteo.get(palabra, 0) + 1
+    return conteo
+
+print(sumar_lista([1, 2, 3, 4]))  # 10
+print(contar_palabras("hola mundo hola"))
+# {'hola': 2, 'mundo': 1}`
+    }
+  ]}
+  output={"10\n{'hola': 2, 'mundo': 1}"}
+/>
+
+<CompareTable
+  headers={["Python 3.8 (typing)", "Python 3.9+ (inline)"]}
+  rows={[
+    [{ kind: "bad", value: "from typing import List\nList[int]" }, { kind: "good", value: "list[int]" }],
+    [{ kind: "bad", value: "from typing import Dict\nDict[str, int]" }, { kind: "good", value: "dict[str, int]" }],
+    [{ kind: "bad", value: "from typing import Tuple\nTuple[int, str]" }, { kind: "good", value: "tuple[int, str]" }],
+  ]}
+/>
+
+Para diccionarios con valores de cualquier tipo puedes usar `dict[str, object]` o `dict[str, Any]` si importas `Any`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Any
+
+# Configuración heterogénea: valores de distinto tipo
+Config = dict[str, Any]
+
+def cargar_config() -> Config:
+    return {
+        "host": "localhost",
+        "puerto": 5432,
+        "debug": True,
+        "timeout": 30.5,
+    }
+
+config = cargar_config()
+print(config["puerto"])  # 5432`
+    }
+  ]}
+  output={"5432"}
+/>
+
+</Section>
+
+<Section id="tuple" title="tuple — longitud y tipos fijos">
+
+`tuple` en Python puede usarse de dos formas distintas como tipo:
+
+1. **Tupla de longitud fija**: cada posición tiene su tipo — `tuple[int, str, bool]`
+2. **Tupla de longitud variable (homogénea)**: todos los elementos del mismo tipo — `tuple[int, ...]`
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Tupla de longitud fija: (id, nombre, activo)
+def obtener_usuario(user_id: int) -> tuple[int, str, bool]:
+    return (user_id, "Ana García", True)
+
+# Desestructuración con tipos correctos
+uid, nombre, activo = obtener_usuario(1)
+print(f"{uid}: {nombre} — activo: {activo}")
+# 1: Ana García — activo: True
+
+# Tupla de longitud variable (homogénea)
+def obtener_puntuaciones() -> tuple[int, ...]:
+    return (95, 87, 92, 78, 100)
+
+puntos = obtener_puntuaciones()
+print(sum(puntos) / len(puntos))  # 90.4`
+    }
+  ]}
+  output={"1: Ana García — activo: True\n90.4"}
+/>
+
+<Callout variant="tip" title="tuple[] vs list[]">
+Usa `list[T]` cuando la colección puede crecer o cambiar. Usa `tuple[T1, T2, ...]` cuando la longitud es fija y cada posición tiene un significado específico (como retornar múltiples valores de una función).
+</Callout>
+
+</Section>
+
+<Section id="optional-union" title="Optional y Union — sintaxis moderna con |">
+
+`Union[A, B]` significa «este valor puede ser de tipo A o de tipo B». Con Python 3.10+, la sintaxis es simplemente `A | B`, mucho más legible.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Union, Optional
+
+# Union clásico (Python 3.8+)
+def parsear_id(valor: Union[str, int]) -> int:
+    return int(valor)
+
+# Sintaxis moderna con | (Python 3.10+)
+def parsear_id_v2(valor: str | int) -> int:
+    return int(valor)
+
+# Optional es exactamente Union[X, None] = X | None
+def buscar_producto(codigo: str) -> Optional[dict[str, str]]:
+    catalogo = {"A01": {"nombre": "Teclado", "precio": "75.00"}}
+    return catalogo.get(codigo)
+
+print(parsear_id_v2("42"))        # 42
+print(buscar_producto("A01"))     # {'nombre': 'Teclado', 'precio': '75.00'}
+print(buscar_producto("Z99"))     # None`
+    }
+  ]}
+  output={"42\n{'nombre': 'Teclado', 'precio': '75.00'}\nNone"}
+/>
+
+El operador `|` también funciona con más de dos tipos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Tres tipos posibles (raro, pero válido)
+def formatear_valor(valor: int | float | str) -> str:
+    return str(valor)
+
+# Retorno que puede ser lista o None
+def obtener_etiquetas(post_id: int) -> list[str] | None:
+    datos = {1: ["python", "tutorial"], 2: ["async"]}
+    return datos.get(post_id)
+
+print(formatear_valor(3.14))       # 3.14
+print(obtener_etiquetas(1))        # ['python', 'tutorial']
+print(obtener_etiquetas(99))       # None`
+    }
+  ]}
+  output={"3.14\n['python', 'tutorial']\nNone"}
+/>
+
+</Section>
+
+<Section id="any-typevar" title="Any y TypeVar básico">
+
+`Any` es la válvula de escape del sistema de tipos: le dice a mypy «confía en mí, este tipo está bien». Úsalo con cuidado — es contagioso.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Any, TypeVar
+
+# Any: sin restricciones de tipo (úsalo lo menos posible)
+def log_evento(dato: Any) -> None:
+    print(f"[LOG] {dato!r}")
+
+log_evento(42)           # [LOG] 42
+log_evento("error")      # [LOG] 'error'
+log_evento([1, 2, 3])    # [LOG] [1, 2, 3]
+
+# TypeVar: tipo genérico que mantiene la relación entre entrada y salida
+T = TypeVar("T")
+
+def primero(elementos: list[T]) -> T:
+    return elementos[0]
+
+# mypy sabe que primero([1, 2, 3]) retorna int
+# y que primero(["a", "b"]) retorna str
+print(primero([10, 20, 30]))   # 10
+print(primero(["x", "y"]))     # x`
+    }
+  ]}
+  output={"[LOG] 42\n[LOG] 'error'\n[LOG] [1, 2, 3]\n10\nx"}
+/>
+
+<Callout variant="warn" title="Any desactiva la verificación">
+Cuando asignas `Any` a una variable, mypy deja de verificar operaciones sobre ella. Es útil para migrar código legacy, pero en código nuevo prefiere `object` si necesitas «cualquier cosa», y `TypeVar` si necesitas que el tipo se propague.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Anota una función que acepta lista de int y retorna float", diff: "easy", minutes: 3 },
+    { num: "02", name: "Anota un diccionario de configuración", diff: "easy", minutes: 3 },
+    { num: "03", name: "Usa Union[str, int] para un parámetro flexible", diff: "med", minutes: 4 },
+    { num: "04", name: "Anota una función con retorno opcional", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

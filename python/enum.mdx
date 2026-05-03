@@ -1,0 +1,250 @@
+---
+title: "enum: enumerar valores fijos y constantes con tipo"
+short: "enum"
+chapter: "11"
+num: "04"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "enum reemplaza las constantes mágicas con tipos con nombre. En lugar de `status = 'active'`, escribes `Status.ACTIVE`. El código se vuelve autoexplicativo y mypy puede verificarlo."
+pro: false
+---
+
+<Section id="enum-basico" title="Enum básico">
+
+El módulo `enum` define conjuntos de constantes nombradas con tipo propio. Cada miembro tiene un nombre y un valor, y no puede confundirse con un string o entero arbitrario.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from enum import Enum
+
+# Definir un Enum
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+    BLUE = 3
+
+class Status(Enum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+# Acceder a los miembros
+print(Color.RED)          # Color.RED
+print(Color.RED.name)     # RED
+print(Color.RED.value)    # 1
+
+# Comparar: usa is o == con miembros del enum
+status = Status.ACTIVE
+print(status == Status.ACTIVE)   # True
+print(status == "active")        # False — no confunde con string
+
+# Los enums son singletones: cada miembro es único
+print(Status.ACTIVE is Status.ACTIVE)  # True
+
+# Acceder por nombre o valor
+print(Status["ACTIVE"])          # Status.ACTIVE — por nombre
+print(Status("active"))          # Status.ACTIVE — por valor
+print(Color(2))                  # Color.GREEN
+
+# Usar en condicional
+def describe_color(c: Color) -> str:
+    if c == Color.RED:
+        return "es rojo"
+    elif c == Color.GREEN:
+        return "es verde"
+    return "es azul"
+
+print(describe_color(Color.BLUE))  # es azul`
+    }
+  ]}
+  output={"Color.RED\nRED\n1\nTrue\nFalse\nTrue\nStatus.ACTIVE\nStatus.ACTIVE\nColor.GREEN\nes azul"}
+/>
+
+<CompareTable
+  headers={["Constantes mágicas", "Enum"]]}
+  rows={[
+    [{ kind: "bad", value: "STATUS_ACTIVE = 'active'" }, { kind: "good", value: "class Status(Enum): ACTIVE = 'active'" }],
+    [{ kind: "bad", value: "Sin autocompletado, sin tipo" }, { kind: "good", value: "Autocompletado en IDE, verificable con mypy" }],
+    [{ kind: "bad", value: "status == 'activ' pasa desapercibido" }, { kind: "good", value: "status == Status.ACTIV → AttributeError inmediato" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="intenum-strenum" title="IntEnum y StrEnum">
+
+`IntEnum` hace que los miembros sean comparables con enteros. `StrEnum` (Python 3.11+) los hace comparables con strings. Útiles para interoperar con código legado o APIs que esperan tipos primitivos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from enum import IntEnum, StrEnum
+
+# IntEnum: se comporta como int
+class Priority(IntEnum):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+    CRITICAL = 4
+
+# Se puede comparar con enteros directamente
+print(Priority.HIGH > Priority.MEDIUM)  # True
+print(Priority.HIGH > 2)               # True — IntEnum permite esto
+print(sorted([Priority.CRITICAL, Priority.LOW, Priority.HIGH]))
+# [<Priority.LOW: 1>, <Priority.HIGH: 3>, <Priority.CRITICAL: 4>]
+
+# Usar en contexto numérico (e.g. range, slicing)
+print(list(range(Priority.LOW, Priority.HIGH)))  # [1, 2]
+
+# StrEnum (Python 3.11+): se comporta como str
+class HTTPMethod(StrEnum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    DELETE = "DELETE"
+
+# Compatible con strings directamente
+method = HTTPMethod.GET
+print(method == "GET")          # True — StrEnum permite esto
+print(f"Método: {method}")      # Método: GET
+
+# Útil para headers HTTP, claves de dict, etc.
+headers = {method: "application/json"}
+print(headers["GET"])  # application/json`
+    }
+  ]}
+  output={"True\nTrue\n[<Priority.LOW: 1>, <Priority.HIGH: 3>, <Priority.CRITICAL: 4>]\n[1, 2]\nTrue\nMétodo: GET\napplication/json"}
+/>
+
+<Callout variant="warn" title="IntEnum y StrEnum rompen el aislamiento de tipo">
+La ventaja de `Enum` es precisamente que no se confunde con primitivos. Al usar `IntEnum` o `StrEnum` sacrificas esa seguridad. Úsalos solo cuando la interoperabilidad con código externo lo requiera.
+</Callout>
+
+</Section>
+
+<Section id="auto-valores-automaticos" title="auto() para valores automáticos">
+
+`auto()` genera valores automáticamente, útil cuando el valor específico no importa — solo el nombre. Por defecto usa enteros incrementales, pero se puede personalizar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from enum import Enum, auto
+
+class Direction(Enum):
+    NORTH = auto()  # 1
+    SOUTH = auto()  # 2
+    EAST = auto()   # 3
+    WEST = auto()   # 4
+
+print(Direction.NORTH.value)  # 1
+print(Direction.WEST.value)   # 4
+
+# Personalizar auto() sobreescribiendo _generate_next_value_
+class AutoNameEnum(Enum):
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        return name.lower()  # el valor será el nombre en minúsculas
+
+class Permission(AutoNameEnum):
+    READ = auto()    # "read"
+    WRITE = auto()   # "write"
+    EXECUTE = auto() # "execute"
+
+print(Permission.READ.value)    # read
+print(Permission.WRITE.value)   # write
+
+# Muy útil para flags combinables
+from enum import Flag, auto
+
+class FilePermission(Flag):
+    READ = auto()    # 1
+    WRITE = auto()   # 2
+    EXECUTE = auto() # 4
+
+perms = FilePermission.READ | FilePermission.WRITE
+print(perms)                            # FilePermission.READ|WRITE
+print(FilePermission.READ in perms)     # True
+print(FilePermission.EXECUTE in perms)  # False`
+    }
+  ]}
+  output={"1\n4\nread\nwrite\nFilePermission.READ|WRITE\nTrue\nFalse"}
+/>
+
+</Section>
+
+<Section id="iterar-comparar" title="Iterar y comparar sobre un Enum">
+
+Los Enum son iterables y tienen métodos de comparación. Se integran perfectamente con `match/case` (Python 3.10+) para control de flujo expresivo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from enum import Enum
+
+class Season(Enum):
+    SPRING = 1
+    SUMMER = 2
+    AUTUMN = 3
+    WINTER = 4
+
+# Iterar todos los miembros
+for season in Season:
+    print(f"{season.name}: {season.value}")
+
+# Lista de todos los valores
+print([s.value for s in Season])  # [1, 2, 3, 4]
+
+# match/case con Enum (Python 3.10+)
+def describe_season(s: Season) -> str:
+    match s:
+        case Season.SPRING:
+            return "flores y lluvia"
+        case Season.SUMMER:
+            return "calor y vacaciones"
+        case Season.AUTUMN:
+            return "hojas y viento"
+        case Season.WINTER:
+            return "frío y nieve"
+
+print(describe_season(Season.SUMMER))  # calor y vacaciones
+
+# Verificar membresía
+print(Season.WINTER in Season)          # True
+print(3 in [s.value for s in Season])  # True
+
+# Comparar identidad (mismo miembro del enum)
+a = Season.SPRING
+b = Season.SPRING
+print(a is b)   # True — singletón
+print(a == b)   # True`
+    }
+  ]}
+  output={"SPRING: 1\nSUMMER: 2\nAUTUMN: 3\nWINTER: 4\n[1, 2, 3, 4]\ncalor y vacaciones\nTrue\nTrue\nTrue\nTrue"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Define un Enum Direction con NORTH, SOUTH, EAST, WEST", diff: "easy", minutes: 3 },
+    { num: "02", name: "Usa StrEnum para estados HTTP", diff: "med", minutes: 5 },
+    { num: "03", name: "Itera sobre un Enum y agrupa por valor", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

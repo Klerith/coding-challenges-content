@@ -1,0 +1,320 @@
+---
+title: "Decoradores: funciones que modifican funciones"
+short: "Decoradores"
+chapter: "12"
+num: "01"
+chapterTitle: "Python avanzado"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un decorador es una función que recibe una función y retorna una función. Con @, Python aplica el decorador automáticamente al definir la función. Son la base de frameworks como Flask, FastAPI y Django."
+pro: true
+---
+
+<Section id="funciones-como-valores" title="Funciones como valores (prerequisito)">
+
+Para entender decoradores hay que entender primero que en Python las funciones son objetos de primera clase: se pueden asignar a variables, pasar como argumentos y retornar desde otras funciones.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Las funciones son objetos — se pueden asignar
+def greet(name: str) -> str:
+    return f"Hola, {name}"
+
+say_hello = greet          # sin paréntesis: referencia a la función
+print(say_hello("Ana"))    # Hola, Ana
+print(greet is say_hello)  # True — misma función
+
+# Se pueden pasar como argumentos
+def apply(func, value):
+    return func(value)
+
+result = apply(str.upper, "python")
+print(result)  # PYTHON
+
+# Se pueden retornar desde funciones (closure)
+def make_multiplier(factor: int):
+    def multiplier(x: int) -> int:
+        return x * factor   # captura 'factor' del scope exterior
+    return multiplier       # retorna la función, no el resultado
+
+triple = make_multiplier(3)
+double = make_multiplier(2)
+print(triple(5))  # 15
+print(double(5))  # 10
+
+# Función anidada captura el scope (closure)
+def counter():
+    count = 0
+    def increment():
+        nonlocal count
+        count += 1
+        return count
+    return increment
+
+c = counter()
+print(c(), c(), c())  # 1 2 3`
+    }
+  ]}
+  output={"Hola, Ana\nTrue\nPYTHON\n15\n10\n1 2 3"}
+/>
+
+</Section>
+
+<Section id="decorador-basico-manual" title="Decorador básico manual">
+
+Un decorador es simplemente una función que recibe una función y retorna otra función (el "wrapper"). El wrapper puede ejecutar código antes y después de llamar a la función original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Un decorador básico: función que envuelve a otra función
+def loud(func):
+    def wrapper(*args, **kwargs):
+        print(f"→ Llamando a {func.__name__}")
+        result = func(*args, **kwargs)
+        print(f"← {func.__name__} retornó: {result}")
+        return result
+    return wrapper
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+# Aplicar el decorador manualmente
+add_loud = loud(add)
+result = add_loud(3, 4)
+# → Llamando a add
+# ← add retornó: 7
+
+# La función original no se modifica
+print(add(3, 4))     # 7 — add sigue funcionando igual
+
+# add_loud es una nueva función que envuelve a add
+print(add_loud.__name__)  # wrapper — problema: se perdió el nombre
+# (lo solucionamos con functools.wraps en la siguiente sección)`
+    }
+  ]}
+  output={"→ Llamando a add\n← add retornó: 7\n7\nwrapper"}
+/>
+
+</Section>
+
+<Section id="sintaxis-arroba" title="La sintaxis @ (syntactic sugar)">
+
+`@decorador` antes de una función es azúcar sintáctica para `funcion = decorador(funcion)`. Python aplica el decorador en el momento de la definición, no en la llamada.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Equivalencia exacta:
+# @loud
+# def add(a, b): ...
+# 
+# es lo mismo que:
+# def add(a, b): ...
+# add = loud(add)
+
+def loud(func):
+    def wrapper(*args, **kwargs):
+        print(f"→ {func.__name__}({args}, {kwargs})")
+        result = func(*args, **kwargs)
+        print(f"← resultado: {result}")
+        return result
+    return wrapper
+
+# Con la sintaxis @
+@loud
+def multiply(a: int, b: int) -> int:
+    """Multiplica dos números."""
+    return a * b
+
+# Se aplica al definir la función, no al llamarla
+result = multiply(4, 5)
+# → multiply((4, 5), {})
+# ← resultado: 20
+
+# Múltiples decoradores: se aplican de abajo hacia arriba
+def uppercase_result(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        return str(result).upper()
+    return wrapper
+
+def add_exclamation(func):
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs) + "!"
+    return wrapper
+
+@add_exclamation     # se aplica segundo (más exterior)
+@uppercase_result    # se aplica primero (más interior)
+def greet(name: str) -> str:
+    return f"hola {name}"
+
+print(greet("python"))  # HOLA PYTHON!`
+    }
+  ]}
+  output={"→ multiply((4, 5), {})\n← resultado: 20\nHOLA PYTHON!"}
+/>
+
+</Section>
+
+<Section id="functools-wraps" title="functools.wraps — preservar metadatos">
+
+Sin `functools.wraps`, el decorador "roba" el nombre y docstring de la función original. `@wraps(func)` copia los metadatos al wrapper, preservando `__name__`, `__doc__`, `__annotations__`, etc.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import functools
+
+# Sin @wraps: se pierden los metadatos
+def decorator_sin_wraps(func):
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
+@decorator_sin_wraps
+def mi_funcion():
+    """Esta es la documentación."""
+    pass
+
+print(mi_funcion.__name__)  # wrapper — ¡incorrecto!
+print(mi_funcion.__doc__)   # None — ¡perdida!
+
+# Con @wraps: metadatos preservados
+def decorator_con_wraps(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
+@decorator_con_wraps
+def mi_funcion_bien():
+    """Esta es la documentación."""
+    pass
+
+print(mi_funcion_bien.__name__)  # mi_funcion_bien — correcto
+print(mi_funcion_bien.__doc__)   # Esta es la documentación. — correcto
+print(mi_funcion_bien.__wrapped__)  # <function mi_funcion_bien...> — referencia al original
+
+# @wraps también preserva __annotations__
+def log_types(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
+@log_types
+def divide(a: float, b: float) -> float:
+    return a / b
+
+print(divide.__annotations__)  # {'a': <class 'float'>, 'b': <class 'float'>, 'return': <class 'float'>}`
+    }
+  ]}
+  output={"wrapper\nNone\nmi_funcion_bien\nEsta es la documentación.\n<function mi_funcion_bien at 0x...>\n{'a': <class 'float'>, 'b': <class 'float'>, 'return': <class 'float'>}"}
+/>
+
+<Callout variant="tip" title="Regla de oro">
+Siempre incluye `@functools.wraps(func)` en el wrapper interior de cualquier decorador. Sin él, las herramientas de introspección, pytest, Sphinx y los debuggers verán el wrapper en vez de la función original.
+</Callout>
+
+</Section>
+
+<Section id="casos-reales" title="Casos reales: logging, timing, auth">
+
+Los decoradores brillan en casos de corte transversal: funcionalidad que se repite en muchas funciones pero que no pertenece a su lógica central.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import functools
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+# Decorador de timing: mide cuánto tarda la función
+def timer(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = time.perf_counter() - start
+        logging.info(f"{func.__name__} tardó {elapsed:.4f}s")
+        return result
+    return wrapper
+
+# Decorador de logging: registra entrada y salida
+def log_call(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        logging.info(f"Llamando {func.__name__} con args={args} kwargs={kwargs}")
+        result = func(*args, **kwargs)
+        logging.info(f"{func.__name__} retornó {result!r}")
+        return result
+    return wrapper
+
+# Decorador de autenticación simulada
+def require_auth(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # En producción consultaría el token del request
+        user = kwargs.get("user")
+        if not user:
+            raise PermissionError("Autenticación requerida")
+        return func(*args, **kwargs)
+    return wrapper
+
+# Uso combinado
+@timer
+@log_call
+def process_data(items: list) -> int:
+    """Procesa una lista y retorna la suma."""
+    import time
+    time.sleep(0.01)  # simula trabajo
+    return sum(items)
+
+result = process_data([1, 2, 3, 4, 5])
+print(result)  # 15
+
+@require_auth
+def get_secret(user: str = None) -> str:
+    return f"Secreto para {user}"
+
+try:
+    get_secret()  # sin user
+except PermissionError as e:
+    print(e)  # Autenticación requerida
+
+print(get_secret(user="Ana"))  # Secreto para Ana`
+    }
+  ]}
+  output={"INFO:Llamando process_data con args=([1, 2, 3, 4, 5],) kwargs={}\nINFO:process_data retornó 15\nINFO:process_data tardó 0.0102s\n15\nAutenticación requerida\nSecreto para Ana"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Decorador @timer que mide el tiempo de ejecución", diff: "med", minutes: 6 },
+    { num: "02", name: "Decorador @log que registra llamadas y argumentos", diff: "med", minutes: 7 },
+    { num: "03", name: "Decorador @retry que reintenta en caso de excepción", diff: "hard", minutes: 9 },
+    { num: "04", name: "Aplica múltiples decoradores y observa el orden", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

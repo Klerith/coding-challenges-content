@@ -1,0 +1,228 @@
+---
+title: "Protocols y duck typing: estructuras tipadas sin herencia"
+short: "Protocols y duck typing"
+chapter: "05"
+num: "03"
+chapterTitle: "Type hints"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python siempre tuvo duck typing: si camina como pato y grazna como pato, es un pato. Protocol (Python 3.8+) le da tipado formal a esa idea sin forzar herencia."
+pro: false
+---
+
+<Section id="duck-typing-practica" title="Duck typing en la práctica">
+
+Duck typing significa que Python no comprueba la clase de un objeto, sino que comprueba si tiene los métodos y atributos que necesita. Si un objeto tiene el método `read()`, puede pasarse a cualquier función que espere «algo legible» — independientemente de su clase.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# No importa la clase, importa el comportamiento
+class Archivo:
+    def leer(self) -> str:
+        return "contenido del archivo"
+
+class ConexionHTTP:
+    def leer(self) -> str:
+        return "respuesta HTTP"
+
+class SocketTCP:
+    def leer(self) -> str:
+        return "datos del socket"
+
+# Esta función acepta cualquier objeto con método leer()
+def procesar(fuente) -> str:
+    return fuente.leer().upper()
+
+# Todas funcionan — duck typing en acción
+print(procesar(Archivo()))       # CONTENIDO DEL ARCHIVO
+print(procesar(ConexionHTTP()))  # RESPUESTA HTTP
+print(procesar(SocketTCP()))     # DATOS DEL SOCKET`
+    }
+  ]}
+  output={"CONTENIDO DEL ARCHIVO\nRESPUESTA HTTP\nDAT OS DEL SOCKET"}
+/>
+
+El problema: el parámetro `fuente` no tiene tipo, mypy no puede ayudarte. Si alguien pasa un objeto sin `leer()`, el error aparece en runtime. Protocol soluciona esto.
+
+</Section>
+
+<Section id="protocol-contratos" title="Protocol — contratos sin herencia">
+
+`Protocol` define una interfaz estructural: «cualquier objeto que tenga estos métodos cumple este contrato». No hace falta heredar de `Protocol` — basta con tener los métodos correctos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Protocol
+
+# Definimos el contrato: cualquier objeto con método leer()
+class Legible(Protocol):
+    def leer(self) -> str:
+        ...  # solo la firma, sin implementación
+
+# Ahora la función está tipada
+def procesar(fuente: Legible) -> str:
+    return fuente.leer().upper()
+
+# Estas clases NO heredan de Legible, pero lo satisfacen
+class Archivo:
+    def leer(self) -> str:
+        return "contenido del archivo"
+
+class Buffer:
+    def leer(self) -> str:
+        return "datos del buffer"
+
+# mypy verifica que ambas cumplen el Protocol ✅
+print(procesar(Archivo()))   # CONTENIDO DEL ARCHIVO
+print(procesar(Buffer()))    # DATOS DEL BUFFER`
+    }
+  ]}
+  output={"CONTENIDO DEL ARCHIVO\nDAT OS DEL BUFFER"}
+/>
+
+Un `Protocol` puede definir múltiples métodos y atributos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Protocol
+
+class Serializable(Protocol):
+    def to_json(self) -> str: ...
+    def to_dict(self) -> dict: ...
+    id: int  # también puede requerir atributos
+
+# Cualquier clase con estos métodos y atributo satisface Serializable
+class Usuario:
+    def __init__(self, user_id: int, nombre: str) -> None:
+        self.id = user_id
+        self.nombre = nombre
+
+    def to_json(self) -> str:
+        import json
+        return json.dumps(self.to_dict())
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "nombre": self.nombre}
+
+usuario = Usuario(1, "Ana")
+print(usuario.to_json())  # {"id": 1, "nombre": "Ana"}`
+    }
+  ]}
+  output={'{"id": 1, "nombre": "Ana"}'}
+/>
+
+</Section>
+
+<Section id="runtime-checkable" title="runtime_checkable">
+
+Por defecto, los `Protocol` solo se verifican estáticamente por mypy. Si necesitas usar `isinstance()` en runtime, añade el decorador `@runtime_checkable`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class Printable(Protocol):
+    def __str__(self) -> str: ...
+
+class Producto:
+    def __init__(self, nombre: str, precio: float) -> None:
+        self.nombre = nombre
+        self.precio = precio
+
+    def __str__(self) -> str:
+        return f"{self.nombre}: ${self.precio:.2f}"
+
+p = Producto("Teclado", 75.0)
+
+# isinstance funciona porque el Protocol es runtime_checkable
+print(isinstance(p, Printable))   # True
+print(isinstance(42, Printable))  # True — los int tienen __str__
+print(str(p))                      # Teclado: $75.00`
+    }
+  ]}
+  output={"True\nTrue\nTeclado: $75.00"}
+/>
+
+<Callout variant="warn" title="isinstance con Protocol es superficial">
+`@runtime_checkable` con `isinstance` solo verifica que los métodos existan, no que tengan la firma correcta. Un objeto con `__str__ = 42` pasaría la comprobación. Para validación completa, confía en mypy.
+</Callout>
+
+</Section>
+
+<Section id="protocol-vs-abc" title="Comparación con ABC">
+
+Las clases base abstractas (`ABC`) también definen contratos, pero requieren herencia explícita. `Protocol` usa tipado estructural — no importa la jerarquía, importa la forma.
+
+<CompareTable
+  headers={["ABC (herencia nominal)", "Protocol (tipado estructural)"]}
+  rows={[
+    [{ kind: "bad", value: "Requiere herencia explícita\nclass Perro(Animal): ..." }, { kind: "good", value: "Sin herencia necesaria\nclass Perro: ...  # tiene ladrar()" }],
+    [{ kind: "bad", value: "No funciona con clases de terceros" }, { kind: "good", value: "Compatible con cualquier clase existente" }],
+    [{ kind: "good", value: "isinstance() funciona siempre" }, { kind: "bad", value: "isinstance() requiere @runtime_checkable" }],
+    [{ kind: "good", value: "Ideal para jerarquías de dominio propias" }, { kind: "good", value: "Ideal para interfaces genéricas y código de terceros" }],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from abc import ABC, abstractmethod
+from typing import Protocol
+
+# ABC: herencia obligatoria
+class FiguraABC(ABC):
+    @abstractmethod
+    def area(self) -> float: ...
+
+class CirculoABC(FiguraABC):   # ❌ debe heredar de FiguraABC
+    def area(self) -> float:
+        return 3.14 * 5 ** 2
+
+# Protocol: no hace falta heredar
+class TienePrecio(Protocol):
+    def calcular_precio(self) -> float: ...
+
+class Producto:                # ✅ solo necesita tener el método
+    def calcular_precio(self) -> float:
+        return 99.0
+
+def mostrar_precio(item: TienePrecio) -> None:
+    print(f"Precio: ${item.calcular_precio():.2f}")
+
+mostrar_precio(Producto())  # Precio: $99.00`
+    }
+  ]}
+  output={"Precio: $99.00"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Define un Protocol Printable con un método __str__", diff: "easy", minutes: 4 },
+    { num: "02", name: "Crea un Protocol Saveable e implementa dos clases", diff: "med", minutes: 6 },
+    { num: "03", name: "Usa Protocol para tipar una función genérica", diff: "med", minutes: 6 },
+    { num: "04", name: "Compara Protocol vs ABC: cuándo usar cada uno", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

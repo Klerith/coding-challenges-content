@@ -1,0 +1,188 @@
+---
+title: "lambda: funciones anónimas de una sola expresión"
+short: "lambda"
+chapter: "04"
+num: "02"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "lambda crea funciones pequeñas en una línea, sin nombre. Son ideales para pasarlas como argumentos a sorted(), map() o filter() — pero tienen límites que hay que conocer."
+pro: false
+---
+
+<Section id="sintaxis-lambda" title="Sintaxis lambda">
+
+Una función `lambda` es una función anónima de una sola expresión. No puede contener sentencias (`if` de bloque, `for`, `return` explícito), solo una expresión que se evalúa y devuelve automáticamente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Sintaxis: lambda parámetros: expresión
+doblar = lambda n: n * 2
+print(doblar(5))   # 10
+
+# Lambda con múltiples parámetros
+sumar = lambda a, b: a + b
+print(sumar(3, 4))   # 7
+
+# Lambda con valor por defecto
+saludar = lambda nombre, saludo="Hola": f"{saludo}, {nombre}!"
+print(saludar("Ana"))          # Hola, Ana!
+print(saludar("Carlos", "Buen día"))  # Buen día, Carlos!
+
+# Lambda con expresión condicional
+signo = lambda n: "positivo" if n > 0 else ("negativo" if n < 0 else "cero")
+print(signo(5))    # positivo
+print(signo(-3))   # negativo
+print(signo(0))    # cero
+`
+    }
+  ]}
+  output={"10\n7\nHola, Ana!\nBuen día, Carlos!\npositivo\nnegativo\ncero"}
+/>
+
+<Callout variant="tip" title="Las lambdas asignadas a variables son un antipatrón">
+Si asignas una lambda a una variable (`doblar = lambda n: n * 2`), es mejor escribirla como `def`. Las lambdas deberían ser anónimas — de ahí su nombre. El linter `ruff` te advertirá sobre lambdas asignadas a variables.
+</Callout>
+
+</Section>
+
+<Section id="lambda-vs-def" title="lambda vs def">
+
+<CompareTable
+  headers={["lambda", "def (función nombrada)"]  }
+  rows={[
+    [{ kind: "good", value: "Una sola expresión, inline" }, { kind: "good", value: "Múltiples expresiones y sentencias" }],
+    [{ kind: "good", value: "Anónima — perfecta para argumentos" }, { kind: "good", value: "Tiene nombre — útil para recursión y debugging" }],
+    [{ kind: "bad", value: "Sin docstring, difícil de testear" }, { kind: "good", value: "Puede tener docstring y tests unitarios" }],
+    [{ kind: "bad", value: "Sin manejo de errores interno" }, { kind: "good", value: "Puede lanzar y capturar excepciones" }],
+    [{ kind: "good", value: "Concisa para transformaciones simples" }, { kind: "good", value: "Obligatoria para lógica compleja" }],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ✅ lambda bien usada: argumento de sorted()
+personas = [
+    {"nombre": "Carlos", "edad": 35},
+    {"nombre": "Ana", "edad": 28},
+    {"nombre": "Beatriz", "edad": 42},
+]
+
+# Ordenar por edad con lambda anónima
+ordenados = sorted(personas, key=lambda p: p["edad"])
+for p in ordenados:
+    print(f"{p['nombre']}: {p['edad']}")
+
+# ❌ lambda mal usada — mejor usar def
+# procesar = lambda datos: [x * 2 for x in datos if x > 0]
+# ✅ Mejor así:
+def procesar(datos):
+    """Duplica los valores positivos."""
+    return [x * 2 for x in datos if x > 0]
+`
+    }
+  ]}
+  output={"Ana: 28\nCarlos: 35\nBeatriz: 42"}
+/>
+
+</Section>
+
+<Section id="map-filter-sorted" title="Uso con sorted, map y filter">
+
+El caso de uso más valioso de `lambda` es pasarla como argumento a funciones de orden superior:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `numeros = [3, -1, 4, -1, 5, -9, 2, 6]
+
+# sorted() con key
+por_valor_absoluto = sorted(numeros, key=lambda n: abs(n))
+print(por_valor_absoluto)   # [-1, -1, 2, 3, 4, 5, 6, -9]
+
+en_reversa = sorted(numeros, key=lambda n: n, reverse=True)
+print(en_reversa)           # [6, 5, 4, 3, 2, -1, -1, -9]
+
+# map() — transforma cada elemento
+cuadrados = list(map(lambda n: n ** 2, numeros))
+print(cuadrados)
+
+# filter() — filtra elementos que cumplen la condición
+positivos = list(filter(lambda n: n > 0, numeros))
+print(positivos)  # [3, 4, 5, 2, 6]
+
+# Combinar map y filter
+cuadrados_de_positivos = list(map(lambda n: n ** 2, filter(lambda n: n > 0, numeros)))
+print(cuadrados_de_positivos)  # [9, 16, 25, 4, 36]
+
+# En Python moderno, preferir list comprehensions (más claras):
+cuadrados_comp = [n ** 2 for n in numeros if n > 0]
+print(cuadrados_comp)   # mismo resultado
+`
+    }
+  ]}
+  output={"[-1, -1, 2, 3, 4, 5, 6, -9]\n[6, 5, 4, 3, 2, -1, -1, -9]\n[9, 1, 16, 1, 25, 81, 4, 36]\n[3, 4, 5, 2, 6]\n[9, 16, 25, 4, 36]\n[9, 16, 25, 4, 36]"}
+/>
+
+</Section>
+
+<Section id="cuando-no-lambda" title="Cuándo NO usar lambda">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ❌ Lambda compleja — mejor usar def
+resultado = sorted(
+    datos,
+    key=lambda x: (x["categoria"], -x["precio"], x["nombre"].lower())
+)
+# ✅ Mejor:
+def clave_ordenamiento(item):
+    """Ordena por categoría, precio descendente y nombre."""
+    return (item["categoria"], -item["precio"], item["nombre"].lower())
+
+resultado = sorted(datos, key=clave_ordenamiento)
+
+# ❌ Lambda asignada a nombre (ruff lo marca como E731)
+calcular = lambda x: x * 2 + 1
+# ✅ Mejor:
+def calcular(x):
+    return x * 2 + 1
+
+# ❌ Lambda con múltiples expresiones (no funciona de todas formas)
+# f = lambda x: x += 1   # SyntaxError — no acepta sentencias
+`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="map/filter vs comprensiones">
+En Python moderno, las listas por comprensión (`[x*2 for x in lista]`) son más legibles que `map()` y `filter()` con lambdas. Guarda las lambdas para `sorted(key=...)`, `min(key=...)`, `max(key=...)` y similares.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Tres ejercicios para dominar las lambdas en Python."
+  items={[
+    { num: "01", name: "Ordena una lista de dicts por un campo con lambda", diff: "easy", minutes: 4 },
+    { num: "02", name: "Usa lambda con filter para filtrar impares", diff: "easy", minutes: 3 },
+    { num: "03", name: "Compara legibilidad: lambda vs def nombrada", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

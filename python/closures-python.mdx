@@ -1,0 +1,280 @@
+---
+title: "Closures: funciones que recuerdan su entorno"
+short: "Closures"
+chapter: "04"
+num: "05"
+chapterTitle: "Funciones"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un closure es una función que mantiene acceso a las variables de su ámbito léxico, incluso cuando ese ámbito ya ha terminado. Son la base de los decoradores, la encapsulación y la memoización."
+pro: true
+---
+
+<Section id="que-es-closure" title="¿Qué es un closure?">
+
+Un closure ocurre cuando una función interna hace referencia a variables del ámbito de la función externa que la contiene. La función «cierra sobre» esas variables y las mantiene vivas incluso después de que la función externa ha terminado de ejecutarse.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def crear_saludador(saludo):
+    # 'saludo' es una variable del ámbito de crear_saludador
+    def saludar(nombre):
+        # saludar es un closure: captura 'saludo' del ámbito externo
+        return f"{saludo}, {nombre}!"
+    return saludar   # retornamos la función interna
+
+# Crear_saludador terminó, pero 'hola_func' todavía tiene acceso a 'saludo'
+hola_func = crear_saludador("Hola")
+buen_dia = crear_saludador("Buenos días")
+
+print(hola_func("Ana"))      # Hola, Ana!
+print(hola_func("Carlos"))   # Hola, Carlos!
+print(buen_dia("Ana"))       # Buenos días, Ana!
+
+# Podemos inspeccionar las variables capturadas
+print(hola_func.__closure__)          # (<cell at ...>,)
+print(hola_func.__closure__[0].cell_contents)  # "Hola"
+`
+    }
+  ]}
+  output={"Hola, Ana!\nHola, Carlos!\nBuenos días, Ana!"}
+/>
+
+<Callout variant="info" title="La «celda» de captura">
+Python implementa los closures mediante «celdas» (`cell objects`). Cuando una función interna referencia una variable del ámbito externo, Python crea una celda que ambas funciones comparten. La celda persiste en memoria mientras alguna función la referencia.
+</Callout>
+
+</Section>
+
+<Section id="celda-captura" title="La celda de captura">
+
+Es crucial entender que los closures capturan la **referencia** a la variable, no su valor en el momento de la captura. Esto tiene implicaciones importantes:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ⚠️ Trampa clásica: captura de variable en bucle
+funciones = []
+for i in range(5):
+    def f():
+        return i   # captura la variable i, no su valor actual
+    funciones.append(f)
+
+# Cuando ejecutamos, 'i' ya vale 4 (el último valor del bucle)
+print([f() for f in funciones])  # [4, 4, 4, 4, 4] ← sorpresa
+
+# ✅ Solución: capturar el valor con un default argument
+funciones_correctas = []
+for i in range(5):
+    def f(capturado=i):   # default arg se evalúa al definir la función
+        return capturado
+    funciones_correctas.append(f)
+
+print([f() for f in funciones_correctas])  # [0, 1, 2, 3, 4] ✓
+
+# ✅ Solución alternativa: usar lambda con default
+lambdas = [lambda x=i: x for i in range(5)]
+print([l() for l in lambdas])  # [0, 1, 2, 3, 4] ✓
+`
+    }
+  ]}
+  output={"[4, 4, 4, 4, 4]\n[0, 1, 2, 3, 4]\n[0, 1, 2, 3, 4]"}
+/>
+
+</Section>
+
+<Section id="casos-uso" title="Casos de uso reales">
+
+**1. Contador con estado privado (encapsulación)**
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def crear_contador(inicio=0, paso=1):
+    """Crea un contador con estado encapsulado."""
+    conteo = [inicio]   # usamos lista para poder modificarla con nonlocal-alternativa
+
+    def incrementar():
+        conteo[0] += paso
+        return conteo[0]
+
+    def resetear():
+        conteo[0] = inicio
+
+    def valor_actual():
+        return conteo[0]
+
+    return incrementar, resetear, valor_actual
+
+# El estado 'conteo' es privado — no accesible desde fuera
+incrementar, resetear, valor = crear_contador(inicio=0, paso=5)
+
+print(incrementar())   # 5
+print(incrementar())   # 10
+print(incrementar())   # 15
+print(valor())         # 15
+resetear()
+print(valor())         # 0
+`
+    }
+  ]}
+  output={"5\n10\n15\n15\n0"}
+/>
+
+**2. Factory de funciones**
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def crear_validador(minimo: float, maximo: float):
+    """Crea una función que valida si un valor está en el rango."""
+    def validar(valor: float) -> bool:
+        return minimo <= valor <= maximo
+    validar.__doc__ = f"Valida si el valor está entre {minimo} y {maximo}."
+    return validar
+
+# Crear validadores especializados
+validar_nota = crear_validador(0, 100)
+validar_porcentaje = crear_validador(0.0, 1.0)
+validar_temperatura = crear_validador(-273.15, 1_000_000)
+
+print(validar_nota(85))          # True
+print(validar_nota(105))         # False
+print(validar_porcentaje(0.75))  # True
+print(validar_temperatura(-300)) # False (bajo cero absoluto)
+`
+    }
+  ]}
+  output={"True\nFalse\nTrue\nFalse"}
+/>
+
+</Section>
+
+<Section id="nonlocal" title="nonlocal — modificar la variable capturada">
+
+Por defecto, no puedes reasignar (solo leer) variables del ámbito externo. `nonlocal` permite modificarlas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def crear_acumulador():
+    total = 0   # variable del ámbito externo
+
+    def agregar(valor):
+        nonlocal total   # declarar que queremos modificar 'total'
+        total += valor
+        return total
+
+    def obtener():
+        return total   # solo lectura, no necesita nonlocal
+
+    return agregar, obtener
+
+agregar, obtener = crear_acumulador()
+
+print(agregar(10))   # 10
+print(agregar(25))   # 35
+print(agregar(5))    # 40
+print(obtener())     # 40
+
+# Sin nonlocal, la asignación crea una variable LOCAL (sombrea la externa)
+def sin_nonlocal():
+    x = 10
+    def interna():
+        # x += 1  # UnboundLocalError: x referenced before assignment
+        x = 99    # ← crea una x LOCAL, no modifica la externa
+        print(x)
+    interna()
+    print(x)   # sigue siendo 10
+
+sin_nonlocal()
+`
+    }
+  ]}
+  output={"10\n35\n40\n40\n99\n10"}
+/>
+
+<Callout variant="warn" title="nonlocal no es global">
+`nonlocal` busca la variable en el ámbito inmediatamente externo (la función que contiene). `global` busca en el módulo. Evita usar `global` — `nonlocal` con closures es la alternativa más limpia y encapsulada.
+</Callout>
+
+</Section>
+
+<Section id="memoizacion" title="Memoización con closure">
+
+Un patrón avanzado y muy útil: usar un closure para cachear resultados de funciones costosas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def memoizar(func):
+    """Decorador de memoización implementado con closure."""
+    cache = {}   # capturado por el closure
+
+    def envolvente(*args):
+        if args not in cache:
+            print(f"  Calculando {func.__name__}{args}...")
+            cache[args] = func(*args)
+        else:
+            print(f"  Cache hit para {args}")
+        return cache[args]
+
+    envolvente.__name__ = func.__name__
+    return envolvente
+
+@memoizar
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+# Las llamadas se calculan solo una vez
+print(fibonacci(5))
+print()
+print(fibonacci(6))   # usa los valores ya calculados
+
+# También disponible en functools.lru_cache (más eficiente)
+from functools import lru_cache
+
+@lru_cache(maxsize=None)
+def fibonacci_stdlib(n):
+    if n <= 1:
+        return n
+    return fibonacci_stdlib(n - 1) + fibonacci_stdlib(n - 2)
+`
+    }
+  ]}
+  output={"  Calculando fibonacci(5)...\n  Calculando fibonacci(4)...\n  Calculando fibonacci(3)...\n  Calculando fibonacci(2)...\n  Calculando fibonacci(1)...\n  Calculando fibonacci(0)...\n  Cache hit para (1,)\n5\n\n  Calculando fibonacci(6)...\n  Cache hit para (5,)\n  Cache hit para (4,)\n8"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cinco ejercicios para dominar los closures en Python."
+  items={[
+    { num: "01", name: "Crea un generador de IDs únicos con closure", diff: "med", minutes: 5 },
+    { num: "02", name: "Implementa un stack con estado privado", diff: "med", minutes: 8 },
+    { num: "03", name: "Once — función que solo se ejecuta una vez", diff: "med", minutes: 6 },
+    { num: "04", name: "Multiplicador factory con closure", diff: "easy", minutes: 4 },
+    { num: "05", name: "Memoización simple con closure", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

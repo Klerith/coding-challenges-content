@@ -1,0 +1,204 @@
+---
+title: "Paquetes y __init__.py: estructurar proyectos Python"
+short: "Paquetes y __init__"
+chapter: "10"
+num: "02"
+chapterTitle: "Módulos y paquetes"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un paquete es un directorio con __init__.py. Ese archivo controla qué se exporta, permite imports cortos y define la API pública del paquete — incluso si tiene decenas de módulos internos."
+pro: false
+---
+
+<Section id="crear-paquete-con-init" title="Crear un paquete con __init__.py">
+
+Para convertir un directorio en un paquete Python, basta con crear un archivo `__init__.py` dentro de él. Puede estar vacío o contener código que se ejecuta al importar el paquete.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Estructura del paquete:
+# utils/
+#   __init__.py       ← convierte el directorio en paquete
+#   math_utils.py
+#   string_utils.py
+#   date_utils.py
+
+# utils/math_utils.py
+def add(a: float, b: float) -> float:
+    return a + b
+
+def multiply(a: float, b: float) -> float:
+    return a * b
+
+# utils/string_utils.py
+def capitalize_words(text: str) -> str:
+    return " ".join(word.capitalize() for word in text.split())
+
+def truncate(text: str, max_len: int, suffix: str = "...") -> str:
+    if len(text) <= max_len:
+        return text
+    return text[:max_len - len(suffix)] + suffix
+
+# Uso desde fuera del paquete
+import utils.math_utils
+from utils.string_utils import capitalize_words
+
+print(utils.math_utils.add(3, 4))         # 7
+print(capitalize_words("hola mundo"))     # Hola Mundo`
+    }
+  ]}
+  output={"7\nHola Mundo"}
+/>
+
+</Section>
+
+<Section id="exports-con-all" title="Exports con __all__">
+
+`__all__` es una lista de strings que define los nombres exportados cuando alguien hace `from paquete import *`. También es documentación: le dice a otros developers cuál es la API pública intencional del módulo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# utils/__init__.py — controla qué se exporta del paquete
+
+# Importar desde submódulos para exponer en la API del paquete
+from .math_utils import add, multiply
+from .string_utils import capitalize_words, truncate
+
+# __all__ define la API pública explícita
+__all__ = [
+    "add",
+    "multiply",
+    "capitalize_words",
+    "truncate",
+]
+
+# Metadatos del paquete (convención)
+__version__ = "1.0.0"
+__author__ = "Fernando Herrera"
+
+# Ahora el usuario puede importar directamente desde utils
+# en vez de utils.math_utils o utils.string_utils
+
+# Uso externo — import corto gracias a __init__.py
+from utils import add, capitalize_words
+
+print(add(10, 20))                      # 30
+print(capitalize_words("python mola"))  # Python Mola`
+    }
+  ]}
+  output={"30\nPython Mola"}
+/>
+
+<Callout variant="tip" title="__init__.py como fachada">
+El patrón más común: __init__.py importa desde los submódulos internos y los re-exporta. El usuario ve `from utils import add` sin saber que `add` vive en `utils/math_utils.py`. Puedes reorganizar los internos sin romper la API pública.
+</Callout>
+
+</Section>
+
+<Section id="imports-relativos-dentro" title="Imports dentro del paquete (relativos)">
+
+Dentro de un paquete, los módulos pueden importarse entre sí con rutas relativas. Esto hace el paquete portable — si lo renombras, los imports internos no necesitan actualizarse.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Estructura extendida:
+# myapp/
+#   __init__.py
+#   config.py
+#   utils/
+#     __init__.py
+#     validators.py
+#     formatters.py
+
+# myapp/utils/validators.py
+def is_valid_email(email: str) -> bool:
+    return "@" in email and "." in email.split("@")[-1]
+
+def is_positive(value: float) -> bool:
+    return value > 0
+
+# myapp/utils/formatters.py
+# Import relativo: . = mismo directorio (utils/)
+from .validators import is_valid_email  # importa desde validators.py
+
+def format_user(name: str, email: str) -> str:
+    if not is_valid_email(email):
+        raise ValueError(f"Email inválido: {email}")
+    return f"{name.title()} <{email.lower()}>"
+
+# myapp/__init__.py
+# Import relativo: . = mismo directorio (myapp/)
+from .utils.formatters import format_user
+from .utils.validators import is_valid_email
+
+# Uso final — import limpio
+from myapp import format_user
+print(format_user("ana garcía", "ANA@ejemplo.com"))`
+    }
+  ]}
+  output={"Ana García <ana@ejemplo.com>"}
+/>
+
+</Section>
+
+<Section id="namespace-packages" title="Namespace packages (sin __init__)">
+
+Desde Python 3.3, un directorio sin `__init__.py` se convierte en un namespace package. Están diseñados para distribuir un paquete entre múltiples directorios. Para proyectos normales, sigue usando `__init__.py`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Namespace packages: útiles para plugins y distribución dividida
+#
+# Supón que tienes dos repositorios separados:
+# repo_a/myframework/core.py
+# repo_b/myframework/plugins.py
+#
+# Sin __init__.py, Python puede encontrar ambos bajo "myframework"
+# si ambos están en sys.path
+#
+# Uso (desde el código):
+from myframework import core      # viene de repo_a
+from myframework import plugins   # viene de repo_b
+
+# Para proyectos normales (un solo repositorio):
+# - USA __init__.py siempre
+# - Los namespace packages son un caso avanzado de distribución
+
+# Verificar si un paquete es regular o namespace
+import pkgutil
+# pkgutil.find_loader("myframework").path  → muestra la ruta`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="Cuándo usar namespace packages">
+Los namespace packages son para casos avanzados: plugins, frameworks extensibles o paquetes muy grandes divididos entre múltiples repositorios. En el 99% de los proyectos, usa `__init__.py` como siempre.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea un paquete utils con math_utils.py y string_utils.py", diff: "easy", minutes: 6 },
+    { num: "02", name: "Define __all__ para controlar qué se exporta", diff: "med", minutes: 5 },
+    { num: "03", name: "Usa imports relativos dentro del paquete", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

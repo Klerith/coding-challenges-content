@@ -1,0 +1,210 @@
+---
+title: "Type hints básicos: anotar variables y funciones en Python"
+short: "Type hints básicos"
+chapter: "05"
+num: "01"
+chapterTitle: "Type hints"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python es dinámico, pero eso no significa que debas renunciar a los tipos. Los type hints (PEP 484) añaden anotaciones que las herramientas entienden sin cambiar el comportamiento en runtime."
+pro: false
+---
+
+<Section id="anotaciones-variables" title="Anotaciones de variables">
+
+Una anotación de variable es un comentario estructurado que le dice a las herramientas (y a tus colegas) qué tipo de valor esperas en esa variable. Python las ignora en ejecución — no lanza errores si las rompes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Sin type hints: válido pero ambiguo
+nombre = "Fernando"
+edad = 31
+activo = True
+
+# Con type hints: misma ejecución, más información
+nombre: str = "Fernando"
+edad: int = 31
+activo: bool = True
+precio: float = 9.99
+
+# Anotación sin asignar valor (solo declara el tipo)
+puntuacion: int  # se asignará más adelante`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="Los type hints no son validación en runtime">
+Python NO lanza un error si asignas `nombre: str = 42`. La validación ocurre solo si usas herramientas como mypy o pyright. En ejecución, la anotación es solo metadato.
+</Callout>
+
+Las anotaciones se guardan en el atributo `__annotations__` del módulo o clase:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Puedes inspeccionar las anotaciones en runtime
+clase: str = "Python avanzado"
+alumnos: int = 24
+
+print(__annotations__)
+# {'clase': <class 'str'>, 'alumnos': <class 'int'>}`
+    }
+  ]}
+  output={"{'clase': <class 'str'>, 'alumnos': <class 'int'>}"}
+/>
+
+</Section>
+
+<Section id="anotaciones-funciones" title="Anotaciones en funciones">
+
+Aquí es donde los type hints aportan más valor. Anotar parámetros y el valor de retorno de una función sirve como documentación ejecutable y permite que los editores ofrezcan autocompletado preciso.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Función sin anotaciones: ¿qué tipos acepta? ¿qué retorna?
+def calcular_descuento(precio, porcentaje):
+    return precio * (1 - porcentaje / 100)
+
+# Función con anotaciones: todo queda claro
+def calcular_descuento(precio: float, porcentaje: float) -> float:
+    return precio * (1 - porcentaje / 100)
+
+resultado = calcular_descuento(100.0, 15.0)
+print(resultado)  # 85.0`
+    }
+  ]}
+  output={"85.0"}
+/>
+
+La flecha `->` indica el tipo de retorno. Si la función no retorna nada significativo, usa `-> None`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def saludar(nombre: str, veces: int) -> None:
+    for _ in range(veces):
+        print(f"Hola, {nombre}!")
+
+# La firma dice exactamente qué espera y qué devuelve
+saludar("Ana", 2)`
+    }
+  ]}
+  output={"Hola, Ana!\nHola, Ana!"}
+/>
+
+También puedes inspeccionar las anotaciones de una función en runtime:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def suma(a: int, b: int) -> int:
+    return a + b
+
+print(suma.__annotations__)
+# {'a': <class 'int'>, 'b': <class 'int'>, 'return': <class 'int'>}`
+    }
+  ]}
+  output={"{'a': <class 'int'>, 'b': <class 'int'>, 'return': <class 'int'>}"}
+/>
+
+</Section>
+
+<Section id="inferencia-vs-anotacion" title="Inferencia vs anotación explícita">
+
+mypy y pyright pueden inferir muchos tipos automáticamente. No necesitas anotar todo — la estrategia es anotar las interfaces (funciones públicas) y dejar que la inferencia haga el resto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# mypy infiere el tipo de 'total' como float
+def calcular_total(precios: list[float]) -> float:
+    total = sum(precios)      # inferido como float ✅
+    return total
+
+# No es necesario anotar variables locales obvias
+def procesar_texto(texto: str) -> str:
+    resultado = texto.strip()   # inferido como str ✅
+    resultado = resultado.lower()
+    return resultado
+
+# Sí vale la pena anotar cuando no es obvio
+def obtener_config() -> dict[str, str]:
+    config: dict[str, str] = {}  # explícito: el dict empieza vacío
+    config["env"] = "produccion"
+    return config`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Regla práctica">
+Anota siempre los parámetros y el retorno de funciones públicas. Para variables locales, solo anota cuando el tipo no sea obvio o cuando el dict/list empiece vacío.
+</Callout>
+
+</Section>
+
+<Section id="tipos-opcionales" title="Tipos opcionales con Optional">
+
+Muchas funciones aceptan un parámetro que puede ser un valor real o `None`. En Python moderno (3.10+) usas la sintaxis `tipo | None`. En Python 3.9 y anteriores necesitas `Optional` del módulo `typing`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Optional
+
+# Forma clásica (compatible con Python 3.8+)
+def buscar_usuario(user_id: int) -> Optional[str]:
+    usuarios = {1: "Ana", 2: "Carlos"}
+    return usuarios.get(user_id)  # retorna str o None
+
+# Forma moderna (Python 3.10+) — preferida
+def buscar_usuario_v2(user_id: int) -> str | None:
+    usuarios = {1: "Ana", 2: "Carlos"}
+    return usuarios.get(user_id)
+
+# Parámetro opcional con valor por defecto
+def crear_perfil(nombre: str, bio: str | None = None) -> dict:
+    return {"nombre": nombre, "bio": bio or "Sin descripción"}
+
+print(buscar_usuario(1))   # Ana
+print(buscar_usuario(99))  # None`
+    }
+  ]}
+  output={"Ana\nNone"}
+/>
+
+<Callout variant="warn" title="Optional[str] es equivalente a str | None">
+`Optional[str]` es exactamente lo mismo que `str | None`. La versión con `|` es más moderna y legible. Si mantienes código que debe correr en Python 3.8 o 3.9, usa `Optional` con el import.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Anota una función que calcula el IVA", diff: "easy", minutes: 3 },
+    { num: "02", name: "Añade type hints a una función de lista de strings", diff: "easy", minutes: 3 },
+    { num: "03", name: "Usa Optional para un parámetro que puede ser None", diff: "med", minutes: 4 },
+    { num: "04", name: "Anota una función que retorna múltiples valores", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

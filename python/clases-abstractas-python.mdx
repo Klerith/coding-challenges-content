@@ -1,0 +1,255 @@
+---
+title: "Clases abstractas: ABC y abstractmethod como contratos"
+short: "Clases abstractas"
+chapter: "09"
+num: "07"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "advanced"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Una clase abstracta define una interfaz que las subclases deben implementar. No se puede instanciar directamente — existe solo para ser heredada. ABC es la forma idiomática en Python."
+pro: true
+---
+
+<Section id="abc-y-abcmeta" title="ABC y ABCMeta">
+
+`ABC` (Abstract Base Class) del módulo `abc` es la forma estándar de declarar una clase abstracta en Python. Cualquier clase que herede de `ABC` y tenga métodos abstractos no puede instanciarse.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    """Clase base abstracta para todas las figuras geométricas."""
+
+    # No tiene __init__ propio — las subclases definen sus atributos
+
+    @abstractmethod
+    def area(self) -> float:
+        """Todas las subclases deben implementar area()."""
+        ...
+
+    @abstractmethod
+    def perimeter(self) -> float:
+        """Todas las subclases deben implementar perimeter()."""
+        ...
+
+    # Método concreto: disponible en todas las subclases sin reimplementar
+    def describe(self) -> str:
+        return (
+            f"{type(self).__name__}: "
+            f"área={self.area():.2f}, perímetro={self.perimeter():.2f}"
+        )
+
+
+# Intentar instanciar la clase abstracta lanza TypeError
+try:
+    s = Shape()
+except TypeError as e:
+    print(f"TypeError: {e}")
+# TypeError: Can't instantiate abstract class Shape
+# with abstract methods area, perimeter`
+    }
+  ]}
+  output={"TypeError: Can't instantiate abstract class Shape with abstract methods area, perimeter"}
+/>
+
+<Callout variant="info" title="ABC vs metaclass=ABCMeta">
+Heredar de `ABC` es equivalente a escribir `class Shape(metaclass=ABCMeta)`. `ABC` es simplemente una clase auxiliar que ya tiene `ABCMeta` como metaclase, lo que hace el código más legible. Usa siempre `class Shape(ABC)`.
+</Callout>
+
+</Section>
+
+<Section id="abstractmethod-y-abstractproperty" title="@abstractmethod y @abstractproperty">
+
+`@abstractmethod` marca métodos que las subclases deben implementar. Se puede combinar con `@property` para propiedades abstractas. Si la subclase no implementa todos los métodos abstractos, tampoco se puede instanciar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from abc import ABC, abstractmethod
+import math
+
+class Shape(ABC):
+    @abstractmethod
+    def area(self) -> float: ...
+
+    @abstractmethod
+    def perimeter(self) -> float: ...
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Nombre de la figura — propiedad abstracta."""
+        ...
+
+
+class Circle(Shape):
+    def __init__(self, radius: float) -> None:
+        self.radius = radius
+
+    def area(self) -> float:
+        return math.pi * self.radius ** 2
+
+    def perimeter(self) -> float:
+        return 2 * math.pi * self.radius
+
+    @property
+    def name(self) -> str:
+        return "Círculo"
+
+
+class Rectangle(Shape):
+    def __init__(self, width: float, height: float) -> None:
+        self.width = width
+        self.height = height
+
+    def area(self) -> float:
+        return self.width * self.height
+
+    def perimeter(self) -> float:
+        return 2 * (self.width + self.height)
+
+    @property
+    def name(self) -> str:
+        return "Rectángulo"
+
+
+figuras: list[Shape] = [Circle(5), Rectangle(4, 3)]
+for figura in figuras:
+    print(figura.describe())`
+    }
+  ]}
+  output={"Círculo: área=78.54, perímetro=31.42\nRectángulo: área=12.00, perímetro=14.00"}
+/>
+
+</Section>
+
+<Section id="metodos-concretos-en-abstractas" title="Métodos concretos en clases abstractas">
+
+Las clases abstractas pueden tener métodos completamente implementados. Son los métodos que comparten todas las subclases y no tiene sentido que cada una reimplemente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from abc import ABC, abstractmethod
+
+class Serializable(ABC):
+    """Contrato: los objetos deben poder convertirse a dict y desde dict."""
+
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """Las subclases definen cómo serializarse."""
+        ...
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, data: dict) -> "Serializable":
+        """Las subclases definen cómo deserializarse."""
+        ...
+
+    # Métodos concretos: usan to_dict() — funcionan para todas las subclases
+    def to_json(self) -> str:
+        import json
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+
+    def keys(self) -> list[str]:
+        return list(self.to_dict().keys())
+
+
+class User(Serializable):
+    def __init__(self, name: str, email: str) -> None:
+        self.name = name
+        self.email = email
+
+    def to_dict(self) -> dict:
+        return {"name": self.name, "email": self.email}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "User":
+        return cls(data["name"], data["email"])
+
+
+u = User("Ana", "ana@ejemplo.com")
+print(u.to_json())   # {"name": "Ana", "email": "ana@ejemplo.com"}
+print(u.keys())      # ['name', 'email']
+
+u2 = User.from_dict({"name": "Bob", "email": "bob@ejemplo.com"})
+print(u2.name)  # Bob`
+    }
+  ]}
+  output={'{"name": "Ana", "email": "ana@ejemplo.com"}\n[\'name\', \'email\']\nBob'}
+/>
+
+</Section>
+
+<Section id="herencia-multiple-con-abc" title="Herencia múltiple con ABC">
+
+Los ABC son ideales como mixins — clases que añaden capacidades ortogonales a la jerarquía principal. La herencia múltiple con ABC es el patrón más común en librerías como `collections.abc`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from abc import ABC, abstractmethod
+
+class Drawable(ABC):
+    """Mixin: las subclases pueden dibujarse."""
+    @abstractmethod
+    def draw(self) -> str: ...
+
+class Resizable(ABC):
+    """Mixin: las subclases pueden redimensionarse."""
+    @abstractmethod
+    def resize(self, factor: float) -> None: ...
+
+
+# Widget hereda de ambos ABC — debe implementar ambos contratos
+class Widget(Drawable, Resizable):
+    def __init__(self, label: str, size: int) -> None:
+        self.label = label
+        self.size = size
+
+    def draw(self) -> str:
+        return f"[Widget '{self.label}' size={self.size}]"
+
+    def resize(self, factor: float) -> None:
+        self.size = int(self.size * factor)
+
+
+w = Widget("botón", 100)
+print(w.draw())       # [Widget 'botón' size=100]
+w.resize(1.5)
+print(w.draw())       # [Widget 'botón' size=150]
+
+# isinstance funciona con cada ABC por separado
+print(isinstance(w, Drawable))   # True
+print(isinstance(w, Resizable))  # True`
+    }
+  ]}
+  output={"[Widget 'botón' size=100]\n[Widget 'botón' size=150]\nTrue\nTrue"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Define Shape como ABC con area() y perimeter() abstractos", diff: "easy", minutes: 5 },
+    { num: "02", name: "Implementa Circle y Rectangle desde Shape", diff: "easy", minutes: 5 },
+    { num: "03", name: "ABC con método concreto compartido y abstracto", diff: "med", minutes: 7 },
+    { num: "04", name: "Mezcla ABC con mixin para añadir comportamiento", diff: "hard", minutes: 9 },
+  ]}
+/>
+</Section>

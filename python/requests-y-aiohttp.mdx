@@ -1,0 +1,290 @@
+---
+title: "Llamadas HTTP: requests síncrono vs aiohttp asíncrono"
+short: "requests vs aiohttp"
+chapter: "06"
+num: "06"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "requests es la biblioteca HTTP más querida de Python: simple y síncrona. aiohttp es su equivalente asíncrono. Ambas son esenciales — la elección depende de si tu código usa asyncio."
+pro: false
+---
+
+<Section id="requests-get-post" title="requests — GET, POST y headers">
+
+`requests` tiene una API tan limpia que se convirtió en la biblioteca Python más descargada de la historia. Para scripts, scripts de datos, y código síncrono en general, es la elección obvia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import requests
+
+# GET básico
+respuesta = requests.get("https://jsonplaceholder.typicode.com/users/1")
+print(respuesta.status_code)   # 200
+print(respuesta.json())        # dict con los datos del usuario
+
+# GET con parámetros de query
+respuesta = requests.get(
+    "https://jsonplaceholder.typicode.com/posts",
+    params={"userId": 1, "_limit": 3},
+)
+posts = respuesta.json()
+for post in posts:
+    print(f"  {post['id']}: {post['title'][:40]}")
+
+# POST con JSON
+nuevo_post = {
+    "title": "Mi post desde Python",
+    "body": "Contenido del post",
+    "userId": 1,
+}
+respuesta = requests.post(
+    "https://jsonplaceholder.typicode.com/posts",
+    json=nuevo_post,       # serializa a JSON y pone Content-Type correcto
+)
+print(respuesta.status_code)   # 201
+print(respuesta.json()["id"])  # id generado por el servidor`
+    }
+  ]}
+  output={"200\n1: sunt aut facere repellat provident occaecati\n201\n101"}
+/>
+
+Para añadir headers de autenticación o personalización:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import requests
+
+# Headers personalizados (token de autenticación)
+headers = {
+    "Authorization": "Bearer mi-token-secreto",
+    "Content-Type": "application/json",
+    "X-App-Version": "1.0",
+}
+
+respuesta = requests.get(
+    "https://api.ejemplo.com/perfil",
+    headers=headers,
+    timeout=10,   # siempre poner timeout
+)
+
+# Session: reutiliza la conexión TCP y mantiene headers/cookies
+with requests.Session() as session:
+    session.headers.update({"Authorization": "Bearer token"})
+
+    # Todas las peticiones del session llevan el header
+    r1 = session.get("https://api.ejemplo.com/usuarios")
+    r2 = session.get("https://api.ejemplo.com/pedidos")`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="errores-requests" title="Manejo de errores con requests">
+
+Las peticiones pueden fallar de muchas formas: el servidor puede devolver un error HTTP, la conexión puede cortarse, o puede vencer el timeout. `requests` tiene excepciones específicas para cada caso.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import requests
+from requests.exceptions import (
+    ConnectionError,
+    Timeout,
+    HTTPError,
+    RequestException,
+)
+
+def obtener_datos(url: str) -> dict | None:
+    try:
+        respuesta = requests.get(url, timeout=5)
+
+        # raise_for_status() lanza HTTPError si status >= 400
+        respuesta.raise_for_status()
+
+        return respuesta.json()
+
+    except Timeout:
+        print(f"  Timeout: {url} no respondió en 5 segundos")
+    except ConnectionError:
+        print(f"  Error de red: no se pudo conectar a {url}")
+    except HTTPError as e:
+        print(f"  Error HTTP {e.response.status_code}: {url}")
+    except RequestException as e:
+        print(f"  Error genérico de requests: {e}")
+
+    return None
+
+# URL que existe ✅
+datos = obtener_datos("https://jsonplaceholder.typicode.com/users/1")
+print(f"Usuario: {datos['name'] if datos else 'no disponible'}")
+
+# URL que no existe ❌
+datos = obtener_datos("https://jsonplaceholder.typicode.com/users/9999")
+print(f"Usuario: {datos['name'] if datos else 'no encontrado'}")`
+    }
+  ]}
+  output={"Usuario: Leanne Graham\n  Error HTTP 404: https://jsonplaceholder.typicode.com/users/9999\nUsuario: no encontrado"}
+/>
+
+</Section>
+
+<Section id="aiohttp-async" title="aiohttp — GET asíncrono con ClientSession">
+
+`aiohttp` es la biblioteca HTTP de referencia para código asíncrono. Su patrón fundamental es el `ClientSession` dentro de un `async with` — la sesión gestiona la conexión y los recursos automáticamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+import aiohttp
+
+async def obtener_usuario(session: aiohttp.ClientSession, user_id: int) -> dict:
+    url = f"https://jsonplaceholder.typicode.com/users/{user_id}"
+    async with session.get(url) as respuesta:
+        respuesta.raise_for_status()
+        return await respuesta.json()
+
+async def main() -> None:
+    # ClientSession: una sesión por programa (no una por petición)
+    async with aiohttp.ClientSession() as session:
+        # Una sola petición
+        usuario = await obtener_usuario(session, 1)
+        print(f"Usuario: {usuario['name']}")
+
+        # Múltiples peticiones concurrentes
+        tareas = [obtener_usuario(session, uid) for uid in range(1, 6)]
+        usuarios = await asyncio.gather(*tareas)
+
+        for u in usuarios:
+            print(f"  {u['id']}: {u['name']}")
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"Usuario: Leanne Graham\n  1: Leanne Graham\n  2: Ervin Howell\n  3: Clementine Bauch\n  4: Patricia Lebsack\n  5: Chelsey Dietrich"}
+/>
+
+<Callout variant="warn" title="No crees un ClientSession por petición">
+Crear un `ClientSession` por cada petición es un error común. La sesión gestiona un pool de conexiones TCP — crearla y destruirla constantemente es ineficiente y lento. Crea una sola sesión por aplicación o por bloque de peticiones relacionadas.
+</Callout>
+
+Para POST con aiohttp:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+import aiohttp
+
+async def crear_post(session: aiohttp.ClientSession, datos: dict) -> dict:
+    async with session.post(
+        "https://jsonplaceholder.typicode.com/posts",
+        json=datos,
+        headers={"Content-Type": "application/json"},
+    ) as respuesta:
+        respuesta.raise_for_status()
+        return await respuesta.json()
+
+async def main() -> None:
+    async with aiohttp.ClientSession() as session:
+        nuevo = await crear_post(session, {
+            "title": "Post asíncrono",
+            "body": "Creado con aiohttp",
+            "userId": 1,
+        })
+        print(f"Creado con id: {nuevo['id']}")
+        # Creado con id: 101
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"Creado con id: 101"}
+/>
+
+</Section>
+
+<Section id="comparacion-patron" title="Comparación de patrones y cuándo usar cada una">
+
+<CompareTable
+  headers={["requests (síncrono)", "aiohttp (asíncrono)"]}
+  rows={[
+    [{ kind: "good", value: "API muy simple y directa" }, { kind: "bad", value: "Requiere async/await en todo el stack" }],
+    [{ kind: "good", value: "Ideal para scripts y tareas puntuales" }, { kind: "good", value: "Ideal cuando el servidor ya usa asyncio" }],
+    [{ kind: "bad", value: "Bloquea el hilo en cada petición" }, { kind: "good", value: "No bloquea: otras corrutinas continúan" }],
+    [{ kind: "bad", value: "N peticiones = N × latencia (secuencial)" }, { kind: "good", value: "N peticiones ≈ 1 × latencia (concurrente)" }],
+    [{ kind: "good", value: "Sin instalación especial en la mayoría de entornos" }, { kind: "bad", value: "Dependencia adicional (pip install aiohttp)" }],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+import time
+import requests
+import aiohttp
+
+URLS = [f"https://jsonplaceholder.typicode.com/posts/{i}" for i in range(1, 11)]
+
+# === Síncrono con requests: secuencial ===
+def descargar_sincrono() -> None:
+    inicio = time.perf_counter()
+    for url in URLS:
+        requests.get(url, timeout=5)
+    print(f"requests (síncrono): {time.perf_counter() - inicio:.1f}s")
+
+# === Asíncrono con aiohttp: concurrente ===
+async def descargar_asincrono() -> None:
+    inicio = time.perf_counter()
+    async with aiohttp.ClientSession() as session:
+        tareas = [session.get(url) for url in URLS]
+        respuestas = await asyncio.gather(*tareas)
+        for r in respuestas:
+            r.close()
+    print(f"aiohttp (asíncrono): {time.perf_counter() - inicio:.1f}s")
+
+# descargar_sincrono()   # ~5-10s (secuencial)
+# asyncio.run(descargar_asincrono())  # ~0.5-1s (concurrente)
+print("requests: ~7.0s (secuencial)")
+print("aiohttp:  ~0.8s (concurrente)")`
+    }
+  ]}
+  output={"requests: ~7.0s (secuencial)\naiohttp:  ~0.8s (concurrente)"}
+/>
+
+<Callout variant="tip" title="httpx — lo mejor de ambos mundos">
+`httpx` es una alternativa moderna que ofrece la misma API que `requests` pero con soporte nativo para modo asíncrono. Si empiezas un proyecto nuevo y quieres flexibilidad, considera `httpx`: `httpx.get(url)` síncrono o `await client.get(url)` asíncrono con la misma API.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "GET a una API pública con requests y parsea el JSON", diff: "easy", minutes: 5 },
+    { num: "02", name: "POST con requests y datos JSON", diff: "easy", minutes: 5 },
+    { num: "03", name: "GET asíncrono con aiohttp a múltiples URLs", diff: "med", minutes: 7 },
+    { num: "04", name: "Maneja timeouts y reintentos con requests", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

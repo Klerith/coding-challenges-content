@@ -1,0 +1,186 @@
+---
+title: "match / case: pattern matching estructural (Python 3.10+)"
+short: "match / case"
+chapter: "03"
+num: "02"
+chapterTitle: "Control de flujo"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "match/case no es solo un switch mejorado: es un sistema completo de pattern matching que puede desestructurar listas, dicts y objetos con una sintaxis elegante."
+pro: false
+---
+
+<Section id="sintaxis-basica" title="Sintaxis básica">
+
+`match/case` fue introducido en Python 3.10. A diferencia de `switch` en otros lenguajes, puede desestructurar valores complejos, no solo comparar literales:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def describir_numero(n):
+    match n:
+        case 0:
+            return "cero"
+        case 1:
+            return "uno"
+        case 2 | 3:           # OR de patrones con |
+            return "dos o tres"
+        case n if n < 0:      # guarda (guard) con if
+            return f"negativo: {n}"
+        case _:               # comodín (siempre al final)
+            return f"otro número: {n}"
+
+print(describir_numero(0))    # cero
+print(describir_numero(2))    # dos o tres
+print(describir_numero(-5))   # negativo: -5
+print(describir_numero(100))  # otro número: 100
+`
+    }
+  ]}
+  output={"cero\ndos o tres\nnegativo: -5\notro número: 100"}
+/>
+
+<Callout variant="info" title="_ no es una variable">
+El guion bajo `_` en `case _:` es el comodín que coincide con cualquier valor sin capturarlo. Es el equivalente al `default:` del switch de otros lenguajes.
+</Callout>
+
+</Section>
+
+<Section id="patrones-secuencia-mapeo" title="Patrones de secuencia y mapeo">
+
+Aquí es donde `match/case` supera ampliamente al `switch`: puede desestructurar listas, tuplas y diccionarios directamente en el patrón:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Patrones de secuencia",
+      code: `def analizar_comando(comando):
+    """Parsea una lista de tokens de una CLI."""
+    match comando:
+        case []:
+            return "Sin argumentos"
+        case ["quit"] | ["exit"]:
+            return "Saliendo..."
+        case ["ir", destino]:
+            return f"Yendo a: {destino}"
+        case ["ir", destino, *resto]:
+            return f"Yendo a {destino} con opciones: {resto}"
+        case ["ayuda", tema, *_]:
+            return f"Mostrando ayuda sobre: {tema}"
+        case _:
+            return f"Comando desconocido: {comando}"
+
+print(analizar_comando([]))
+print(analizar_comando(["quit"]))
+print(analizar_comando(["ir", "inicio"]))
+print(analizar_comando(["ir", "sala", "--rapido", "--silencioso"]))
+`
+    }
+  ]}
+  output={"Sin argumentos\nSaliendo...\nYendo a: inicio\nYendo a sala con opciones: ['--rapido', '--silencioso']"}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Patrones de mapeo (dicts)",
+      code: `def procesar_evento(evento):
+    """Procesa eventos de un sistema de notificaciones."""
+    match evento:
+        case {"tipo": "click", "elemento": elemento}:
+            return f"Click en: {elemento}"
+        case {"tipo": "scroll", "delta": delta} if delta > 0:
+            return f"Scroll arriba: {delta}px"
+        case {"tipo": "scroll", "delta": delta}:
+            return f"Scroll abajo: {abs(delta)}px"
+        case {"tipo": tipo, **resto}:
+            return f"Evento desconocido: {tipo}, datos: {resto}"
+        case _:
+            return "Evento inválido"
+
+print(procesar_evento({"tipo": "click", "elemento": "boton-enviar"}))
+print(procesar_evento({"tipo": "scroll", "delta": 120}))
+print(procesar_evento({"tipo": "tecla", "codigo": 13}))
+`
+    }
+  ]}
+  output={"Click en: boton-enviar\nScroll arriba: 120px\nEvento desconocido: tecla, datos: {'codigo': 13}"}
+/>
+
+</Section>
+
+<Section id="guardas" title="Guardas (if en case)">
+
+Una guarda es una condición `if` adicional que debe ser verdadera para que el `case` coincida. El patrón se evalúa primero; si coincide, se evalúa la guarda:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def clasificar_punto(punto):
+    """Clasifica un punto (x, y) en el plano cartesiano."""
+    match punto:
+        case (0, 0):
+            return "Origen"
+        case (x, 0):
+            return f"Eje X en x={x}"
+        case (0, y):
+            return f"Eje Y en y={y}"
+        case (x, y) if x > 0 and y > 0:
+            return f"Cuadrante I: ({x}, {y})"
+        case (x, y) if x < 0 and y > 0:
+            return f"Cuadrante II: ({x}, {y})"
+        case (x, y) if x < 0 and y < 0:
+            return f"Cuadrante III: ({x}, {y})"
+        case (x, y):
+            return f"Cuadrante IV: ({x}, {y})"
+
+print(clasificar_punto((0, 0)))     # Origen
+print(clasificar_punto((5, 0)))     # Eje X en x=5
+print(clasificar_punto((3, 4)))     # Cuadrante I: (3, 4)
+print(clasificar_punto((-1, -2)))   # Cuadrante III: (-1, -2)
+`
+    }
+  ]}
+  output={"Origen\nEje X en x=5\nCuadrante I: (3, 4)\nCuadrante III: (-1, -2)"}
+/>
+
+</Section>
+
+<Section id="cuando-usar" title="Cuándo usarlo vs if/elif">
+
+<CompareTable
+  headers={["Usa match/case", "Usa if/elif"]}
+  rows={[
+    [{ kind: "good", value: "Cuando el valor puede tener varias formas estructurales distintas" }, { kind: "good", value: "Cuando las condiciones son expresiones booleanas complejas" }],
+    [{ kind: "good", value: "Cuando desestructuras listas, tuplas o dicts en el patrón" }, { kind: "good", value: "Cuando comparas rangos numéricos (edad >= 18 and edad < 65)" }],
+    [{ kind: "good", value: "Cuando procesas mensajes, comandos o eventos tipados" }, { kind: "good", value: "Cuando las condiciones involucran múltiples variables no relacionadas" }],
+    [{ kind: "bad", value: "No disponible antes de Python 3.10" }, { kind: "good", value: "Funciona en todas las versiones de Python 3" }],
+  ]}
+/>
+
+<Callout variant="tip" title="match/case no es un switch">
+A diferencia del `switch` de C, Java o JavaScript, `match/case` no tiene fallthrough (no necesitas `break`). Solo el primer `case` que coincide se ejecuta.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Tres ejercicios para dominar el pattern matching de Python."
+  items={[
+    { num: "01", name: "Clasifica comandos de una CLI con match/case", diff: "med", minutes: 5 },
+    { num: "02", name: "Procesa respuestas HTTP con pattern matching", diff: "med", minutes: 6 },
+    { num: "03", name: "Parsea puntos (x, y) con desestructuración", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

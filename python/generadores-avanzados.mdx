@@ -1,0 +1,249 @@
+---
+title: "Generadores avanzados: yield from, send y subgeneradores"
+short: "Generadores avanzados"
+chapter: "12"
+num: "05"
+chapterTitle: "Python avanzado"
+difficulty: "advanced"
+readingMinutes: 11
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "yield from delega en un subgenerador — la base de asyncio antes de async/await. send() convierte un generador en un canal de comunicación bidireccional. Son los bloques con los que se construyó la asincronía de Python."
+pro: true
+---
+
+<Section id="yield-from-delegar" title="yield from para delegar en subgeneradores">
+
+`yield from iterable` es azúcar sintáctica que delega la iteración a otro iterable, pasando cada valor directamente al consumidor externo. Evita el doble `for` y conecta generadores encadenados.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Sin yield from: doble for (verboso)
+def flatten_manual(nested):
+    for sublist in nested:
+        for item in sublist:
+            yield item
+
+# Con yield from: delega directamente
+def flatten(nested):
+    for sublist in nested:
+        yield from sublist  # equivalente al doble for
+
+data = [[1, 2, 3], [4, 5], [6, 7, 8, 9]]
+print(list(flatten(data)))  # [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# yield from con recursión: aplanar anidamiento arbitrario
+def deep_flatten(item):
+    if isinstance(item, (list, tuple)):
+        for sub in item:
+            yield from deep_flatten(sub)
+    else:
+        yield item
+
+deep = [1, [2, [3, [4, [5]]], 6], 7]
+print(list(deep_flatten(deep)))  # [1, 2, 3, 4, 5, 6, 7]
+
+# yield from retorna el valor de retorno del subgenerador
+def subgenerator():
+    yield 1
+    yield 2
+    return "valor_final"  # StopIteration.value
+
+def delegator():
+    result = yield from subgenerator()  # captura el return del sub
+    print(f"Subgenerador retornó: {result}")
+    yield 3
+
+gen = delegator()
+print(next(gen))  # 1
+print(next(gen))  # 2 → luego imprime "Subgenerador retornó: valor_final"
+print(next(gen))  # 3`
+    }
+  ]}
+  output={"[1, 2, 3, 4, 5, 6, 7, 8, 9]\n[1, 2, 3, 4, 5, 6, 7]\n1\n2\nSubgenerador retornó: valor_final\n3"}
+/>
+
+</Section>
+
+<Section id="send-generadores-corrutinas" title="send() — generadores como corrutinas">
+
+`generator.send(value)` envía un valor al generador, que lo recibe como resultado de la expresión `yield`. Esto convierte el generador en un canal de comunicación bidireccional — las "corrutinas" originales de Python.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def accumulator():
+    """Corrutina que acumula valores enviados con send()."""
+    total = 0
+    while True:
+        value = yield total  # yield retorna total y recibe value
+        if value is None:
+            break
+        total += value
+
+# Inicializar con next() o send(None) — OBLIGATORIO antes del primer send
+acc = accumulator()
+next(acc)  # avanza hasta el primer yield; retorna 0
+
+# Enviar valores
+print(acc.send(10))  # 10
+print(acc.send(20))  # 30
+print(acc.send(5))   # 35
+
+# Cerrar el generador
+acc.close()
+
+# Pipeline de procesamiento con corrutinas
+def printer(prefix: str = ""):
+    """Corrutina final: imprime lo que recibe."""
+    while True:
+        value = yield
+        print(f"{prefix}{value}")
+
+def transformer(target, func):
+    """Corrutina intermedia: transforma y envía al siguiente."""
+    while True:
+        value = yield
+        target.send(func(value))
+
+# Conectar pipeline: source → transformer → printer
+output = printer("[resultado] ")
+next(output)
+
+pipeline = transformer(output, lambda x: x * 2)
+next(pipeline)
+
+# Enviar datos al inicio del pipeline
+pipeline.send(5)   # [resultado] 10
+pipeline.send(7)   # [resultado] 14
+pipeline.send(3)   # [resultado] 6`
+    }
+  ]}
+  output={"10\n30\n35\n[resultado] 10\n[resultado] 14\n[resultado] 6"}
+/>
+
+<Callout variant="warn" title="next() antes del primer send()">
+Siempre debes avanzar el generador hasta el primer `yield` con `next(gen)` o `gen.send(None)` antes de poder usar `send(valor)`. De lo contrario Python lanzará `TypeError: can't send non-None value to a just-started generator`.
+</Callout>
+
+</Section>
+
+<Section id="throw-close" title="throw() y close() — control de excepciones">
+
+`throw()` inyecta una excepción en el generador en el punto del `yield`. `close()` inyecta `GeneratorExit`. Ambos permiten comunicar condiciones de error y terminación al generador.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def safe_reader():
+    """Generador que maneja excepciones externas."""
+    items = ["a", "b", "c", "d"]
+    for item in items:
+        try:
+            yield item
+        except ValueError as e:
+            print(f"Error al procesar {item!r}: {e}")
+            yield f"error:{item}"  # emite un marcador de error
+        except GeneratorExit:
+            print("Generador cerrado limpiamente")
+            return
+
+gen = safe_reader()
+print(next(gen))           # a
+print(next(gen))           # b
+print(gen.throw(ValueError, "dato inválido"))  # Error al procesar 'b': dato inválido → error:b
+print(next(gen))           # c
+gen.close()                # Generador cerrado limpiamente
+
+# throw() es la base de cómo asyncio cancela corrutinas
+# Cuando se cancela una tarea, asyncio hace throw(CancelledError) en la corrutina
+
+# Ejemplo con cleanup en finally
+def resource_generator():
+    print("Recurso abierto")
+    try:
+        for i in range(100):
+            yield i
+    finally:
+        # Se ejecuta tanto en StopIteration normal como en close()/throw()
+        print("Recurso cerrado (finally)")
+
+gen2 = resource_generator()
+print(next(gen2))   # 0
+print(next(gen2))   # 1
+gen2.close()        # → "Recurso cerrado (finally)"`
+    }
+  ]}
+  output={"a\nb\nError al procesar 'b': dato inválido\nerror:b\nc\nGenerador cerrado limpiamente\nRecurso abierto\n0\n1\nRecurso cerrado (finally)"}
+/>
+
+</Section>
+
+<Section id="historia-generators-asyncio" title="La historia: de generators a asyncio">
+
+Los generadores con `send()` y `yield from` fueron los bloques de construcción de la asincronía en Python antes de `async/await`. Entender esta historia aclara por qué `async def` y `await` tienen la sintaxis que tienen.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Python 2.5: generadores con send() — primeras "corrutinas"
+# Python 3.3: yield from — composición de corrutinas (PEP 380)
+# Python 3.4: asyncio con @asyncio.coroutine y yield from Future
+# Python 3.5: async/await — azúcar sintáctica sobre el mismo mecanismo
+
+# Antes (Python 3.4, aún funciona pero deprecado):
+import asyncio
+
+# La implementación interna de 'await expr' es equivalente a 'yield from expr'
+# async def es una función que retorna una corrutina (que es un generador especial)
+
+# Demo: las corrutinas modernas son generadores con protocolo especial
+import inspect
+
+async def modern_coroutine():
+    await asyncio.sleep(0)
+    return 42
+
+coro = modern_coroutine()
+print(inspect.iscoroutine(coro))   # True
+print(inspect.isgenerator(coro))   # False (son tipos distintos en Python 3.5+)
+
+# Pero internamente comparten el mismo protocolo:
+# __iter__, __next__, send, throw, close
+
+# Ejecutar la corrutina
+result = asyncio.run(modern_coroutine())
+print(result)  # 42
+
+# El puente conceptual:
+# yield from future  →  await future
+# @asyncio.coroutine →  async def
+# StopIteration con value → return en async def`
+    }
+  ]}
+  output={"True\nFalse\n42"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Aplana una lista anidada con yield from", diff: "med", minutes: 6 },
+    { num: "02", name: "Generador pipeline: producer → transformer → consumer", diff: "hard", minutes: 10 },
+    { num: "03", name: "Generador que acepta valores con send()", diff: "hard", minutes: 9 },
+    { num: "04", name: "Usa yield from para crear corrutinas simples", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

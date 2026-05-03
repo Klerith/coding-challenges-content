@@ -1,0 +1,258 @@
+---
+title: "try / except / finally / else: capturar errores en Python"
+short: "try / except / finally"
+chapter: "07"
+num: "01"
+chapterTitle: "Manejo de errores"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python tiene una cláusula extra que sorprende a los que vienen de otros lenguajes: `else`. Se ejecuta solo si no hubo excepción — y hace que la intención del código sea cristalina."
+pro: false
+---
+
+<Section id="try-except-basico" title="try / except básico">
+
+Cuando Python ejecuta código que puede fallar, envuelves ese código en un bloque `try`. Si ocurre una excepción, Python busca un bloque `except` que la maneje. Si no encuentra ninguno, la excepción sube por el stack.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Sin manejo de errores: el programa explota
+# numero = int("abc")  # ValueError: invalid literal for int()
+
+# Con try/except: capturamos el error y lo manejamos
+def convertir_a_entero(texto: str) -> int | None:
+    try:
+        resultado = int(texto)
+        return resultado
+    except ValueError:
+        print(f"  No se puede convertir '{texto}' a entero")
+        return None
+
+print(convertir_a_entero("42"))    # 42
+print(convertir_a_entero("3.14"))  # No se puede convertir '3.14' a entero → None
+print(convertir_a_entero("hola"))  # No se puede convertir 'hola' a entero → None`
+    }
+  ]}
+  output={"42\nNo se puede convertir '3.14' a entero\nNone\nNo se puede convertir 'hola' a entero\nNone"}
+/>
+
+Para acceder a los detalles del error, usa `as`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def dividir(a: float, b: float) -> float | None:
+    try:
+        return a / b
+    except ZeroDivisionError as e:
+        # 'e' contiene el objeto de la excepción
+        print(f"Error: {e}")           # division by zero
+        print(f"Tipo: {type(e)}")      # <class 'ZeroDivisionError'>
+        print(f"Args: {e.args}")       # ('division by zero',)
+        return None
+
+resultado = dividir(10, 0)
+print(f"Resultado: {resultado}")  # Resultado: None`
+    }
+  ]}
+  output={"Error: division by zero\nTipo: <class 'ZeroDivisionError'>\nArgs: ('division by zero',)\nResultado: None"}
+/>
+
+</Section>
+
+<Section id="clausula-else" title="La cláusula else — novedad Python">
+
+`else` en un bloque `try` se ejecuta **solo si no hubo ninguna excepción**. Esto permite separar el código «que puede fallar» del código «que se ejecuta si todo salió bien», haciendo la intención más clara.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def leer_numero(texto: str) -> None:
+    try:
+        numero = int(texto)
+    except ValueError:
+        print(f"  '{texto}' no es un número válido")
+    else:
+        # Solo se ejecuta si int(texto) no lanzó excepción
+        print(f"  Número leído: {numero}")
+        cuadrado = numero ** 2
+        print(f"  Su cuadrado: {cuadrado}")
+
+leer_numero("7")     # Número leído: 7 / Su cuadrado: 49
+leer_numero("abc")   # 'abc' no es un número válido`
+    }
+  ]}
+  output={"  Número leído: 7\n  Su cuadrado: 49\n  'abc' no es un número válido"}
+/>
+
+La diferencia entre poner código en `else` vs al final del `try`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ❌ Problemático: el except puede capturar errores del código "exitoso"
+def cargar_config_mal(ruta: str) -> dict:
+    try:
+        with open(ruta) as f:
+            import json
+            datos = json.load(f)
+        procesar(datos)   # si procesar() lanza ValueError, ¡el except lo atrapa!
+    except (FileNotFoundError, ValueError):
+        return {}
+    return datos
+
+# ✅ Correcto: else solo contiene código post-éxito
+def cargar_config_bien(ruta: str) -> dict:
+    try:
+        with open(ruta) as f:
+            import json
+            datos = json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+    else:
+        procesar(datos)   # si falla, el error sube — es lo correcto
+        return datos`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="else hace el código más preciso">
+Con `else`, el `except` solo captura errores del bloque `try`, no del código que sigue. Esto evita que errores en el «camino feliz» sean silenciados accidentalmente por el mismo `except`.
+</Callout>
+
+</Section>
+
+<Section id="finally" title="finally — siempre se ejecuta">
+
+El bloque `finally` se ejecuta **siempre**: haya o no excepción, haya o no `return` dentro del `try`. Es el lugar correcto para liberar recursos: cerrar archivos, conexiones, bloqueos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def procesar_archivo(ruta: str) -> str | None:
+    archivo = None
+    try:
+        archivo = open(ruta, "r")
+        contenido = archivo.read()
+        return contenido.upper()
+    except FileNotFoundError:
+        print(f"  Archivo no encontrado: {ruta}")
+        return None
+    finally:
+        # Se ejecuta SIEMPRE: con error, sin error, con return
+        if archivo:
+            archivo.close()
+            print("  Archivo cerrado correctamente")
+
+# Con archivo existente
+resultado = procesar_archivo("datos.txt")
+
+# Con archivo inexistente
+resultado = procesar_archivo("no_existe.txt")`
+    }
+  ]}
+  output={"  Archivo cerrado correctamente\n  Archivo no encontrado: no_existe.txt\n  Archivo cerrado correctamente"}
+/>
+
+<Callout variant="info" title="finally vs with — cuándo usar cada uno">
+En la práctica, para archivos y conexiones, usa `with` en lugar de `finally` manual. El protocolo de contexto (`__enter__`/`__exit__`) hace lo mismo automáticamente y el código es más limpio. Reserva `finally` para lógica de limpieza más compleja que no tiene un context manager.
+</Callout>
+
+</Section>
+
+<Section id="multiples-excepciones" title="Capturar múltiples excepciones">
+
+Puedes capturar varios tipos de excepciones en un solo `except` usando una tupla, o puedes tener múltiples bloques `except` para manejarlos de forma diferente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import json
+
+def parsear_configuracion(texto: str) -> dict:
+    try:
+        datos = json.loads(texto)
+        return datos
+    except json.JSONDecodeError as e:
+        print(f"  JSON inválido en línea {e.lineno}: {e.msg}")
+        return {}
+    except TypeError as e:
+        print(f"  Tipo de dato incorrecto: {e}")
+        return {}
+
+# Capturar múltiples tipos en un solo except
+def convertir_valor(valor: str) -> float | None:
+    try:
+        return float(valor)
+    except (ValueError, TypeError) as e:
+        print(f"  No se pudo convertir: {e}")
+        return None
+
+print(parsear_configuracion('{"debug": true}'))   # {'debug': True}
+print(parsear_configuracion('{debug: true}'))      # error de sintaxis JSON
+print(convertir_valor("3.14"))    # 3.14
+print(convertir_valor("texto"))   # No se pudo convertir`
+    }
+  ]}
+  output={"{'debug': True}\n  JSON inválido en línea 1: Expecting property name enclosed in double quotes\n{}\n3.14\n  No se pudo convertir: could not convert string to float: 'texto'\nNone"}
+/>
+
+La estructura completa con todas las cláusulas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def operacion_completa(valor: str) -> None:
+    try:
+        numero = int(valor)           # puede lanzar ValueError
+        resultado = 100 / numero     # puede lanzar ZeroDivisionError
+    except ValueError:
+        print("Valor no es un entero")
+    except ZeroDivisionError:
+        print("No se puede dividir por cero")
+    else:
+        # Solo si no hubo excepción
+        print(f"Resultado: {resultado:.2f}")
+    finally:
+        # Siempre
+        print("Operación terminada")
+
+operacion_completa("5")   # Resultado: 20.00 / Operación terminada
+operacion_completa("0")   # No se puede dividir por cero / Operación terminada
+operacion_completa("x")   # Valor no es un entero / Operación terminada`
+    }
+  ]}
+  output={"Resultado: 20.00\nOperación terminada\nNo se puede dividir por cero\nOperación terminada\nValor no es un entero\nOperación terminada"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte una cadena a int con manejo de ValueError", diff: "easy", minutes: 3 },
+    { num: "02", name: "Lee un archivo con manejo de FileNotFoundError", diff: "easy", minutes: 4 },
+    { num: "03", name: "Usa finally para cerrar un recurso", diff: "med", minutes: 5 },
+    { num: "04", name: "Captura múltiples excepciones distintas", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

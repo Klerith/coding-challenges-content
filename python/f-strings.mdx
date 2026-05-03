@@ -1,0 +1,201 @@
+---
+title: "f-strings: formateo moderno y expresivo de cadenas"
+short: "f-strings"
+chapter: "02"
+num: "05"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Los f-strings son la forma moderna de construir cadenas con valores dinámicos. Más claros que % y más concisos que .format() — son la opción por defecto desde Python 3.6."
+pro: false
+---
+
+<Section id="sintaxis-basica" title="Sintaxis básica">
+
+Un f-string comienza con la letra `f` (o `F`) antes de las comillas. Cualquier expresión entre llaves `{}` se evalúa e inserta en el string:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `nombre = "Fernando"
+edad = 30
+ciudad = "Madrid"
+
+# f-string básico
+saludo = f"Hola, {nombre}!"
+print(saludo)  # Hola, Fernando!
+
+# Múltiples variables
+presentacion = f"Soy {nombre}, tengo {edad} años y vivo en {ciudad}."
+print(presentacion)
+
+# Comparación con las formas antiguas (no usar en código nuevo)
+# % formatting (Python 2 style)
+# "Hola, %s!" % nombre
+
+# .format() (Python 3, pero más verboso)
+# "Hola, {}!".format(nombre)
+
+# f-string (Python 3.6+ — la opción moderna)
+print(f"Hola, {nombre}!")
+`
+    }
+  ]}
+  output={"Hola, Fernando!\nSoy Fernando, tengo 30 años y vivo en Madrid.\nHola, Fernando!"}
+/>
+
+</Section>
+
+<Section id="expresiones" title="Expresiones dentro de f-strings">
+
+Las llaves aceptan cualquier expresión de Python — no solo variables:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `a = 10
+b = 3
+
+# Operaciones aritméticas
+print(f"Suma: {a + b}")          # Suma: 13
+print(f"Potencia: {a ** b}")     # Potencia: 1000
+
+# Llamadas a funciones
+nombre = "  python  "
+print(f"Limpio: {nombre.strip().title()}")  # Limpio: Python
+
+# Expresiones condicionales (ternario)
+puntos = 85
+print(f"Resultado: {'aprobado' if puntos >= 60 else 'reprobado'}")
+
+# Listas y acceso a índices
+colores = ["rojo", "verde", "azul"]
+print(f"Primer color: {colores[0]}")    # Primer color: rojo
+
+# Acceso a atributos de objetos
+from datetime import date
+hoy = date.today()
+print(f"Año actual: {hoy.year}")        # Año actual: 2026
+
+# Python 3.12+: self-documenting expressions con =
+x = 42
+print(f"{x = }")   # x = 42  ← muy útil para depurar
+`
+    }
+  ]}
+  output={"Suma: 13\nPotencia: 1000\nLimpio: Python\nResultado: aprobado\nPrimer color: rojo\nAño actual: 2026\nx = 42"}
+/>
+
+<Callout variant="tip" title="f-strings para depurar con =">
+`f"{variable = }"` (con el signo igual dentro) imprime tanto el nombre de la variable como su valor. Es una forma rápida de depurar sin tener que escribir `print(f"variable = {variable}")`.
+</Callout>
+
+</Section>
+
+<Section id="formateo-numeros" title="Formateo de números y fechas">
+
+Los f-strings tienen un mini-lenguaje de formato después del `:` que controla cómo se muestra el valor:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `precio = 1234567.891
+pi = 3.14159265
+
+# Decimales: :.2f = 2 decimales, f = float
+print(f"{pi:.2f}")          # 3.14
+print(f"{pi:.5f}")          # 3.14159
+
+# Separador de miles: :,
+print(f"{precio:,.2f}")     # 1,234,567.89
+
+# Separador de miles estilo español: :_.2f (guion bajo)
+print(f"{precio:_.2f}")     # 1_234_567.89
+
+# Notación científica: :e
+print(f"{precio:.2e}")      # 1.23e+06
+
+# Porcentaje: :.1%
+tasa = 0.1567
+print(f"{tasa:.1%}")        # 15.7%
+
+# Enteros con relleno: :05d = 5 caracteres, rellenado con ceros
+numero = 42
+print(f"{numero:05d}")      # 00042
+print(f"{numero:>10}")      # "        42" (alineado a la derecha)
+print(f"{numero:<10}")      # "42        " (alineado a la izquierda)
+print(f"{numero:^10}")      # "    42    " (centrado)
+
+# Formateo de fechas
+from datetime import date
+hoy = date(2026, 5, 3)
+print(f"{hoy:%d/%m/%Y}")    # 03/05/2026
+print(f"{hoy:%B %Y}")       # May 2026
+`
+    }
+  ]}
+  output={"3.14\n3.14159\n1,234,567.89\n1_234_567.89\n1.23e+06\n15.7%\n00042\n        42\n42        \n    42    \n03/05/2026\nMay 2026"}
+/>
+
+</Section>
+
+<Section id="multilinea" title="Cadenas multilínea con f-strings">
+
+Los f-strings pueden ser multilínea con comillas triples:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `nombre = "Fernando"
+puntos = 1250
+nivel = "Avanzado"
+rango = 15
+
+# f-string multilínea
+reporte = f"""
+╔══════════════════════════════╗
+║       PERFIL DE USUARIO      ║
+╠══════════════════════════════╣
+║ Nombre: {nombre:<20} ║
+║ Puntos: {puntos:<20,} ║
+║ Nivel:  {nivel:<20} ║
+║ Ranking #{rango:<19} ║
+╚══════════════════════════════╝
+"""
+
+print(reporte)
+`
+    }
+  ]}
+  output={"╔══════════════════════════════╗\n║       PERFIL DE USUARIO      ║\n╠══════════════════════════════╣\n║ Nombre: Fernando             ║\n║ Puntos: 1,250                ║\n║ Nivel:  Avanzado             ║\n║ Ranking #15                  ║\n╚══════════════════════════════╝"}
+/>
+
+<Callout variant="warn" title="Cuidado con los backslashes en f-strings">
+No puedes usar backslashes (`\`) directamente dentro de las llaves de un f-string. Si necesitas un salto de línea u otro carácter especial dentro de la expresión, asígnalo a una variable primero.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cuatro ejercicios para dominar los f-strings en Python."
+  items={[
+    { num: "01", name: "Construye un mensaje de bienvenida con nombre y edad", diff: "easy", minutes: 2 },
+    { num: "02", name: "Formatea precios con dos decimales y separador de miles", diff: "easy", minutes: 3 },
+    { num: "03", name: "Imprime una tabla alineada con f-strings", diff: "med", minutes: 5 },
+    { num: "04", name: "Usa expresiones complejas dentro de f-strings", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

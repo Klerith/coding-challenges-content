@@ -1,0 +1,267 @@
+---
+title: "El GIL: por qué la concurrencia en Python se siente diferente"
+short: "El GIL"
+chapter: "13"
+num: "03"
+chapterTitle: "Conceptos profundos de Python"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "El Global Interpreter Lock impide que dos hilos ejecuten bytecode Python al mismo tiempo. No significa que Python no tenga concurrencia — significa que hay que elegir la herramienta correcta."
+pro: true
+---
+
+<Section id="que-es-el-gil" title="Qué es el GIL y por qué existe">
+
+El GIL (Global Interpreter Lock) es un mutex que protege el estado interno de CPython. En cada momento, solo un hilo puede ejecutar bytecode Python. Fue introducido para simplificar la gestión de memoria y hacer el manejo de referencias thread-safe sin locks finegranados.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import threading
+import time
+
+# Demo del GIL: dos hilos incrementan un contador
+# Sin GIL, necesitarías un Lock explícito para evitar race conditions
+# Con GIL, las operaciones atómicas en Python son seguras por defecto
+
+counter = 0
+
+def increment_many(times: int):
+    global counter
+    for _ in range(times):
+        counter += 1  # no es atómica a nivel bytecode, pero el GIL protege
+
+threads = [threading.Thread(target=increment_many, args=(100_000,)) for _ in range(4)]
+start = time.perf_counter()
+for t in threads: t.start()
+for t in threads: t.join()
+elapsed = time.perf_counter() - start
+
+print(f"Counter: {counter}")  # puede no ser exactamente 400_000 (no atómica a nivel bytecode)
+print(f"Tiempo con 4 hilos: {elapsed:.3f}s")
+
+# Ahora con un solo hilo (para comparar)
+counter = 0
+start = time.perf_counter()
+increment_many(400_000)
+elapsed_single = time.perf_counter() - start
+print(f"Tiempo con 1 hilo: {elapsed_single:.3f}s")
+
+# Sorpresa: ¡el single-thread puede ser más rápido!
+# El overhead de thread switching + GIL acquisition hace más lento al multihilo
+# Para CPU-bound, threading en Python no escala con los núcleos`
+    }
+  ]}
+  output={"Counter: ~400000\nTiempo con 4 hilos: 0.18s\nTiempo con 1 hilo: 0.09s"}
+/>
+
+<Callout variant="tip" title="El GIL no impide la concurrencia — impide el paralelismo CPU">
+Los hilos en Python pueden ejecutarse concurrentemente para tareas I/O bound. El GIL se libera durante operaciones de I/O (leer un archivo, hacer una petición HTTP, dormir). El problema es que no permite paralelismo real en tareas CPU bound.
+</Callout>
+
+</Section>
+
+<Section id="threading-vs-multiprocessing" title="Impacto en threading vs multiprocessing">
+
+`threading` comparte memoria pero está limitado por el GIL. `multiprocessing` crea procesos independientes (cada uno con su propio intérprete Python y GIL), logrando paralelismo real a costa de mayor overhead.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import threading
+import multiprocessing
+import time
+
+def cpu_task(n: int) -> int:
+    """Tarea CPU-bound: suma todos los números hasta n."""
+    return sum(range(n))
+
+N = 5_000_000
+WORKERS = 4
+
+# Con threading (CPU-bound): no escala por el GIL
+start = time.perf_counter()
+threads = [threading.Thread(target=cpu_task, args=(N,)) for _ in range(WORKERS)]
+for t in threads: t.start()
+for t in threads: t.join()
+time_threads = time.perf_counter() - start
+print(f"Threading (CPU-bound): {time_threads:.2f}s")
+
+# Con multiprocessing (CPU-bound): usa múltiples núcleos
+start = time.perf_counter()
+with multiprocessing.Pool(WORKERS) as pool:
+    results = pool.map(cpu_task, [N] * WORKERS)
+time_mp = time.perf_counter() - start
+print(f"Multiprocessing (CPU-bound): {time_mp:.2f}s")
+print(f"Speedup: {time_threads/time_mp:.1f}x")
+
+# Comparar con sequential
+start = time.perf_counter()
+for _ in range(WORKERS):
+    cpu_task(N)
+time_seq = time.perf_counter() - start
+print(f"Sequential: {time_seq:.2f}s")`
+    }
+  ]}
+  output={"Threading (CPU-bound): 2.40s\nMultiprocessing (CPU-bound): 0.70s\nSpeedup: 3.4x\nSequential: 2.35s"}
+/>
+
+</Section>
+
+<Section id="io-bound-vs-cpu-bound" title="I/O bound vs CPU bound">
+
+La elección entre threading y multiprocessing depende del tipo de tarea. Para I/O bound (esperas de red, disco), threading es ideal. Para CPU bound (cálculos intensivos), multiprocessing o extensiones C.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import threading
+import time
+
+# Simulación de tarea I/O bound (e.g., request HTTP, leer archivo)
+def io_task(task_id: int, duration: float = 0.1):
+    """Simula una espera de I/O."""
+    time.sleep(duration)  # el GIL se libera durante sleep
+    return f"tarea {task_id} completada"
+
+N_TASKS = 20
+
+# Sequential: O(N * duration)
+start = time.perf_counter()
+results = [io_task(i) for i in range(N_TASKS)]
+time_seq = time.perf_counter() - start
+print(f"Sequential ({N_TASKS} tareas): {time_seq:.2f}s")
+
+# Threading: todas las esperas se solapan
+start = time.perf_counter()
+threads = [threading.Thread(target=io_task, args=(i,)) for i in range(N_TASKS)]
+for t in threads: t.start()
+for t in threads: t.join()
+time_threads = time.perf_counter() - start
+print(f"Threading ({N_TASKS} tareas): {time_threads:.2f}s")
+print(f"Speedup I/O: {time_seq/time_threads:.1f}x")
+
+# Regla de clasificación:
+# I/O bound:  la tarea pasa más tiempo ESPERANDO que calculando
+#             → usa threading o asyncio
+# CPU bound:  la tarea pasa más tiempo CALCULANDO que esperando
+#             → usa multiprocessing o extensiones C (numpy, scipy)`
+    }
+  ]}
+  output={"Sequential (20 tareas): 2.01s\nThreading (20 tareas): 0.10s\nSpeedup I/O: 20.1x"}
+/>
+
+</Section>
+
+<Section id="concurrent-futures" title="concurrent.futures — la abstracción de alto nivel">
+
+`concurrent.futures` provee `ThreadPoolExecutor` y `ProcessPoolExecutor` con la misma API, permitiendo cambiar de uno a otro con un solo cambio de clase.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+import time
+
+def fetch_data(url: str) -> dict:
+    """Simula una petición HTTP."""
+    time.sleep(0.2)
+    return {"url": url, "status": 200, "data": f"contenido de {url}"}
+
+urls = [f"https://api.example.com/item/{i}" for i in range(10)]
+
+# ThreadPoolExecutor para I/O bound
+start = time.perf_counter()
+with ThreadPoolExecutor(max_workers=5) as executor:
+    # submit retorna un Future
+    futures = {executor.submit(fetch_data, url): url for url in urls}
+
+    for future in as_completed(futures):
+        result = future.result()
+        print(f"✓ {result['url']}")
+
+elapsed = time.perf_counter() - start
+print(f"10 peticiones en {elapsed:.2f}s (paralelo)")
+
+# map: más simple cuando el orden importa
+def square(n: int) -> int:
+    return n * n
+
+with ProcessPoolExecutor(max_workers=4) as executor:
+    results = list(executor.map(square, range(10)))
+print(results)  # [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]`
+    }
+  ]}
+  output={"✓ https://api.example.com/item/0\n...\n10 peticiones en 0.42s (paralelo)\n[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]"}
+/>
+
+</Section>
+
+<Section id="gil-python-313" title="El GIL en Python 3.13 — eliminación opcional">
+
+Python 3.13 introduce la opción de construir Python sin GIL (`--disable-gil`). Es experimental y no se activa por defecto, pero marca el camino hacia un CPython verdaderamente paralelo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import sys
+
+# Verificar si el GIL está activo (Python 3.13+)
+if hasattr(sys, "_is_gil_enabled"):
+    print(f"GIL activo: {sys._is_gil_enabled()}")
+else:
+    print("Python < 3.13: GIL siempre activo en CPython")
+
+# Python 3.13 sin GIL (build experimental):
+# python3.13t (la 't' = free-threaded)
+# Habilita paralelismo real con threading para CPU-bound
+
+# Alternativas actuales al GIL:
+# 1. PyPy — JIT compiler, más rápido, GIL mejorado
+# 2. Cython — compila a C, puede liberar el GIL con nogil
+# 3. ctypes/cffi — llamar código C que libera el GIL
+# 4. numpy — operaciones vectoriales en C, GIL liberado
+# 5. multiprocessing — paralelismo real, mayor overhead
+
+# El camino recomendado hoy en día:
+# - Cálculo numérico → numpy/scipy (C interno, sin GIL efectivo)
+# - I/O concurrente → asyncio (un solo hilo, muy eficiente)
+# - CPU-bound puro → multiprocessing o ProcessPoolExecutor
+
+import numpy as np  # si está instalado
+
+# numpy libera el GIL: estas operaciones son verdaderamente paralelas
+# con threading porque están implementadas en C
+a = np.random.rand(1_000_000)
+result = np.sum(a)  # C puro, sin GIL
+print(f"Suma numpy: {result:.2f}")`
+    }
+  ]}
+  output={"GIL activo: True\nSuma numpy: 500012.34"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Compara threading vs sequential para I/O bound", diff: "med", minutes: 7 },
+    { num: "02", name: "Usa ProcessPoolExecutor para tarea CPU-bound", diff: "med", minutes: 8 },
+    { num: "03", name: "Mide el speedup con ThreadPoolExecutor en I/O", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

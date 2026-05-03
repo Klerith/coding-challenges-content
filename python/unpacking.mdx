@@ -1,0 +1,202 @@
+---
+title: "Unpacking: desempaquetar tuplas, listas y diccionarios"
+short: "Unpacking"
+chapter: "04"
+num: "04"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "El unpacking es uno de los superpoderes de Python. Asignar múltiples variables de una colección en una sola línea, con soporte para el operador * para capturar el resto."
+pro: false
+---
+
+<Section id="unpacking-basico" title="Unpacking básico de tuplas y listas">
+
+El unpacking permite asignar los elementos de una colección a múltiples variables en una sola instrucción:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Unpacking de tupla
+coordenadas = (40.7128, -74.0060)
+latitud, longitud = coordenadas
+print(f"Lat: {latitud}, Lon: {longitud}")
+
+# Unpacking de lista
+colores = ["rojo", "verde", "azul"]
+primero, segundo, tercero = colores
+print(primero, segundo, tercero)
+
+# El número de variables debe coincidir con el número de elementos
+# nombre, edad = ("Ana", 28, "Madrid")  # ValueError: too many values to unpack
+
+# Ignorar valores con _ (convención)
+nombre, _, ciudad = ("Ana", 28, "Madrid")   # ignoramos la edad
+print(f"{nombre} de {ciudad}")
+
+# Unpacking en múltiples niveles
+punto_3d = ((1, 2), 3)
+(x, y), z = punto_3d
+print(f"x={x}, y={y}, z={z}")
+`
+    }
+  ]}
+  output={"Lat: 40.7128, Lon: -74.006\nrojo verde azul\nAna de Madrid\nx=1, y=2, z=3"}
+/>
+
+<Callout variant="tip" title="_ como variable de descarte">
+Por convención, `_` (guion bajo simple) se usa para variables que deliberadamente no vas a usar. El linter no se queja de variables `_` sin usar, a diferencia de otras variables.
+</Callout>
+
+</Section>
+
+<Section id="operador-estrella" title="El operador * para capturar el resto">
+
+El operador `*` en el unpacking captura todos los elementos que no fueron asignados a otras variables:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# * captura el "resto" como lista
+numeros = [1, 2, 3, 4, 5, 6, 7]
+
+primero, *resto = numeros
+print(primero)   # 1
+print(resto)     # [2, 3, 4, 5, 6, 7]
+
+*inicio, ultimo = numeros
+print(inicio)    # [1, 2, 3, 4, 5, 6]
+print(ultimo)    # 7
+
+# * en el medio
+primer, *medio, penultimo, ultimo = numeros
+print(primer)       # 1
+print(medio)        # [2, 3, 4, 5]
+print(penultimo)    # 6
+print(ultimo)       # 7
+
+# Útil para head/tail de listas
+datos = [10, 20, 30, 40, 50]
+cabeza, *cola = datos
+print(f"Cabeza: {cabeza}")    # Cabeza: 10
+print(f"Cola: {cola}")        # Cola: [20, 30, 40, 50]
+
+# * con strings
+primera_letra, *resto_letras = "Python"
+print(primera_letra)    # P
+print(resto_letras)     # ['y', 't', 'h', 'o', 'n']
+`
+    }
+  ]}
+  output={"1\n[2, 3, 4, 5, 6, 7]\n[1, 2, 3, 4, 5, 6]\n7\n1\n[2, 3, 4, 5]\n6\n7\nCabeza: 10\nCola: [20, 30, 40, 50]\nP\n['y', 't', 'h', 'o', 'n']"}
+/>
+
+</Section>
+
+<Section id="unpacking-for" title="Unpacking en for loops">
+
+El unpacking en `for` hace el código más expresivo al nombrar cada componente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Unpacking de tuplas en for
+puntos = [(1, 2), (3, 4), (5, 6)]
+
+# ❌ Sin unpacking (menos claro)
+for punto in puntos:
+    print(punto[0] + punto[1])
+
+# ✅ Con unpacking (más claro)
+for x, y in puntos:
+    print(f"Punto ({x}, {y}) → distancia desde origen: {(x**2 + y**2)**0.5:.2f}")
+
+# Unpacking con enumerate
+nombres = ["Ana", "Carlos", "Beatriz"]
+for indice, nombre in enumerate(nombres, start=1):
+    print(f"{indice}. {nombre}")
+
+# Unpacking con zip
+claves = ["nombre", "edad", "ciudad"]
+valores = ["Ana", 28, "Madrid"]
+for clave, valor in zip(claves, valores):
+    print(f"{clave}: {valor}")
+
+# Unpacking de pares de una lista
+pares = [("a", 1), ("b", 2), ("c", 3)]
+diccionario = {clave: valor for clave, valor in pares}
+print(diccionario)  # {"a": 1, "b": 2, "c": 3}
+`
+    }
+  ]}
+  output={"3\n7\n11\nPunto (1, 2) → distancia desde origen: 2.24\nPunto (3, 4) → distancia desde origen: 5.00\nPunto (5, 6) → distancia desde origen: 7.81\n1. Ana\n2. Carlos\n3. Beatriz\nnombre: Ana\nedad: 28\nciudad: Madrid\n{'a': 1, 'b': 2, 'c': 3}"}
+/>
+
+</Section>
+
+<Section id="intercambio" title="Intercambio de variables">
+
+Una de las aplicaciones más elegantes del unpacking es intercambiar dos variables sin necesitar una variable temporal:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `a = 10
+b = 20
+
+# ❌ Forma tradicional (otros lenguajes)
+# temp = a
+# a = b
+# b = temp
+
+# ✅ Forma pythónica — unpacking en acción
+a, b = b, a
+print(f"a={a}, b={b}")  # a=20, b=10
+
+# También funciona con cualquier número de variables
+x, y, z = 1, 2, 3
+x, y, z = z, x, y   # rotación
+print(x, y, z)       # 3 1 2
+
+# Desempaquetar múltiples valores de retorno
+def obtener_extremos(numeros):
+    return min(numeros), max(numeros), sum(numeros) / len(numeros)
+
+datos = [4, 2, 8, 1, 6]
+minimo, maximo, promedio = obtener_extremos(datos)
+print(f"Min={minimo}, Max={maximo}, Promedio={promedio}")
+`
+    }
+  ]}
+  output={"a=20, b=10\n3 1 2\nMin=1, Max=8, Promedio=4.2"}
+/>
+
+<Callout variant="info" title="¿Cómo funciona el intercambio?">
+`a, b = b, a` funciona porque Python evalúa primero el lado derecho completo (creando la tupla `(b, a)` con los valores actuales) y luego realiza el unpacking a las variables de la izquierda. No hay ninguna magia — es evaluación de expresión más unpacking.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cuatro ejercicios para dominar el unpacking en Python."
+  items={[
+    { num: "01", name: "Desempaqueta nombre, apellido y edad de una tupla", diff: "easy", minutes: 2 },
+    { num: "02", name: "Captura el primero y el resto de una lista con *", diff: "easy", minutes: 3 },
+    { num: "03", name: "Intercambia dos variables en una línea", diff: "easy", minutes: 2 },
+    { num: "04", name: "Desempaqueta múltiples valores de retorno", diff: "med", minutes: 4 },
+  ]}
+/>
+</Section>

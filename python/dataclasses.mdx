@@ -1,0 +1,233 @@
+---
+title: "dataclasses: clases de datos con menos código repetitivo"
+short: "dataclasses"
+chapter: "09"
+num: "06"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "@dataclass genera automáticamente __init__, __repr__ y __eq__. Para clases cuyo propósito principal es almacenar datos, elimina hasta el 80% del código de infraestructura."
+pro: false
+---
+
+<Section id="dataclass-basico" title="@dataclass básico">
+
+Decorar una clase con `@dataclass` y usar anotaciones de tipo en los campos genera automáticamente `__init__`, `__repr__` y `__eq__`. Menos código de infraestructura, más foco en la lógica.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from dataclasses import dataclass
+
+# Sin dataclass: mucho código de infraestructura
+class PointManual:
+    def __init__(self, x: float, y: float) -> None:
+        self.x = x
+        self.y = y
+
+    def __repr__(self) -> str:
+        return f"Point(x={self.x}, y={self.y})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PointManual):
+            return NotImplemented
+        return self.x == other.x and self.y == other.y
+
+
+# Con @dataclass: todo generado automáticamente
+@dataclass
+class Point:
+    x: float
+    y: float
+
+    def distance_to_origin(self) -> float:
+        return (self.x ** 2 + self.y ** 2) ** 0.5
+
+
+p1 = Point(3.0, 4.0)
+p2 = Point(3.0, 4.0)
+p3 = Point(1.0, 2.0)
+
+print(p1)         # Point(x=3.0, y=4.0)  — __repr__ automático
+print(p1 == p2)   # True                 — __eq__ automático
+print(p1 == p3)   # False
+print(p1.distance_to_origin())  # 5.0    — método propio`
+    }
+  ]}
+  output={"Point(x=3.0, y=4.0)\nTrue\nFalse\n5.0"}
+/>
+
+<CompareTable
+  headers={["Clase manual", "Dataclass equivalente"]}
+  rows={[
+    [{ kind: "bad", value: "15+ líneas de __init__, __repr__, __eq__" }, { kind: "good", value: "3 líneas: decorador + campos anotados" }],
+    [{ kind: "bad", value: "Fácil olvidar actualizar __eq__ al añadir campo" }, { kind: "good", value: "__eq__ se regenera automáticamente" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="valores-por-defecto-y-field" title="Valores por defecto y field()">
+
+Los campos pueden tener valores por defecto directamente. Para valores mutables (listas, dicts) o lógica más compleja, usa `field()` con `default_factory`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from dataclasses import dataclass, field
+
+@dataclass
+class Student:
+    name: str
+    # Valor por defecto simple
+    grade_level: int = 1
+    # Valor por defecto para tipos mutables — SIEMPRE usar field()
+    grades: list[float] = field(default_factory=list)
+    notes: dict[str, str] = field(default_factory=dict)
+    # Campo excluido de __repr__ e __init__
+    _id: int = field(default=0, repr=False, init=False)
+
+    def add_grade(self, grade: float) -> None:
+        self.grades.append(grade)
+
+    def average(self) -> float:
+        return sum(self.grades) / len(self.grades) if self.grades else 0.0
+
+
+ana = Student("Ana")
+bob = Student("Bob", grade_level=2)
+
+ana.add_grade(8.5)
+ana.add_grade(9.0)
+
+bob.add_grade(7.0)
+
+# Cada instancia tiene su propia lista de notas
+print(ana.grades)  # [8.5, 9.0]
+print(bob.grades)  # [7.0]
+print(ana.average())  # 8.75
+print(ana)  # Student(name='Ana', grade_level=1, grades=[8.5, 9.0], notes={})`
+    }
+  ]}
+  output={"[8.5, 9.0]\n[7.0]\n8.75\nStudent(name='Ana', grade_level=1, grades=[8.5, 9.0], notes={})"}
+/>
+
+<Callout variant="warn" title="Nunca uses listas como default directamente">
+`grades: list = []` en una dataclass lanzará `ValueError`. Python detecta el antipatrón y te obliga a usar `field(default_factory=list)`. Esto evita el clásico bug de compartir la misma lista entre instancias.
+</Callout>
+
+</Section>
+
+<Section id="frozen-para-inmutabilidad" title="frozen=True para inmutabilidad">
+
+`@dataclass(frozen=True)` hace que la clase sea inmutable. Intentar modificar un campo lanza `FrozenInstanceError`. Como bonus, Python genera `__hash__` automáticamente — puedes usar el objeto como clave de dict o en sets.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Coordinate:
+    latitude: float
+    longitude: float
+
+    def distance_to(self, other: "Coordinate") -> float:
+        """Distancia euclidiana simplificada (no geodésica)."""
+        return ((self.latitude - other.latitude) ** 2 +
+                (self.longitude - other.longitude) ** 2) ** 0.5
+
+
+madrid = Coordinate(40.4168, -3.7038)
+barcelona = Coordinate(41.3851, 2.1734)
+
+print(madrid)  # Coordinate(latitude=40.4168, longitude=-3.7038)
+print(madrid.distance_to(barcelona))  # 5.926...
+
+# frozen=True: inmutable
+try:
+    madrid.latitude = 0.0
+except Exception as e:
+    print(f"{type(e).__name__}: {e}")
+
+# frozen=True: hashable — se puede usar en sets y como clave de dict
+visitados = {madrid, barcelona}
+print(len(visitados))  # 2
+
+cache = {madrid: "capital", barcelona: "ciudad condal"}
+print(cache[madrid])  # capital`
+    }
+  ]}
+  output={"Coordinate(latitude=40.4168, longitude=-3.7038)\n5.926316024938694\nFrozenInstanceError: cannot assign to field 'latitude'\n2\ncapital"}
+/>
+
+</Section>
+
+<Section id="post-init-logica-adicional" title="__post_init__ para lógica adicional">
+
+`__post_init__` se llama automáticamente justo después de que `__init__` asigna todos los campos. Es el lugar correcto para validaciones o cálculos que dependen de los valores iniciales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from dataclasses import dataclass, field
+
+@dataclass
+class Product:
+    name: str
+    price: float
+    quantity: int
+    # Campo calculado en __post_init__ — init=False lo excluye del constructor
+    total_value: float = field(init=False, repr=True)
+    tags: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # Validación
+        if self.price < 0:
+            raise ValueError(f"El precio no puede ser negativo: {self.price}")
+        if self.quantity < 0:
+            raise ValueError(f"La cantidad no puede ser negativa: {self.quantity}")
+        # Campo calculado
+        self.total_value = round(self.price * self.quantity, 2)
+        # Normalizar nombre
+        self.name = self.name.strip().title()
+
+
+p = Product("laptop pro ", 999.99, 5, tags=["electrónica", "trabajo"])
+print(p)
+# Product(name='Laptop Pro', price=999.99, quantity=5, total_value=4999.95, ...)
+print(p.total_value)  # 4999.95
+
+try:
+    Product("silla", -50.0, 10)
+except ValueError as e:
+    print(f"Error: {e}")`
+    }
+  ]}
+  output={"Product(name='Laptop Pro', price=999.99, quantity=5, total_value=4999.95, tags=['electrónica', 'trabajo'])\n4999.95\nError: El precio no puede ser negativo: -50.0"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea una dataclass Point con x e y", diff: "easy", minutes: 3 },
+    { num: "02", name: "Dataclass Product con precio calculado en __post_init__", diff: "med", minutes: 5 },
+    { num: "03", name: "Dataclass frozen para coordenadas inmutables", diff: "easy", minutes: 4 },
+    { num: "04", name: "Usa field(default_factory=list) para listas", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

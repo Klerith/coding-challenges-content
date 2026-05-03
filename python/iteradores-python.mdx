@@ -1,0 +1,235 @@
+---
+title: "Iteradores: protocolo __iter__ y __next__ desde cero"
+short: "Iteradores"
+chapter: "12"
+num: "04"
+chapterTitle: "Python avanzado"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Todo lo que el for puede recorrer implementa el protocolo iterador: __iter__ retorna self, __next__ retorna el siguiente valor o lanza StopIteration. Entenderlo desmitifica buena parte de Python."
+pro: true
+---
+
+<Section id="protocolo-iterador" title="El protocolo iterador: __iter__ y __next__">
+
+Python define el protocolo iterador con dos métodos: `__iter__()` que retorna el iterador (generalmente `self`) y `__next__()` que retorna el siguiente elemento o lanza `StopIteration` cuando se agota.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Qué hace el for internamente
+mi_lista = [1, 2, 3]
+
+# Python convierte esto...
+for item in mi_lista:
+    print(item)
+
+# ...en esto (internamente):
+iterador = iter(mi_lista)   # llama __iter__()
+while True:
+    try:
+        item = next(iterador)  # llama __next__()
+        print(item)
+    except StopIteration:
+        break
+
+# Inspeccionar el protocolo
+print(hasattr(mi_lista, "__iter__"))  # True — es iterable
+print(hasattr(mi_lista, "__next__"))  # False — no es iterador por sí solo
+
+it = iter(mi_lista)
+print(hasattr(it, "__iter__"))   # True
+print(hasattr(it, "__next__"))   # True — el iterador sí tiene __next__
+
+# next() con valor por defecto (no lanza StopIteration)
+it2 = iter([10, 20])
+print(next(it2))        # 10
+print(next(it2))        # 20
+print(next(it2, None))  # None — agotado, sin excepción`
+    }
+  ]}
+  output={"1\n2\n3\nTrue\nFalse\nTrue\nTrue\n10\n20\nNone"}
+/>
+
+</Section>
+
+<Section id="iterador-custom" title="Implementar un iterador custom">
+
+Implementar el protocolo desde cero revela exactamente qué sucede cuando Python itera sobre un objeto. El ejemplo clásico: un rango propio.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class CountUp:
+    """Itera de start hasta stop (excluido), de step en step."""
+
+    def __init__(self, start: int, stop: int, step: int = 1):
+        self.current = start
+        self.stop = stop
+        self.step = step
+
+    def __iter__(self):
+        return self  # el objeto es su propio iterador
+
+    def __next__(self):
+        if self.current >= self.stop:
+            raise StopIteration
+        value = self.current
+        self.current += self.step
+        return value
+
+# Usar en un for
+for n in CountUp(0, 10, 2):
+    print(n, end=" ")
+print()  # 0 2 4 6 8
+
+# Usar con list(), sum(), zip(), etc.
+print(list(CountUp(1, 6)))        # [1, 2, 3, 4, 5]
+print(sum(CountUp(1, 101)))       # 5050
+
+# Un iterador se agota: no puede reiniciarse
+counter = CountUp(1, 4)
+print(list(counter))  # [1, 2, 3]
+print(list(counter))  # [] — ya agotado
+
+# Separar iterable de iterador para poder recorrer múltiples veces
+class CountUpIterable:
+    """Iterable: puede generar múltiples iteradores."""
+    def __init__(self, start: int, stop: int):
+        self.start = start
+        self.stop = stop
+
+    def __iter__(self):
+        return CountUp(self.start, self.stop)  # nuevo iterador cada vez
+
+nums = CountUpIterable(1, 4)
+print(list(nums))  # [1, 2, 3]
+print(list(nums))  # [1, 2, 3] — vuelve a funcionar`
+    }
+  ]}
+  output={"0 2 4 6 8\n[1, 2, 3, 4, 5]\n5050\n[1, 2, 3]\n[]\n[1, 2, 3]\n[1, 2, 3]"}
+/>
+
+<Callout variant="tip" title="Iterable vs Iterador">
+Un **iterable** tiene `__iter__()` que retorna un nuevo iterador cada vez. Un **iterador** tiene `__iter__()` (retorna self) y `__next__()`. Los iteradores se agotan; los iterables no. Una lista es iterable pero no iterador; `iter(lista)` retorna un iterador.
+</Callout>
+
+</Section>
+
+<Section id="iterables-vs-iteradores" title="Iterables vs iteradores — diferencias clave">
+
+La distinción entre iterable e iterador tiene consecuencias prácticas en el código cotidiano, especialmente al reutilizar colecciones.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Iterables estándar: list, tuple, set, dict, str, range
+numeros = [1, 2, 3]
+
+# Puedes iterar múltiples veces
+print(sum(numeros))    # 6
+print(list(numeros))   # [1, 2, 3] — sigue intacta
+
+# Iteradores: generadores, zip, map, filter, enumerate
+gen = (x ** 2 for x in range(5))  # generador = iterador
+
+print(list(gen))   # [0, 1, 4, 9, 16]
+print(list(gen))   # [] — se agotó
+
+# El bug clásico: usar el mismo iterador dos veces
+combined = zip([1, 2, 3], ["a", "b", "c"])
+first_pass = list(combined)
+second_pass = list(combined)  # vacío — el zip ya se agotó
+print(first_pass)   # [(1, 'a'), (2, 'b'), (3, 'c')]
+print(second_pass)  # []
+
+# Detectar si algo es iterable o iterador
+from collections.abc import Iterator, Iterable
+
+print(isinstance([1, 2], Iterable))          # True
+print(isinstance([1, 2], Iterator))          # False
+print(isinstance(iter([1, 2]), Iterator))    # True
+print(isinstance(iter([1, 2]), Iterable))    # True (Iterator es subclase de Iterable)
+
+# Patrón seguro: convertir a lista si vas a reutilizar
+def process_twice(iterable):
+    items = list(iterable)  # materializa en memoria una vez
+    total = sum(items)
+    average = total / len(items)
+    return total, average
+
+print(process_twice(x for x in range(1, 6)))  # (15, 3.0)`
+    }
+  ]}
+  output={"6\n[1, 2, 3]\n[0, 1, 4, 9, 16]\n[]\n[(1, 'a'), (2, 'b'), (3, 'c')]\n[]\nTrue\nFalse\nTrue\nTrue\n(15, 3.0)"}
+/>
+
+</Section>
+
+<Section id="itertools" title="itertools — combinadores potentes">
+
+El módulo `itertools` provee herramientas para trabajar con iteradores de forma eficiente, sin materializar colecciones completas en memoria.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import itertools
+
+# chain: concatena múltiples iterables
+letras = itertools.chain("abc", "def", [1, 2, 3])
+print(list(letras))  # ['a', 'b', 'c', 'd', 'e', 'f', 1, 2, 3]
+
+# islice: slice perezoso sobre cualquier iterable
+primeros_5 = itertools.islice(itertools.count(10), 5)  # count es infinito
+print(list(primeros_5))  # [10, 11, 12, 13, 14]
+
+# groupby: agrupa elementos consecutivos con la misma clave
+datos = [("py", "Ana"), ("py", "Carlos"), ("js", "Diana"), ("js", "Eva"), ("go", "Felipe")]
+for lenguaje, grupo in itertools.groupby(datos, key=lambda x: x[0]):
+    nombres = [nombre for _, nombre in grupo]
+    print(f"{lenguaje}: {nombres}")
+
+# product: producto cartesiano
+for combo in itertools.product("AB", [1, 2]):
+    print(combo, end=" ")
+print()  # ('A', 1) ('A', 2) ('B', 1) ('B', 2)
+
+# combinations y permutations
+print(list(itertools.combinations("ABC", 2)))
+# [('A', 'B'), ('A', 'C'), ('B', 'C')]
+
+# takewhile y dropwhile
+nums = [1, 3, 5, 2, 4, 6]
+print(list(itertools.takewhile(lambda x: x % 2 != 0, nums)))
+# [1, 3, 5] — para al primer par
+print(list(itertools.dropwhile(lambda x: x % 2 != 0, nums)))
+# [2, 4, 6] — salta hasta el primer par`
+    }
+  ]}
+  output={"['a', 'b', 'c', 'd', 'e', 'f', 1, 2, 3]\n[10, 11, 12, 13, 14]\npy: ['Ana', 'Carlos']\njs: ['Diana', 'Eva']\ngo: ['Felipe']\n('A', 1) ('A', 2) ('B', 1) ('B', 2)\n[('A', 'B'), ('A', 'C'), ('B', 'C')]\n[1, 3, 5]\n[2, 4, 6]"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa un iterador Range propio", diff: "med", minutes: 6 },
+    { num: "02", name: "Iterador que recorre un árbol binario en inorden", diff: "hard", minutes: 10 },
+    { num: "03", name: "Usa itertools.chain para concatenar iterables", diff: "easy", minutes: 4 },
+    { num: "04", name: "Usa itertools.groupby para agrupar datos", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

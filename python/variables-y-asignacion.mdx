@@ -1,0 +1,239 @@
+---
+title: "Variables y asignación: nombres, constantes y convenciones"
+short: "Variables y asignación"
+chapter: "02"
+num: "01"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "En Python, una variable es simplemente un nombre que apunta a un valor. Sin tipos explícitos, sin declaraciones previas — asignas y listo."
+pro: false
+---
+
+<Section id="asignacion-basica" title="Asignación básica">
+
+En Python no existe la palabra clave `var`, `let` o `const`. Simplemente escribes el nombre, el signo `=` y el valor. Python infiere el tipo automáticamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Asignación simple — Python infiere el tipo
+nombre = "Fernando"
+edad = 30
+altura = 1.80
+es_activo = True
+
+# Puedes reasignar a cualquier tipo (tipado dinámico)
+variable = 42
+variable = "ahora soy un string"  # válido en Python
+variable = [1, 2, 3]              # también válido
+
+print(nombre, edad, altura, es_activo)
+`
+    }
+  ]}
+  output={"Fernando 30 1.8 True"}
+/>
+
+<Callout variant="info" title="Las variables son etiquetas, no cajas">
+En Python, las variables son referencias a objetos en memoria, no contenedores de valores. Cuando escribes `a = b`, no copias el valor — ambas variables apuntan al mismo objeto. Esto importa especialmente con objetos mutables como listas.
+</Callout>
+
+**Tipado estático opcional con anotaciones:**
+
+Python permite anotar el tipo esperado, aunque no lo impone en tiempo de ejecución. Es una convención para editores y herramientas como `mypy`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Anotaciones de tipo (opcionales, no impuestas en runtime)
+nombre: str = "Fernando"
+edad: int = 30
+altura: float = 1.80
+activo: bool = True
+
+# La anotación es solo documentación para el editor
+# Python NO lanza error si asignas el tipo incorrecto:
+nombre: str = 42  # ← Python acepta esto (mypy sí lo marcaría)
+`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="convenciones-nombres" title="Convenciones de nombres">
+
+Python tiene convenciones de nomenclatura muy claras definidas en PEP 8:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ✅ snake_case para variables y funciones
+nombre_usuario = "Ana García"
+calcular_precio_total = lambda: None
+numero_de_intentos = 3
+
+# ✅ UPPER_SNAKE_CASE para constantes
+MAX_REINTENTOS = 5
+PI = 3.14159
+URL_BASE = "https://api.ejemplo.com"
+TIMEOUT_SEGUNDOS = 30
+
+# ✅ PascalCase para clases
+class GestorDeUsuarios:
+    pass
+
+class ConexionBaseDeDatos:
+    pass
+
+# ❌ camelCase (estilo JavaScript — evitar en Python)
+nombreUsuario = "Ana"    # ← no idiomático
+calcularPrecio = 0       # ← no idiomático
+
+# ❌ nombres sin sentido
+x = "Fernando"           # ← ¿qué es x?
+a = [1, 2, 3]            # ← ¿qué es a?
+`
+    }
+  ]}
+/>
+
+<CompareTable
+  headers={["Incorrecto", "Correcto"]}
+  rows={[
+    [{ kind: "bad", value: "nombreUsuario = 'Ana'" }, { kind: "good", value: "nombre_usuario = 'Ana'" }],
+    [{ kind: "bad", value: "maxReintentos = 5" }, { kind: "good", value: "MAX_REINTENTOS = 5" }],
+    [{ kind: "bad", value: "class gestorUsuarios:" }, { kind: "good", value: "class GestorUsuarios:" }],
+    [{ kind: "bad", value: "x = calcular()" }, { kind: "good", value: "precio_total = calcular()" }],
+  ]}
+/>
+
+<Callout variant="warn" title="Las constantes son convención, no imposición">
+Python no tiene constantes reales. `MAX_REINTENTOS = 5` en UPPER_CASE es solo una convención que le dice a otros programadores «no cambies este valor». Si quieres inmutabilidad real, usa `typing.Final` o módulos como `enum`.
+</Callout>
+
+</Section>
+
+<Section id="asignacion-multiple" title="Asignación múltiple">
+
+Python permite asignar múltiples variables en una sola línea — algo que otros lenguajes envidian:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Asignar el mismo valor a múltiples variables
+a = b = c = 0
+print(a, b, c)  # 0 0 0
+
+# Asignar múltiples valores a múltiples variables (unpacking)
+x, y, z = 1, 2, 3
+print(x, y, z)  # 1 2 3
+
+# Intercambio de variables sin variable temporal — idiomático en Python
+a, b = 10, 20
+print(a, b)   # 10 20
+
+a, b = b, a   # intercambio elegante
+print(a, b)   # 20 10
+
+# Desempaquetar desde una lista o tupla
+coordenadas = (40.7128, -74.0060)
+latitud, longitud = coordenadas
+print(f"Lat: {latitud}, Lon: {longitud}")
+`
+    }
+  ]}
+  output={"0 0 0\n1 2 3\n10 20\n20 10\nLat: 40.7128, Lon: -74.006"}
+/>
+
+**Asignación aumentada (operadores de asignación):**
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `contador = 0
+contador += 1    # contador = contador + 1  →  1
+contador += 4    # →  5
+contador -= 2    # →  3
+contador *= 3    # →  9
+contador //= 2   # →  4
+contador **= 2   # →  16
+
+print(contador)  # 16
+`
+    }
+  ]}
+  output={"16"}
+/>
+
+<Callout variant="tip" title="Python no tiene ++ ni --">
+A diferencia de C, Java o JavaScript, Python no tiene operadores `++` y `--`. Usa siempre `+= 1` y `-= 1`.
+</Callout>
+
+</Section>
+
+<Section id="scope-variables" title="Alcance de variables (scope)">
+
+El alcance determina desde dónde es visible una variable:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Variable global — visible en todo el módulo
+mensaje_global = "Soy global"
+
+def mostrar():
+    # Variable local — solo visible dentro de la función
+    mensaje_local = "Soy local"
+    print(mensaje_global)  # ✅ puede leer variables globales
+    print(mensaje_local)   # ✅
+
+mostrar()
+# print(mensaje_local)  # ❌ NameError — no existe fuera de la función
+
+# Para modificar una variable global desde dentro de una función,
+# necesitas declarar 'global' (práctica desaconsejada)
+contador = 0
+
+def incrementar():
+    global contador  # ← necesario para modificar, no solo leer
+    contador += 1
+
+incrementar()
+print(contador)  # 1
+`
+    }
+  ]}
+  output={"Soy global\nSoy local\n1"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cuatro ejercicios para dominar variables y asignación en Python."
+  items={[
+    { num: "01", name: "Declara 5 variables con distintos tipos", diff: "easy", minutes: 3 },
+    { num: "02", name: "Intercambia dos variables sin variable temporal", diff: "easy", minutes: 3 },
+    { num: "03", name: "Usa asignación múltiple para desempaquetar una tupla", diff: "med", minutes: 4 },
+    { num: "04", name: "Nombra correctamente: identifica qué hay de malo", diff: "easy", minutes: 3 },
+  ]}
+/>
+</Section>

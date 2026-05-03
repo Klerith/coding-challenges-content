@@ -1,0 +1,206 @@
+---
+title: "while, break y continue: bucles basados en condición"
+short: "while, break, continue"
+chapter: "03"
+num: "05"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "while ejecuta mientras una condición sea verdadera. break y continue controlan el flujo con precisión quirúrgica. La cláusula `else` del while es el detalle que sorprende a todos."
+pro: false
+---
+
+<Section id="while-basico" title="while básico">
+
+`while` repite un bloque mientras una condición sea verdadera. Úsalo cuando no sabes cuántas veces hay que iterar — cuando el número de iteraciones depende de algo que cambia durante la ejecución:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Contador con while
+contador = 0
+while contador < 5:
+    print(f"Contador: {contador}")
+    contador += 1
+
+print("Fin del bucle")
+
+# Validación de entrada (patrón clásico de while)
+# numero = int(input("Ingresa un número positivo: "))
+# while numero <= 0:
+#     numero = int(input("Debe ser positivo, intenta de nuevo: "))
+# print(f"Recibido: {numero}")
+
+# Bucle infinito controlado (patrón de menú)
+activo = True
+iteracion = 0
+while activo:
+    iteracion += 1
+    if iteracion >= 3:
+        activo = False  # condición de salida
+
+print(f"Terminó después de {iteracion} iteraciones")
+`
+    }
+  ]}
+  output={"Contador: 0\nContador: 1\nContador: 2\nContador: 3\nContador: 4\nFin del bucle\nTerminó después de 3 iteraciones"}
+/>
+
+<Callout variant="warn" title="Bucles infinitos">
+Un `while True:` sin una condición de salida (`break` o una variable de control) colgará el programa para siempre. Asegúrate siempre de que el bucle tenga una forma de terminar.
+</Callout>
+
+</Section>
+
+<Section id="break" title="break para salir del bucle">
+
+`break` termina el bucle inmediatamente, sin importar si la condición sigue siendo verdadera:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Buscar el primer número divisible por 7 entre 1 y 100
+for n in range(1, 101):
+    if n % 7 == 0:
+        print(f"Primer múltiplo de 7: {n}")
+        break  # salir del for al encontrarlo
+
+# Juego de adivinar el número
+secreto = 42
+intentos = [30, 50, 42, 10]  # simulamos las entradas
+
+for intento in intentos:
+    if intento == secreto:
+        print(f"¡Correcto! El número era {secreto}")
+        break
+    elif intento < secreto:
+        print(f"{intento} es muy bajo")
+    else:
+        print(f"{intento} es muy alto")
+
+# break también funciona en while
+valor = 100
+while True:
+    if valor <= 1:
+        break
+    valor //= 2
+    print(valor, end=" ")
+print()
+`
+    }
+  ]}
+  output={"Primer múltiplo de 7: 7\n30 es muy bajo\n50 es muy alto\n¡Correcto! El número era 42\n50 25 12 6 3 1 "}
+/>
+
+</Section>
+
+<Section id="continue" title="continue para saltar iteraciones">
+
+`continue` salta el resto del bloque para la iteración actual y pasa directamente a la siguiente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Imprimir solo los números impares
+for n in range(1, 11):
+    if n % 2 == 0:
+        continue  # saltar los pares
+    print(n, end=" ")
+print()
+
+# Filtrar entradas inválidas
+datos = [10, None, 25, -5, None, 30, 0]
+
+total = 0
+for dato in datos:
+    if dato is None or dato <= 0:
+        continue  # ignorar valores inválidos
+    total += dato
+
+print(f"Total de valores válidos: {total}")  # 65
+
+# Procesar solo usuarios activos
+usuarios = [
+    {"nombre": "Ana", "activo": True},
+    {"nombre": "Carlos", "activo": False},
+    {"nombre": "Beatriz", "activo": True},
+]
+
+for usuario in usuarios:
+    if not usuario["activo"]:
+        continue
+    print(f"Procesando a {usuario['nombre']}")
+`
+    }
+  ]}
+  output={"1 3 5 7 9 \nTotal de valores válidos: 65\nProcesando a Ana\nProcesando a Beatriz"}
+/>
+
+</Section>
+
+<Section id="while-else" title="La cláusula else del while">
+
+Python tiene una cláusula `else` para los bucles `while` (y `for`) que se ejecuta solo si el bucle terminó naturalmente (sin `break`). Es ideal para implementar búsquedas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Buscar un elemento en una lista con while/else
+lista = [10, 25, 7, 42, 3]
+objetivo = 99
+indice = 0
+
+while indice < len(lista):
+    if lista[indice] == objetivo:
+        print(f"Encontrado en índice {indice}")
+        break
+    indice += 1
+else:
+    # Este bloque solo se ejecuta si while terminó sin break
+    print(f"{objetivo} no está en la lista")
+
+# El mismo patrón con for/else
+primos_candidatos = [15, 16, 17, 18, 19]
+
+for n in primos_candidatos:
+    for divisor in range(2, n):
+        if n % divisor == 0:
+            print(f"{n} no es primo (divisible por {divisor})")
+            break
+    else:
+        # Solo si el for interno terminó sin break
+        print(f"{n} es primo")
+`
+    }
+  ]}
+  output={"99 no está en la lista\n15 no es primo (divisible por 3)\n16 no es primo (divisible por 2)\n17 es primo\n18 no es primo (divisible por 2)\n19 es primo"}
+/>
+
+<Callout variant="info" title="while/else: el detalle que sorprende">
+La cláusula `else` de un bucle es una característica exclusiva de Python. El bloque `else` se ejecuta cuando la condición del `while` se vuelve `False`, pero NO cuando se sale con `break`. Es la forma idiomática de distinguir «bucle terminó normalmente» de «bucle terminó por condición especial».
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Tres ejercicios para dominar los bucles condicionales."
+  items={[
+    { num: "01", name: "Adivina el número: while con break", diff: "easy", minutes: 5 },
+    { num: "02", name: "Filtra valores inválidos con continue", diff: "easy", minutes: 4 },
+    { num: "03", name: "Busca un elemento con while/else", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

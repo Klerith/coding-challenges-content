@@ -1,0 +1,249 @@
+---
+title: "pathlib: rutas y archivos con la API moderna de Python"
+short: "pathlib"
+chapter: "14"
+num: "04"
+chapterTitle: "Bonus prácticos"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "pathlib.Path reemplaza os.path con una API orientada a objetos. path / 'subdir' / 'file.txt' es más legible que os.path.join. Leer, escribir, listar y glob incluidos."
+pro: false
+---
+
+<Section id="path-basico-operaciones" title="Path básico y el operador /">
+
+`pathlib.Path` representa una ruta del sistema de archivos. El operador `/` une componentes de ruta de forma idiomática, independientemente del sistema operativo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from pathlib import Path
+
+# Crear objetos Path
+ruta = Path("/tmp/proyecto")
+relativa = Path("src/utils")
+
+# Operador / para unir rutas (cross-platform)
+archivo = ruta / "data" / "config.json"
+print(archivo)  # /tmp/proyecto/data/config.json
+
+# Alternativa con os.path (más verbosa)
+import os.path
+viejo = os.path.join("/tmp/proyecto", "data", "config.json")
+print(viejo == str(archivo))  # True — mismo resultado
+
+# Propiedades del Path
+p = Path("/home/user/docs/report.pdf")
+print(p.name)       # report.pdf
+print(p.stem)       # report (sin extensión)
+print(p.suffix)     # .pdf
+print(p.parent)     # /home/user/docs
+print(p.parts)      # ('/', 'home', 'user', 'docs', 'report.pdf')
+
+# Path relativo a partir de otro
+base = Path("/home/user")
+docs = base / "docs"
+print(docs.relative_to(base))  # docs
+
+# Path.home() y Path.cwd()
+print(Path.home())   # /Users/usuario (el directorio home del usuario)
+print(Path.cwd())    # directorio de trabajo actual
+
+# Convertir a string cuando necesitas interoperar con APIs viejas
+print(str(archivo))   # /tmp/proyecto/data/config.json
+print(archivo.as_posix())  # siempre con /, incluso en Windows`
+    }
+  ]}
+  output={"/tmp/proyecto/data/config.json\nTrue\nreport.pdf\nreport\n.pdf\n/home/user/docs\n('/', 'home', 'user', 'docs', 'report.pdf')\ndocs"}
+/>
+
+</Section>
+
+<Section id="read-write-text" title="read_text() y write_text()">
+
+`Path.read_text()` y `Path.write_text()` son el acceso más directo para leer y escribir archivos de texto sin gestionar el `open()` explícitamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from pathlib import Path
+import tempfile
+
+# Crear un archivo temporal para los ejemplos
+tmp_dir = Path(tempfile.mkdtemp())
+archivo = tmp_dir / "notas.txt"
+
+# write_text: escribe y crea el archivo si no existe
+archivo.write_text("Primera línea\nSegunda línea\nTercera línea\n", encoding="utf-8")
+print(f"Escrito: {archivo.stat().st_size} bytes")
+
+# read_text: lee todo el contenido como string
+contenido = archivo.read_text(encoding="utf-8")
+print(contenido)
+
+# Equivalente a open() pero más conciso
+# with open(archivo, "r", encoding="utf-8") as f:
+#     contenido = f.read()
+
+# Leer y escribir bytes con read_bytes() / write_bytes()
+imagen_bytes = bytes([0x89, 0x50, 0x4E, 0x47])  # header PNG simulado
+(tmp_dir / "imagen.png").write_bytes(imagen_bytes)
+leidos = (tmp_dir / "imagen.png").read_bytes()
+print(leidos.hex())  # 89504e47
+
+# Añadir contenido al final (no hay append_text, se hace con open)
+with archivo.open("a", encoding="utf-8") as f:
+    f.write("Cuarta línea\n")
+
+# Leer líneas directamente
+lineas = archivo.read_text(encoding="utf-8").splitlines()
+print(f"Total líneas: {len(lineas)}")   # 4
+
+# Limpiar
+import shutil
+shutil.rmtree(tmp_dir)`
+    }
+  ]}
+  output={"Escrito: 44 bytes\nPrimera línea\nSegunda línea\nTercera línea\n\n89504e47\nTotal líneas: 4"}
+/>
+
+</Section>
+
+<Section id="glob-y-rglob" title="glob y rglob para buscar archivos">
+
+`glob(patrón)` busca archivos que coincidan con el patrón en el directorio actual. `rglob(patrón)` hace lo mismo recursivamente en todos los subdirectorios.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from pathlib import Path
+import tempfile, os
+
+# Crear estructura de archivos de prueba
+base = Path(tempfile.mkdtemp())
+(base / "src").mkdir()
+(base / "tests").mkdir()
+(base / "src" / "main.py").write_text("# main")
+(base / "src" / "utils.py").write_text("# utils")
+(base / "tests" / "test_main.py").write_text("# tests")
+(base / "README.md").write_text("# readme")
+(base / "config.json").write_text("{}")
+
+# glob: busca en el directorio actual (no recursivo)
+py_files = list(base.glob("*.py"))        # solo en base/
+json_files = list(base.glob("*.json"))
+
+print(f"Python en raíz: {[f.name for f in py_files]}")   # []
+print(f"JSON en raíz: {[f.name for f in json_files]}")   # ['config.json']
+
+# rglob: busca en todos los subdirectorios
+all_py = list(base.rglob("*.py"))
+all_py.sort()
+print(f"Todo .py: {[f.name for f in all_py]}")
+# ['main.py', 'test_main.py', 'utils.py']
+
+# glob con patrón de directorio
+test_files = list(base.glob("tests/*.py"))
+print(f"Tests: {[f.name for f in test_files]}")
+# ['test_main.py']
+
+# Caso real: procesar todos los archivos de un tipo
+total_lines = 0
+for py_file in base.rglob("*.py"):
+    lines = len(py_file.read_text().splitlines())
+    total_lines += lines
+    print(f"  {py_file.relative_to(base)}: {lines} línea(s)")
+
+print(f"Total: {total_lines} líneas")
+
+import shutil
+shutil.rmtree(base)`
+    }
+  ]}
+  output={"Python en raíz: []\nJSON en raíz: ['config.json']\nTodo .py: ['main.py', 'test_main.py', 'utils.py']\nTests: ['test_main.py']\n  src/main.py: 1 línea(s)\n  src/utils.py: 1 línea(s)\n  tests/test_main.py: 1 línea(s)\nTotal: 3 líneas"}
+/>
+
+</Section>
+
+<Section id="exists-mkdir-stat" title="exists(), mkdir(), is_file(), is_dir()">
+
+Los métodos de inspección y creación de rutas hacen que el trabajo con el sistema de archivos sea seguro y expresivo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from pathlib import Path
+import tempfile, shutil
+
+base = Path(tempfile.mkdtemp())
+
+# Verificar existencia
+print(base.exists())      # True
+print(base.is_dir())      # True
+print(base.is_file())     # False
+
+archivo = base / "data.txt"
+print(archivo.exists())   # False — aún no existe
+
+# Crear directorios
+# mkdir() con parents=True crea toda la jerarquía
+deep = base / "a" / "b" / "c"
+deep.mkdir(parents=True, exist_ok=True)
+print(deep.exists())      # True
+
+# exist_ok=True evita el error si ya existe
+deep.mkdir(parents=True, exist_ok=True)  # sin error
+
+# Crear archivo y verificar
+archivo.write_text("contenido")
+print(archivo.exists())   # True
+print(archivo.is_file())  # True
+print(archivo.is_dir())   # False
+
+# stat() para metadatos del archivo
+stat = archivo.stat()
+print(f"Tamaño: {stat.st_size} bytes")
+print(f"Permisos: {oct(stat.st_mode)}")
+
+# rename() para mover/renombrar
+nuevo_nombre = base / "data_v2.txt"
+archivo.rename(nuevo_nombre)
+print(nuevo_nombre.exists())  # True
+print(archivo.exists())       # False — fue renombrado
+
+# unlink() para eliminar archivo
+nuevo_nombre.unlink()
+print(nuevo_nombre.exists())  # False
+
+# rmdir() solo elimina directorios vacíos
+# Para eliminar con contenido usar shutil.rmtree()
+shutil.rmtree(base)`
+    }
+  ]}
+  output={"True\nTrue\nFalse\nFalse\nTrue\nTrue\nTrue\nFalse\nTamaño: 9 bytes\nTrue\nFalse\nFalse"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Lista todos los archivos .py en un directorio", diff: "easy", minutes: 3 },
+    { num: "02", name: "Lee y escribe un archivo de texto con pathlib", diff: "easy", minutes: 3 },
+    { num: "03", name: "Crea una estructura de directorios recursiva", diff: "med", minutes: 5 },
+    { num: "04", name: "Encuentra todos los archivos grandes con glob", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

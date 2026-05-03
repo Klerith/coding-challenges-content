@@ -1,0 +1,236 @@
+---
+title: "Referencias, id() y la diferencia entre is y =="
+short: "Referencias e identity"
+chapter: "13"
+num: "05"
+chapterTitle: "Conceptos profundos de Python"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "== compara valores, is compara identidad (mismo objeto en memoria). id() retorna la dirección de memoria. Entender este triángulo evita bugs sutiles con None, True, False y pequeños enteros."
+pro: false
+---
+
+<Section id="id-identidad-objetos" title="id() y la identidad de objetos">
+
+`id(objeto)` retorna un entero único que identifica al objeto en memoria — en CPython es la dirección de memoria. Dos objetos con el mismo `id` en el mismo momento son el mismo objeto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# id() retorna la "identidad" del objeto
+a = [1, 2, 3]
+b = a          # b apunta al MISMO objeto
+c = [1, 2, 3]  # c apunta a un NUEVO objeto con el mismo contenido
+
+print(id(a))   # e.g. 140234567890
+print(id(b))   # mismo número — mismo objeto
+print(id(c))   # número diferente — objeto diferente
+
+# Verificar visualmente
+print(f"a is b: {a is b}")  # True — mismo objeto
+print(f"a is c: {a is c}")  # False — objetos distintos
+print(f"a == c: {a == c}")  # True — mismo contenido
+
+# Para inmutables pequeños: Python puede "internar" (reutilizar) objetos
+x = 256
+y = 256
+print(x is y)   # True — CPython reutiliza enteros de -5 a 256
+
+x2 = 257
+y2 = 257
+print(x2 is y2)  # False (en CPython) — fuera del rango de interning
+
+# El id cambia cuando el objeto ya no existe (el id puede reciclarse)
+def show_id():
+    temp = [1, 2, 3]
+    print(id(temp))
+
+show_id()  # el id puede repetirse en la siguiente llamada
+show_id()  # (la lista anterior fue destruida, su id reciclado)`
+    }
+  ]}
+  output={"140234567890\n140234567890\n140234567912\na is b: True\na is c: False\na == c: True\nTrue\nFalse"}
+/>
+
+</Section>
+
+<Section id="is-vs-igual" title="is vs == — cuándo usar cada uno">
+
+`==` invoca `__eq__` del objeto — compara valor. `is` compara identidad (mismo `id`). Nunca deben confundirse: algunos objetos definen `__eq__` de formas sorprendentes (como los arrays de numpy).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# == compara valor (llama __eq__)
+print([1, 2, 3] == [1, 2, 3])    # True — mismos valores
+print("python" == "python")       # True
+
+# is compara identidad (dirección en memoria)
+a = [1, 2, 3]
+b = [1, 2, 3]
+print(a is b)   # False — objetos distintos aunque iguales en valor
+
+# El peligro con numpy (razón por la que 'is' importa conocerlo)
+# import numpy as np
+# arr = np.array([1, 2, 3])
+# if arr == [1, 2, 3]:  # ValueError: ambiguo! == retorna un array
+#     print("igual")    # ← esto falla
+
+# Usa np.array_equal(arr, [1, 2, 3]) en su lugar
+
+# Objetos únicos (singletons): usa 'is' obligatoriamente
+x = None
+print(x is None)    # ✅ correcto
+print(x == None)    # funciona pero genera warning en linters
+
+result = True
+print(result is True)    # ✅ correcto para singletons
+print(result == True)    # funciona pero no idiomático
+
+# Comparar funciones e instancias custom
+def greet(): pass
+f = greet
+print(f is greet)    # True — misma función
+print(f == greet)    # True — por defecto __eq__ usa is para objetos
+
+class Point:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+p1 = Point(1, 2)
+p2 = Point(1, 2)
+print(p1 == p2)   # False — sin __eq__ definido, usa identidad
+print(p1 is p2)   # False`
+    }
+  ]}
+  output={"True\nTrue\nFalse\nTrue\nTrue\nTrue\nTrue\nFalse\nFalse"}
+/>
+
+</Section>
+
+<Section id="interning" title="Interning de strings e integers">
+
+CPython optimiza la memoria reutilizando ("internando") objetos inmutables pequeños. Entender cuándo ocurre evita confusiones al usar `is` con strings e integers.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import sys
+
+# Integer interning: -5 a 256 están preasignados
+print(-5 is -5)    # True — internado
+print(0 is 0)      # True
+print(256 is 256)  # True
+print(257 is 257)  # False en CPython (puede variar según contexto)
+
+# Pero en el mismo archivo/compilación, puede internarse más:
+a = 1000
+b = 1000
+print(a is b)  # True en algunos contextos (misma literal en mismo bloque)
+
+# String interning: strings que parecen identificadores se internan
+s1 = "hola"
+s2 = "hola"
+print(s1 is s2)   # True — internado (literal simple sin espacios)
+
+s3 = "hola mundo"  # con espacios
+s4 = "hola mundo"
+print(s3 is s4)    # puede ser True o False (depende del compilador)
+
+# Forzar interning manualmente
+s5 = sys.intern("hola mundo")
+s6 = sys.intern("hola mundo")
+print(s5 is s6)    # True — explícitamente internados
+
+# Construir un string en runtime NO se interna automáticamente
+s7 = "ho" + "la"   # constante plegada por el compilador → internado
+s8 = "hola"
+print(s7 is s8)    # True
+
+prefix = "ho"
+s9 = prefix + "la"  # calculado en runtime — NO internado automáticamente
+print(s9 is "hola")  # False — diferente objeto`
+    }
+  ]}
+  output={"True\nTrue\nTrue\nFalse\nTrue\nTrue\nTrue\nTrue\nTrue\nFalse"}
+/>
+
+<Callout variant="warn" title="Nunca uses 'is' para comparar valores">
+El comportamiento del interning es un detalle de implementación de CPython — puede cambiar entre versiones, plataformas y contextos. Solo usa `is` con singletons conocidos: `None`, `True`, `False`, y objetos de los que sabes que son únicos.
+</Callout>
+
+</Section>
+
+<Section id="is-none-estandar" title="El comparador is None como práctica estándar">
+
+`is None` es la forma canónica y universalmente aceptada de verificar ausencia de valor. `== None` funciona en muchos casos pero puede dar resultados inesperados con objetos que sobrescriben `__eq__`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ✅ Siempre usa 'is None' y 'is not None'
+def process(value=None):
+    if value is None:
+        return "sin valor"
+    return f"procesando: {value}"
+
+print(process())         # sin valor
+print(process("datos"))  # procesando: datos
+
+# ❌ Por qué == None puede fallar
+class WeirdValue:
+    def __eq__(self, other):
+        return True  # ¡igual a todo!
+
+w = WeirdValue()
+print(w == None)   # True — ¡incorrecto!
+print(w is None)   # False — correcto
+
+# El patrón centinela: usar None como valor por defecto "no se pasó nada"
+_MISSING = object()  # objeto único, imposible de reproducir externamente
+
+def func(value=_MISSING):
+    if value is _MISSING:
+        print("No se pasó ningún valor")
+    elif value is None:
+        print("Se pasó None explícitamente")
+    else:
+        print(f"Valor: {value}")
+
+func()        # No se pasó ningún valor
+func(None)    # Se pasó None explícitamente
+func(42)      # Valor: 42
+
+# Verificar el tipo antes de comparar valor
+values = [0, "", [], None, False, 0.0]
+print([v for v in values if v is None])    # [None] — solo el None real
+print([v for v in values if v == None])   # [None] — igual resultado (pero frágil)`
+    }
+  ]}
+  output={"sin valor\nprocesando: datos\nTrue\nFalse\nNo se pasó ningún valor\nSe pasó None explícitamente\nValor: 42\n[None]\n[None]"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Demuestra cuándo is y == difieren", diff: "easy", minutes: 3 },
+    { num: "02", name: "Explica el interning de enteros pequeños", diff: "med", minutes: 5 },
+    { num: "03", name: "Corrige código que usa == None en vez de is None", diff: "easy", minutes: 3 },
+    { num: "04", name: "Crea dos listas con el mismo contenido y compara", diff: "easy", minutes: 3 },
+  ]}
+/>
+</Section>

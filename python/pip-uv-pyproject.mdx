@@ -1,0 +1,227 @@
+---
+title: "pip, uv y pyproject.toml: gestión moderna de dependencias"
+short: "pip, uv, pyproject"
+chapter: "10"
+num: "04"
+chapterTitle: "Módulos y paquetes"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "pip es el gestor histórico; uv es el futuro (100x más rápido, escrito en Rust). pyproject.toml reemplaza requirements.txt y setup.py con un único archivo declarativo."
+pro: true
+---
+
+<Section id="pip-y-requirements" title="pip install y requirements.txt">
+
+`pip` es el gestor de paquetes de Python incluido en la instalación estándar. `requirements.txt` es el archivo tradicional para declarar dependencias. Sencillo y universal, aunque limitado.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Comandos pip esenciales (en la terminal, no en Python)
+#
+# Instalar un paquete
+# pip install requests
+#
+# Instalar una versión específica
+# pip install requests==2.31.0
+#
+# Instalar desde requirements.txt
+# pip install -r requirements.txt
+#
+# Generar requirements.txt desde el entorno actual
+# pip freeze > requirements.txt
+#
+# Ver paquetes instalados
+# pip list
+#
+# Actualizar un paquete
+# pip install --upgrade requests
+#
+# Desinstalar
+# pip uninstall requests
+
+# Ejemplo de requirements.txt:
+# requests==2.31.0
+# pydantic>=2.0,<3.0
+# python-dotenv~=1.0
+# pytest==7.4.0  # solo para desarrollo`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Siempre usa un entorno virtual con pip">
+Nunca instales paquetes globalmente con `sudo pip install`. Usa siempre un entorno virtual (`python -m venv .venv` y luego `source .venv/bin/activate`). Cada proyecto tiene sus propias dependencias aisladas.
+</Callout>
+
+</Section>
+
+<Section id="uv-instalacion-y-comandos" title="uv — instalación y comandos básicos">
+
+`uv` es un gestor de paquetes y proyectos Python escrito en Rust. Reemplaza `pip`, `pip-tools`, `virtualenv` y parte de `poetry` con una sola herramienta, ejecutando operaciones hasta 100 veces más rápido.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Instalar uv (una sola vez en tu sistema)
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+# o en macOS: brew install uv
+
+# --- Comandos uv equivalentes a pip ---
+
+# Crear un nuevo proyecto (genera estructura + pyproject.toml)
+# uv init mi-proyecto
+# cd mi-proyecto
+
+# Añadir dependencias
+# uv add requests
+# uv add "pydantic>=2.0"
+# uv add --dev pytest ruff  # dependencias de desarrollo
+
+# Instalar todas las dependencias del proyecto
+# uv sync
+
+# Ejecutar un script con el entorno del proyecto
+# uv run python main.py
+# uv run pytest
+
+# Eliminar una dependencia
+# uv remove requests
+
+# Actualizar todas las dependencias
+# uv lock --upgrade
+
+# Ver dependencias del proyecto
+# uv tree`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="uv gestiona Python también">
+Con `uv python install 3.13` puedes instalar versiones de Python sin herramientas externas. `uv python pin 3.12` fija la versión de Python para el proyecto actual.
+</Callout>
+
+</Section>
+
+<Section id="pyproject-toml" title="pyproject.toml — dependencias y metadata">
+
+`pyproject.toml` es el estándar moderno (PEP 517/518/621) que reemplaza `setup.py`, `setup.cfg` y `requirements.txt` en un único archivo declarativo. `uv init` lo genera automáticamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# pyproject.toml — ejemplo completo para un proyecto real
+
+# [project] — metadata del paquete (PEP 621)
+# name = "mi-proyecto"
+# version = "0.1.0"
+# description = "Una aplicación Python moderna"
+# readme = "README.md"
+# requires-python = ">=3.11"
+# license = { text = "MIT" }
+# authors = [
+#     { name = "Fernando Herrera", email = "fer@ejemplo.com" }
+# ]
+# keywords = ["python", "ejemplo"]
+
+# Dependencias de producción
+# dependencies = [
+#     "requests>=2.31",
+#     "pydantic>=2.0,<3.0",
+#     "python-dotenv>=1.0",
+# ]
+
+# Dependencias de desarrollo (opcional-dependencies)
+# [project.optional-dependencies]
+# dev = [
+#     "pytest>=7.4",
+#     "ruff>=0.1",
+#     "mypy>=1.5",
+# ]
+
+# Configuración de ruff (linter + formateador)
+# [tool.ruff]
+# line-length = 88
+# target-version = "py311"
+
+# Configuración de mypy (type checker)
+# [tool.mypy]
+# python_version = "3.11"
+# strict = true`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="entornos-virtuales-con-uv" title="Entornos virtuales con uv venv">
+
+`uv` crea y gestiona entornos virtuales automáticamente cuando usas `uv run` o `uv sync`. También puedes crearlos manualmente para compatibilidad con otras herramientas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Flujo completo de un proyecto nuevo con uv:
+#
+# 1. Crear el proyecto
+# uv init calculadora
+# cd calculadora
+#
+# Estructura generada:
+# calculadora/
+#   .python-version   ← versión de Python fijada
+#   pyproject.toml    ← metadata y dependencias
+#   README.md
+#   main.py           ← punto de entrada generado
+#   .venv/            ← entorno virtual (creado en el primer uv run/sync)
+#
+# 2. Añadir dependencias
+# uv add httpx pydantic
+# uv add --dev pytest ruff
+#
+# 3. uv.lock se genera automáticamente — equivale a requirements.txt con hashes
+# El lockfile garantiza reproducibilidad exacta en todos los entornos
+#
+# 4. Ejecutar el proyecto
+# uv run python main.py
+# uv run pytest
+#
+# 5. Crear entorno virtual manualmente (para uso con editores)
+# uv venv               # crea .venv/
+# source .venv/bin/activate   # activar (Linux/macOS)
+# .venv\\Scripts\\activate      # activar (Windows)`
+    }
+  ]}
+/>
+
+<CompareTable
+  headers={["pip + venv", "uv"]}
+  rows={[
+    [{ kind: "bad", value: "python -m venv .venv\nsource .venv/bin/activate\npip install requests" }, { kind: "good", value: "uv init\nuv add requests" }],
+    [{ kind: "bad", value: "pip freeze > requirements.txt (manual)" }, { kind: "good", value: "uv.lock generado automáticamente" }],
+    [{ kind: "bad", value: "Velocidad: ~10s para instalar Django" }, { kind: "good", value: "Velocidad: ~0.3s para instalar Django (caché)" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea un proyecto con uv init y añade dependencias", diff: "easy", minutes: 5 },
+    { num: "02", name: "Escribe un pyproject.toml completo para un pequeño proyecto", diff: "med", minutes: 7 },
+    { num: "03", name: "Migra de requirements.txt a pyproject.toml", diff: "med", minutes: 8 },
+  ]}
+/>
+</Section>

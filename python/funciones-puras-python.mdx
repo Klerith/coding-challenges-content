@@ -1,0 +1,263 @@
+---
+title: "Funciones puras: predecibles, testeables y componibles"
+short: "Funciones puras"
+chapter: "13"
+num: "06"
+chapterTitle: "Conceptos profundos de Python"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Una función pura siempre retorna el mismo resultado para los mismos argumentos y no tiene efectos secundarios. Son triviales de testear y pueden componerse sin miedo."
+pro: false
+---
+
+<Section id="definicion-funcion-pura" title="Definición de función pura">
+
+Una función pura cumple dos condiciones: (1) dado el mismo input, siempre produce el mismo output; (2) no tiene efectos secundarios — no modifica estado externo, no hace I/O, no lanza excepciones no declaradas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ✅ Funciones puras
+def add(a: int, b: int) -> int:
+    return a + b
+
+def square(x: float) -> float:
+    return x ** 2
+
+def to_uppercase(text: str) -> str:
+    return text.upper()
+
+def get_first(items: list):
+    return items[0] if items else None
+
+# Siempre el mismo resultado para los mismos argumentos
+print(add(3, 4))    # 7 — siempre
+print(add(3, 4))    # 7 — siempre
+print(square(5))    # 25.0 — siempre
+
+# ❌ Funciones impuras
+import random, datetime
+
+def get_random() -> int:
+    return random.randint(1, 100)  # diferente cada vez — no pura
+
+def get_timestamp() -> str:
+    return datetime.datetime.now().isoformat()  # depende del tiempo — no pura
+
+counter = 0
+def increment() -> int:
+    global counter
+    counter += 1     # modifica estado global — no pura
+    return counter
+
+def save_to_file(data: str, path: str) -> None:
+    with open(path, "w") as f:
+        f.write(data)  # efecto secundario (I/O) — no pura
+
+# Las funciones puras son como funciones matemáticas
+# f(x) = x² es siempre igual para el mismo x
+# No hay "estado" ni "tiempo" involucrado`
+    }
+  ]}
+  output={"7\n7\n25.0"}
+/>
+
+</Section>
+
+<Section id="efectos-secundarios" title="Efectos secundarios y por qué evitarlos">
+
+Los efectos secundarios hacen el código difícil de testear, razonar y paralelizar. No siempre pueden eliminarse — leer archivos, conectarse a bases de datos, mostrar resultados son necesarios — pero deben aislarse.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Tipos de efectos secundarios:
+# 1. Modificar argumento mutable
+def double_items_impure(items: list) -> list:
+    for i in range(len(items)):
+        items[i] *= 2     # modifica el argumento original — efecto secundario
+    return items
+
+original = [1, 2, 3]
+result = double_items_impure(original)
+print(original)  # [2, 4, 6] — modificado!
+
+# ✅ Versión pura: retorna nueva lista
+def double_items(items: list) -> list:
+    return [x * 2 for x in items]  # no toca el original
+
+original = [1, 2, 3]
+result = double_items(original)
+print(original)  # [1, 2, 3] — intacto
+print(result)    # [2, 4, 6]
+
+# 2. Leer/escribir estado global
+_cache = {}  # estado global
+
+def get_or_compute_impure(key: str) -> int:
+    if key not in _cache:
+        _cache[key] = len(key)  # modifica estado global — impura
+    return _cache[key]
+
+# ✅ Mejor: pasar el estado explícitamente
+def get_or_compute(cache: dict, key: str) -> tuple[dict, int]:
+    if key in cache:
+        return cache, cache[key]
+    new_cache = {**cache, key: len(key)}
+    return new_cache, new_cache[key]
+
+cache = {}
+cache, val = get_or_compute(cache, "python")
+print(val)    # 6`
+    }
+  ]}
+  output={"[2, 4, 6]\n[1, 2, 3]\n[2, 4, 6]\n6"}
+/>
+
+</Section>
+
+<Section id="inmutabilidad-herramienta" title="Inmutabilidad como herramienta">
+
+La inmutabilidad es el aliado natural de las funciones puras. Usar tipos inmutables (tuplas, frozensets, strings) como argumentos garantiza que la función no puede modificarlos aunque quiera.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from dataclasses import dataclass
+
+# Modelar datos con dataclass frozen=True (inmutable)
+@dataclass(frozen=True)
+class Point:
+    x: float
+    y: float
+
+@dataclass(frozen=True)
+class Rectangle:
+    top_left: Point
+    bottom_right: Point
+
+    @property
+    def width(self) -> float:
+        return self.bottom_right.x - self.top_left.x
+
+    @property
+    def height(self) -> float:
+        return self.bottom_right.y - self.top_left.y
+
+    @property
+    def area(self) -> float:
+        return self.width * self.height
+
+# Funciones puras que operan sobre datos inmutables
+def translate(rect: Rectangle, dx: float, dy: float) -> Rectangle:
+    """Retorna un nuevo rectángulo desplazado — no modifica el original."""
+    return Rectangle(
+        top_left=Point(rect.top_left.x + dx, rect.top_left.y + dy),
+        bottom_right=Point(rect.bottom_right.x + dx, rect.bottom_right.y + dy),
+    )
+
+def scale(rect: Rectangle, factor: float) -> Rectangle:
+    """Escala el rectángulo desde su esquina superior izquierda."""
+    return Rectangle(
+        top_left=rect.top_left,
+        bottom_right=Point(
+            rect.top_left.x + rect.width * factor,
+            rect.top_left.y + rect.height * factor,
+        ),
+    )
+
+r = Rectangle(Point(0, 0), Point(4, 3))
+print(f"Area original: {r.area}")       # 12.0
+
+r2 = translate(r, 1, 1)
+print(f"Desplazado: {r2.top_left}")     # Point(x=1, y=1)
+print(f"Original intacto: {r.top_left}") # Point(x=0, y=0)
+
+r3 = scale(r, 2)
+print(f"Area escalada: {r3.area}")      # 48.0`
+    }
+  ]}
+  output={"Area original: 12.0\nDesplazado: Point(x=1.0, y=1.0)\nOriginal intacto: Point(x=0.0, y=0.0)\nArea escalada: 48.0"}
+/>
+
+</Section>
+
+<Section id="composicion-funciones-puras" title="Composición de funciones puras">
+
+Las funciones puras se componen sin sorpresas. El output de una puede ser el input de la siguiente y el resultado es predecible — sin estado compartido que pueda interferir.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Callable, TypeVar
+
+T = TypeVar("T")
+
+# Componer dos funciones: compose(f, g)(x) == f(g(x))
+def compose(f: Callable, g: Callable) -> Callable:
+    return lambda x: f(g(x))
+
+# Pipe: aplica funciones en orden (izquierda a derecha)
+def pipe(value, *functions: Callable):
+    result = value
+    for f in functions:
+        result = f(result)
+    return result
+
+# Funciones puras para transformar texto
+def strip_whitespace(text: str) -> str:
+    return text.strip()
+
+def to_lower(text: str) -> str:
+    return text.lower()
+
+def replace_spaces(text: str) -> str:
+    return text.replace(" ", "_")
+
+def normalize(text: str) -> str:
+    return pipe(text, strip_whitespace, to_lower, replace_spaces)
+
+print(normalize("  Hola Mundo  "))  # hola_mundo
+print(normalize("  Python ES   genial   "))  # python_es___genial
+
+# Pipeline de transformación de datos
+def parse_int(s: str) -> int:
+    return int(s.strip())
+
+def double(n: int) -> int:
+    return n * 2
+
+def add_ten(n: int) -> int:
+    return n + 10
+
+process_number = compose(add_ten, double)  # primero double, luego add_ten
+print(process_number(parse_int(" 5 ")))   # double(5) = 10 → add_ten(10) = 20`
+    }
+  ]}
+  output={"hola_mundo\npython_es___genial\n20"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Identifica cuáles son puras y cuáles no", diff: "easy", minutes: 3 },
+    { num: "02", name: "Convierte una función impura en pura", diff: "med", minutes: 5 },
+    { num: "03", name: "Encadena funciones puras para transformar datos", diff: "med", minutes: 6 },
+    { num: "04", name: "Escribe tests para funciones puras (pytest)", diff: "easy", minutes: 5 },
+  ]}
+/>
+</Section>

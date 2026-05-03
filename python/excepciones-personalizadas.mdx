@@ -1,0 +1,232 @@
+---
+title: "Excepciones personalizadas: crear jerarquías de error propias"
+short: "Excepciones personalizadas"
+chapter: "07"
+num: "04"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Las excepciones personalizadas hacen que tu API sea autoexplicativa. En lugar de ValueError, lanzas InsufficientFundsError. El código que llama sabe exactamente qué falló."
+pro: false
+---
+
+<Section id="heredar-exception" title="Heredar de Exception">
+
+Crear una excepción personalizada es tan simple como heredar de `Exception`. Con eso ya tienes una excepción con nombre propio que puedes lanzar y capturar de forma independiente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# La excepción más simple posible
+class InsufficientFundsError(Exception):
+    pass
+
+class AccountFrozenError(Exception):
+    pass
+
+def retirar(saldo: float, monto: float, congelada: bool = False) -> float:
+    if congelada:
+        raise AccountFrozenError("La cuenta está congelada")
+    if monto > saldo:
+        raise InsufficientFundsError(
+            f"Saldo insuficiente: tienes {saldo:.2f}, intentas retirar {monto:.2f}"
+        )
+    return saldo - monto
+
+# Captura específica ✅
+try:
+    nuevo_saldo = retirar(100.0, 150.0)
+except InsufficientFundsError as e:
+    print(f"Sin fondos: {e}")
+except AccountFrozenError as e:
+    print(f"Cuenta bloqueada: {e}")
+
+try:
+    retirar(500.0, 100.0, congelada=True)
+except AccountFrozenError as e:
+    print(f"Bloqueada: {e}")`
+    }
+  ]}
+  output={"Sin fondos: Saldo insuficiente: tienes 100.00, intentas retirar 150.00\nBloqueada: La cuenta está congelada"}
+/>
+
+</Section>
+
+<Section id="atributos-init" title="Añadir atributos con __init__">
+
+Las excepciones pueden llevar datos estructurados. Al definir `__init__`, puedes añadir atributos que el código que captura la excepción puede usar para tomar decisiones.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class ValidationError(Exception):
+    def __init__(self, campo: str, mensaje: str, valor=None) -> None:
+        self.campo = campo
+        self.mensaje = mensaje
+        self.valor = valor
+        # super().__init__ recibe el mensaje para str(excepcion)
+        super().__init__(f"[{campo}] {mensaje}")
+
+class RateLimitError(Exception):
+    def __init__(self, intentos: int, limite: int, reset_en: int) -> None:
+        self.intentos = intentos
+        self.limite = limite
+        self.reset_en = reset_en   # segundos hasta reset
+        super().__init__(
+            f"Rate limit excedido: {intentos}/{limite} — reset en {reset_en}s"
+        )
+
+# Lanzar con datos ricos
+try:
+    raise ValidationError("email", "Formato inválido", valor="sin-arroba")
+except ValidationError as e:
+    print(f"Error: {e}")
+    print(f"  Campo:  {e.campo}")
+    print(f"  Valor:  {e.valor!r}")
+    print(f"  Mensaje: {e.mensaje}")
+
+try:
+    raise RateLimitError(intentos=101, limite=100, reset_en=42)
+except RateLimitError as e:
+    print(f"\n{e}")
+    print(f"  Reintentar en: {e.reset_en} segundos")`
+    }
+  ]}
+  output={"Error: [email] Formato inválido\n  Campo:  email\n  Valor:  'sin-arroba'\n  Mensaje: Formato inválido\n\nRate limit excedido: 101/100 — reset en 42s\n  Reintentar en: 42 segundos"}
+/>
+
+</Section>
+
+<Section id="jerarquia-propia" title="Jerarquía de excepciones propias">
+
+Un patrón muy común en librerías y aplicaciones es definir una excepción base propia (`AppError`) y derivar de ella las específicas. Esto permite capturar todo lo tuyo con un solo `except AppError` cuando necesitas manejar errores genéricamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Excepción raíz de la aplicación
+class AppError(Exception):
+    """Base para todos los errores de la aplicación."""
+
+# Segunda capa: categorías
+class NetworkError(AppError):
+    """Errores de red y conectividad."""
+
+class StorageError(AppError):
+    """Errores de almacenamiento (DB, disco)."""
+
+class AuthError(AppError):
+    """Errores de autenticación y autorización."""
+
+# Tercera capa: errores específicos
+class TimeoutError(NetworkError):
+    def __init__(self, url: str, timeout_s: float) -> None:
+        self.url = url
+        self.timeout_s = timeout_s
+        super().__init__(f"Timeout ({timeout_s}s) al conectar a {url}")
+
+class RecordNotFoundError(StorageError):
+    def __init__(self, model: str, record_id: int) -> None:
+        self.model = model
+        self.record_id = record_id
+        super().__init__(f"{model} con id={record_id} no encontrado")
+
+class InvalidTokenError(AuthError):
+    pass
+
+# Captura genérica: cualquier error de la app
+def ejecutar_operacion() -> None:
+    raise RecordNotFoundError("Usuario", 99)
+
+try:
+    ejecutar_operacion()
+except AuthError:
+    print("Error de autenticación — redirige al login")
+except StorageError as e:
+    print(f"Error de datos: {e}")    # Error de datos: Usuario con id=99 no encontrado
+except AppError as e:
+    print(f"Error genérico de la app: {e}")
+except Exception as e:
+    print(f"Error inesperado: {e}")`
+    }
+  ]}
+  output={"Error de datos: Usuario con id=99 no encontrado"}
+/>
+
+</Section>
+
+<Section id="str-repr" title="__str__ y __repr__ en excepciones">
+
+`__str__` controla lo que se muestra cuando haces `str(e)` o `print(e)`. `__repr__` sirve para debugging — debería ser más detallado e incluir el tipo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class ApiError(Exception):
+    def __init__(self, status_code: int, mensaje: str, url: str) -> None:
+        self.status_code = status_code
+        self.mensaje = mensaje
+        self.url = url
+        super().__init__(mensaje)   # base recibe el mensaje principal
+
+    def __str__(self) -> str:
+        # Mensaje legible para logs y usuarios
+        return f"HTTP {self.status_code} en {self.url}: {self.mensaje}"
+
+    def __repr__(self) -> str:
+        # Representación técnica para debugging
+        return (
+            f"ApiError(status_code={self.status_code!r}, "
+            f"mensaje={self.mensaje!r}, url={self.url!r})"
+        )
+
+error = ApiError(404, "Recurso no encontrado", "https://api.ejemplo.com/usuario/99")
+
+print(str(error))    # HTTP 404 en https://api.ejemplo.com/usuario/99: Recurso no encontrado
+print(repr(error))   # ApiError(status_code=404, mensaje='Recurso no encontrado', url='...')
+
+# En un try/except, print(e) usa __str__
+try:
+    raise error
+except ApiError as e:
+    print(f"Error: {e}")
+    print(f"Código: {e.status_code}")`
+    }
+  ]}
+  output={"HTTP 404 en https://api.ejemplo.com/usuario/99: Recurso no encontrado\nApiError(status_code=404, mensaje='Recurso no encontrado', url='https://api.ejemplo.com/usuario/99')\nError: HTTP 404 en https://api.ejemplo.com/usuario/99: Recurso no encontrado\nCódigo: 404"}
+/>
+
+<Callout variant="tip" title="El método to_dict() para APIs">
+En APIs web es común serializar las excepciones a JSON para enviarlas como respuesta de error. Añadir un método `to_dict()` a tus excepciones hace que esto sea trivial:
+
+```python
+def to_dict(self) -> dict:
+    return {"error": type(self).__name__, "mensaje": str(self), "codigo": self.status_code}
+```
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea ValidationError con campo y mensaje", diff: "easy", minutes: 4 },
+    { num: "02", name: "Jerarquía: AppError → NetworkError → TimeoutError", diff: "med", minutes: 6 },
+    { num: "03", name: "Lanza y captura una excepción personalizada en un flujo real", diff: "med", minutes: 7 },
+    { num: "04", name: "Añade un método to_dict() a tu excepción", diff: "med", minutes: 6 },
+    { num: "05", name: "Captura excepciones de terceros y re-lanza como propias", diff: "hard", minutes: 8 },
+  ]}
+/>
+</Section>

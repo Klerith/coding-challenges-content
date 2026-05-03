@@ -1,0 +1,260 @@
+---
+title: "Comentarios, docstrings y PEP 8: el estilo idiomático"
+short: "Comentarios y PEP 8"
+chapter: "02"
+num: "04"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["py"]
+exercises: 2
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un comentario mal colocado confunde más que ayuda. PEP 8 es la guía de estilo oficial de Python y la razón por la que el código Python se lee como prosa."
+pro: false
+---
+
+<Section id="comentarios" title="Comentarios con #">
+
+En Python, los comentarios de una línea comienzan con `#`. No existe una sintaxis oficial para comentarios de bloque — se encadenan líneas con `#`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Comentario de una sola línea
+
+resultado = 42  # Comentario al final de una línea (inline)
+
+# Para comentarios de múltiples líneas,
+# simplemente se encadenan líneas con #
+# No existe /* */ como en otros lenguajes
+
+# ✅ Buen comentario — explica el POR QUÉ
+# Usamos // en lugar de / porque la API espera índices enteros
+indice = total // tamanio_pagina
+
+# ❌ Mal comentario — repite lo que el código ya dice
+# suma a + b
+suma = a + b
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Comenta el porqué, no el qué">
+El código ya dice **qué** hace. Los comentarios deben decir **por qué** es necesario, o aclarar una decisión no obvia. Un comentario que repite el código es ruido que aumenta el mantenimiento.
+</Callout>
+
+</Section>
+
+<Section id="docstrings" title="Docstrings">
+
+Los docstrings son strings multilínea que documentan módulos, clases y funciones. El intérprete los guarda en el atributo `__doc__` y herramientas como `help()` los usan para generar documentación automática.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def calcular_area(base: float, altura: float) -> float:
+    """Calcula el área de un triángulo.
+
+    Args:
+        base: La base del triángulo en centímetros.
+        altura: La altura del triángulo en centímetros.
+
+    Returns:
+        El área del triángulo en cm².
+
+    Raises:
+        ValueError: Si base o altura son negativos.
+
+    Examples:
+        >>> calcular_area(10, 5)
+        25.0
+    """
+    if base < 0 or altura < 0:
+        raise ValueError("Las dimensiones deben ser positivas")
+    return (base * altura) / 2
+
+
+# Acceder al docstring
+print(calcular_area.__doc__)
+# También: help(calcular_area)
+`
+    }
+  ]}
+/>
+
+**Docstring de una línea** para funciones simples:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def doble(numero: int) -> int:
+    """Devuelve el doble del número recibido."""
+    return numero * 2
+`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="pep8-reglas" title="Las reglas clave de PEP 8">
+
+PEP 8 es la guía de estilo oficial de Python. Los puntos más importantes:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Indentación y líneas",
+      code: `# ✅ Indentación: 4 espacios (nunca tabs)
+def saludar(nombre):
+    if nombre:
+        return f"Hola, {nombre}"
+
+# ✅ Longitud máxima de línea: 88 caracteres (estándar de ruff/black)
+# 79 es el valor histórico de PEP 8, pero 88 es la práctica moderna
+
+# ✅ Líneas en blanco: 2 entre funciones/clases, 1 entre métodos
+def primera_funcion():
+    pass
+
+
+def segunda_funcion():
+    pass
+
+
+class MiClase:
+    def primer_metodo(self):
+        pass
+
+    def segundo_metodo(self):
+        pass
+`
+    }
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Espacios y operadores",
+      code: `# ✅ Espacios alrededor de operadores
+x = 1 + 2
+y = x * 3
+
+# ❌ Sin espacios (difícil de leer)
+x=1+2
+y=x*3
+
+# ✅ Sin espacios en argumentos de función
+def f(x, y=10):   # ✅ valor por defecto sin espacios
+    return x + y
+
+f(1, y=20)        # ✅ llamada sin espacios en keyword arg
+
+# ❌ Con espacios en argumentos (no idiomático)
+def f( x, y = 10 ):
+    return x + y
+
+# ✅ Importaciones: una por línea, al inicio del archivo
+import os
+import sys
+from pathlib import Path
+`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ruff" title="ruff — el formateador moderno">
+
+`ruff` es la herramienta moderna para formatear y lintear Python automáticamente. Reemplaza a `black`, `flake8` e `isort` en un solo comando.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Antes de ruff",
+      code: `# Código mal formateado
+import sys,os
+x=1+2
+def f( a,b ):
+    return a+b
+lista=[1,2,3,4,5]
+`
+    }
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Después de ruff format",
+      code: `import os
+import sys
+
+x = 1 + 2
+
+
+def f(a, b):
+    return a + b
+
+
+lista = [1, 2, 3, 4, 5]
+`
+    }
+  ]}
+/>
+
+**Instalar y usar ruff:**
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal",
+      code: `# Instalar ruff
+# uv add --dev ruff
+# o: pip install ruff
+
+# Verificar problemas de estilo
+# ruff check mi_archivo.py
+
+# Formatear automáticamente
+# ruff format mi_archivo.py
+
+# Configuración en pyproject.toml:
+# [tool.ruff]
+# line-length = 88
+# target-version = "py313"
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Configura ruff en tu editor">
+La extensión Ruff de VS Code formatea tu código cada vez que guardas el archivo. Una vez configurada, nunca tendrás que pensar en el formato manual.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Dos ejercicios para practicar el estilo idiomático de Python."
+  items={[
+    { num: "01", name: "Formatea este código con PEP 8", diff: "easy", minutes: 4 },
+    { num: "02", name: "Escribe docstrings para 3 funciones", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

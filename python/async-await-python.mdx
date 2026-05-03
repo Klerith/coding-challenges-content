@@ -1,0 +1,203 @@
+---
+title: "async / await: escribir código asíncrono con estilo síncrono"
+short: "async / await"
+chapter: "06"
+num: "02"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "await pausa la corrutina actual y cede control al event loop hasta que la tarea termine. El resultado: código que parece síncrono pero no bloquea el hilo."
+pro: false
+---
+
+<Section id="await-dentro-corrutinas" title="await dentro de corrutinas">
+
+`await` suspende la corrutina actual y devuelve el control al event loop. El event loop puede entonces ejecutar otras corrutinas mientras la suspendida espera. Cuando la operación awaitable termina, la corrutina se reanuda.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def obtener_usuario(user_id: int) -> dict:
+    print(f"  → Consultando usuario {user_id}...")
+    await asyncio.sleep(1)  # simula consulta a DB
+    return {"id": user_id, "nombre": f"Usuario {user_id}"}
+
+async def obtener_pedidos(user_id: int) -> list[dict]:
+    print(f"  → Consultando pedidos de {user_id}...")
+    await asyncio.sleep(1)  # simula consulta a DB
+    return [{"pedido": 1, "total": 50.0}]
+
+async def perfil_completo(user_id: int) -> dict:
+    # En secuencia: 2 segundos (await espera cada uno)
+    usuario = await obtener_usuario(user_id)
+    pedidos = await obtener_pedidos(user_id)
+    return {"usuario": usuario, "pedidos": pedidos}
+
+async def main() -> None:
+    perfil = await perfil_completo(42)
+    print(perfil)
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"  → Consultando usuario 42...\n  → Consultando pedidos de 42...\n{'usuario': {'id': 42, 'nombre': 'Usuario 42'}, 'pedidos': [{'pedido': 1, 'total': 50.0}]}"}
+/>
+
+Cualquier objeto que implemente `__await__` puede ser awaitable: corrutinas, `asyncio.Task`, `asyncio.Future`, y objetos de librerías como aiohttp.
+
+<Callout variant="info" title="await no es magia">
+`await expr` es equivalente a pedirle al event loop: «pausa aquí, ve a hacer otras cosas, y cuando `expr` termine, regresa y continúa desde este punto». El event loop mantiene el estado de la corrutina suspendida en memoria.
+</Callout>
+
+</Section>
+
+<Section id="create-task" title="Crear y ejecutar tareas con asyncio.create_task">
+
+Para ejecutar corrutinas de forma concurrente sin esperar a que terminen inmediatamente, usa `asyncio.create_task()`. Esto registra la corrutina en el event loop y la empieza a ejecutar lo antes posible.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+import time
+
+async def descargar(nombre: str, segundos: float) -> str:
+    print(f"Iniciando: {nombre}")
+    await asyncio.sleep(segundos)
+    print(f"Completado: {nombre}")
+    return f"datos de {nombre}"
+
+async def main() -> None:
+    inicio = time.perf_counter()
+
+    # create_task registra las corrutinas y las inicia concurrentemente
+    tarea1 = asyncio.create_task(descargar("usuarios", 2.0))
+    tarea2 = asyncio.create_task(descargar("productos", 1.0))
+    tarea3 = asyncio.create_task(descargar("pedidos", 1.5))
+
+    # await en la tarea espera a que esa tarea específica termine
+    r1 = await tarea1
+    r2 = await tarea2
+    r3 = await tarea3
+
+    fin = time.perf_counter()
+    print(f"Resultados: {r1}, {r2}, {r3}")
+    print(f"Tiempo: {fin - inicio:.1f}s")  # ~2.0s, no 4.5s
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"Iniciando: usuarios\nIniciando: productos\nIniciando: pedidos\nCompletado: productos\nCompletado: pedidos\nCompletado: usuarios\nResultados: datos de usuarios, datos de productos, datos de pedidos\nTiempo: 2.0s"}
+/>
+
+<Callout variant="tip" title="create_task vs gather">
+`create_task` es más flexible: puedes crear las tareas en distintos momentos y decidir cuándo esperarlas. `gather` es más conciso cuando tienes todas las corrutinas listas al mismo tiempo. En la práctica, `gather` es más común para el caso simple.
+</Callout>
+
+</Section>
+
+<Section id="resultados-retornos" title="Resultados y retornos">
+
+Las corrutinas retornan valores como funciones normales — el valor de retorno llega cuando `await` la corrutina termina.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def calcular_precio(producto_id: int) -> float:
+    await asyncio.sleep(0.5)  # simula consulta
+    precios = {1: 29.99, 2: 49.99, 3: 9.99}
+    return precios.get(producto_id, 0.0)
+
+async def calcular_total(ids: list[int]) -> float:
+    # Crea tareas para todos los productos
+    tareas = [asyncio.create_task(calcular_precio(pid)) for pid in ids]
+
+    total = 0.0
+    for tarea in tareas:
+        precio = await tarea   # espera cada tarea y obtiene su resultado
+        total += precio
+
+    return total
+
+async def main() -> None:
+    total = await calcular_total([1, 2, 3])
+    print(f"Total del carrito: ${total:.2f}")
+    # Total del carrito: $89.97
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"Total del carrito: $89.97"}
+/>
+
+</Section>
+
+<Section id="cancelar-tareas" title="Cancelar tareas">
+
+Las tareas pueden cancelarse llamando a `tarea.cancel()`. La corrutina recibirá una excepción `asyncio.CancelledError` en su próximo punto de suspensión (`await`).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def tarea_larga(nombre: str) -> str:
+    try:
+        print(f"{nombre}: iniciando (tarda 10s)")
+        await asyncio.sleep(10)
+        return f"{nombre}: completado"
+    except asyncio.CancelledError:
+        print(f"{nombre}: cancelado — limpiando recursos")
+        raise  # siempre re-lanza CancelledError
+
+async def main() -> None:
+    tarea = asyncio.create_task(tarea_larga("proceso-pesado"))
+
+    # Esperamos 1 segundo y luego cancelamos
+    await asyncio.sleep(1)
+    tarea.cancel()
+
+    try:
+        resultado = await tarea
+    except asyncio.CancelledError:
+        print("La tarea fue cancelada correctamente")
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"proceso-pesado: iniciando (tarda 10s)\nproceso-pesado: cancelado — limpiando recursos\nLa tarea fue cancelada correctamente"}
+/>
+
+<Callout variant="warn" title="Siempre re-lanza CancelledError">
+Dentro de una corrutina, cuando capturas `CancelledError` para limpiar recursos, debes re-lanzarla con `raise`. Si la tragas silenciosamente, la tarea no se marca como cancelada y el event loop puede quedar en un estado inconsistente.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Llama dos corrutinas en secuencia con await", diff: "easy", minutes: 4 },
+    { num: "02", name: "Crea dos tareas concurrentes con create_task", diff: "med", minutes: 6 },
+    { num: "03", name: "Mide el tiempo ahorrado con concurrencia", diff: "med", minutes: 7 },
+    { num: "04", name: "Cancela una tarea a mitad de ejecución", diff: "med", minutes: 7 },
+    { num: "05", name: "Descarga varias URLs simuladas de forma concurrente", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

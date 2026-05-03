@@ -1,0 +1,188 @@
+---
+title: "Tu primer programa: \"Hola, mundo\" en Python"
+short: "Tu primer programa"
+chapter: "01"
+num: "03"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "La tradición de todo programador: hacer que la máquina diga «Hola, mundo». En Python, se resuelve en una línea."
+pro: false
+---
+
+<Section id="print" title="print(): tu primera función">
+
+En Python, `print()` es la función que muestra información en la consola. Es lo primero que aprende todo programador Python.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `print("¡Hola, mundo!")
+`
+    }
+  ]}
+  output={"¡Hola, mundo!"}
+/>
+
+Así de simple. Sin clases, sin métodos `main`, sin punto y coma. Python es deliberadamente minimalista.
+
+`print()` acepta múltiples argumentos separados por comas, y los une con un espacio por defecto:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# print con múltiples argumentos
+print("Hola,", "mundo!")         # Hola, mundo!
+print("Uno", "dos", "tres")      # Uno dos tres
+
+# Cambiar el separador con sep=
+print("Uno", "dos", "tres", sep="-")  # Uno-dos-tres
+
+# Cambiar el final de línea con end=
+print("Sin salto", end="")
+print(" de línea")               # Sin salto de línea
+`
+    }
+  ]}
+  output={"Hola, mundo!\nUno dos tres\nUno-dos-tres\nSin salto de línea"}
+/>
+
+<Callout variant="tip" title="print() es para depurar, no para producción">
+En aplicaciones reales usarás `logging` en lugar de `print()`. Pero para aprender y depurar, `print()` es perfecto.
+</Callout>
+
+</Section>
+
+<Section id="comentarios" title="Comentarios">
+
+Los comentarios son notas para humanos que el intérprete de Python ignora completamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Esto es un comentario de una sola línea
+
+print("Esto sí se ejecuta")  # Comentario al final de una línea
+
+# Los comentarios de varias líneas
+# se escriben con # en cada línea
+# No hay comentarios de bloque como /* */ en otros lenguajes
+
+"""
+Esto es un string multilínea.
+Se usa como comentario de bloque en algunos contextos,
+pero técnicamente Python lo evalúa (y descarta si no se asigna).
+"""
+
+print("Fin del programa")
+`
+    }
+  ]}
+  output={"Esto sí se ejecuta\nFin del programa"}
+/>
+
+<Callout variant="info" title="¿Cuándo comentar?">
+Comenta el **porqué**, no el **qué**. El código ya explica qué hace. El comentario debe explicar por qué es necesario, o una decisión no obvia. `# incrementa el contador` sobre `i += 1` es ruido — `# el índice arranca en 1 por la API externa` es valioso.
+</Callout>
+
+</Section>
+
+<Section id="tipos-basicos" title="Tipos de valores básicos">
+
+Python tiene cinco tipos primitivos fundamentales. No necesitas declararlos — Python los infiere automáticamente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# int — número entero
+edad = 25
+poblacion = 8_000_000_000  # los guiones bajos mejoran la legibilidad
+
+# float — número con decimales
+altura = 1.75
+pi = 3.14159
+
+# str — cadena de texto (con comillas simples o dobles)
+nombre = "Fernando"
+ciudad = 'Madrid'
+
+# bool — verdadero o falso
+es_mayor = True
+esta_activo = False
+
+# None — ausencia de valor (equivalente a null en otros lenguajes)
+resultado = None
+
+# Ver el tipo con type()
+print(type(edad))         # <class 'int'>
+print(type(altura))       # <class 'float'>
+print(type(nombre))       # <class 'str'>
+print(type(es_mayor))     # <class 'bool'>
+print(type(resultado))    # <class 'NoneType'>
+`
+    }
+  ]}
+  output={"<class 'int'>\n<class 'float'>\n<class 'str'>\n<class 'bool'>\n<class 'NoneType'>"}
+/>
+
+</Section>
+
+<Section id="operaciones-basicas" title="Operaciones básicas">
+
+Python soporta las operaciones matemáticas que esperarías, más algunas extras que lo hacen especial:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Operaciones básicas
+print(10 + 3)   # Suma → 13
+print(10 - 3)   # Resta → 7
+print(10 * 3)   # Multiplicación → 30
+print(10 / 3)   # División → 3.3333... (siempre float)
+print(10 // 3)  # División entera → 3 (trunca los decimales)
+print(10 % 3)   # Módulo (resto) → 1
+print(10 ** 3)  # Potencia → 1000
+
+# Concatenar strings con +
+saludo = "Hola" + ", " + "mundo" + "!"
+print(saludo)   # Hola, mundo!
+
+# Repetir un string con *
+linea = "-" * 20
+print(linea)    # --------------------
+`
+    }
+  ]}
+  output={"13\n7\n30\n3.3333333333333335\n3\n1\n1000\nHola, mundo!\n--------------------"}
+/>
+
+<Callout variant="warn" title="/ siempre devuelve float en Python 3">
+A diferencia de otros lenguajes, `10 / 2` en Python 3 devuelve `5.0`, no `5`. Si necesitas un entero, usa `//` (división entera) o convierte con `int(10 / 2)`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Tres ejercicios para dar tus primeros pasos en Python."
+  items={[
+    { num: "01", name: "Imprime tu nombre y ciudad", diff: "easy", minutes: 2 },
+    { num: "02", name: "Suma dos números con print", diff: "easy", minutes: 2 },
+    { num: "03", name: "Imprime el resultado de una expresión", diff: "easy", minutes: 3 },
+  ]}
+/>
+</Section>

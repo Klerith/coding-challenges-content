@@ -1,0 +1,264 @@
+---
+title: "Scope y la regla LEGB: dónde viven las variables"
+short: "Scope y LEGB"
+chapter: "13"
+num: "02"
+chapterTitle: "Conceptos profundos de Python"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python busca variables en cuatro ámbitos en orden: Local → Enclosing → Global → Built-in (LEGB). Conocer la regla explica por qué a veces el código no encuentra una variable donde esperas."
+pro: false
+---
+
+<Section id="cuatro-ambitos" title="Local, Enclosing, Global y Built-in">
+
+Python tiene cuatro ámbitos de scope y los busca en orden LEGB. Conocerlos es fundamental para entender cuándo una variable está disponible y cuándo Python lanza `NameError` o usa un valor inesperado.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Built-in: nombres predefinidos por Python
+# len, print, range, int, str, True, False, None, etc.
+print(len([1, 2, 3]))  # len está en el scope Built-in
+
+# Global: variables definidas en el módulo (nivel superior)
+mensaje = "hola desde global"
+
+def outer():
+    # Enclosing: variables de la función que envuelve
+    nota = "nota de outer"
+
+    def inner():
+        # Local: variables dentro de esta función
+        resultado = "local de inner"
+        print(resultado)   # L — local
+        print(nota)        # E — enclosing (outer)
+        print(mensaje)     # G — global
+        print(len)         # B — built-in
+
+    inner()
+
+outer()
+
+# LEGB en la práctica: orden de búsqueda
+x = "global"
+
+def demo():
+    x = "local"    # sombra a la variable global
+    print(x)       # "local" — usa L (local)
+
+demo()
+print(x)  # "global" — la global no cambió
+
+# Sin la variable local, busca en G
+def demo2():
+    print(x)  # usa G (global) porque no hay L ni E
+
+demo2()  # "global"`
+    }
+  ]}
+  output={"local de inner\nnota de outer\nhola desde global\n<built-in function len>\nlocal\nglobal\nglobal"}
+/>
+
+</Section>
+
+<Section id="legb-practica" title="La regla LEGB en la práctica">
+
+Entender LEGB permite predecir el valor de una variable en cualquier punto del código. El ejemplo más revelador: closures que capturan variables del scope enclosing.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Los closures capturan el scope Enclosing por referencia
+def make_counter(start: int):
+    count = start  # scope Enclosing para la función interna
+
+    def increment(step: int = 1) -> int:
+        nonlocal count       # declara que modifica la variable enclosing
+        count += step
+        return count
+
+    def reset() -> None:
+        nonlocal count
+        count = start
+
+    return increment, reset
+
+inc, rst = make_counter(0)
+print(inc())    # 1
+print(inc())    # 2
+print(inc(5))   # 7
+rst()
+print(inc())    # 1 — reseteado
+
+# Gotcha: la variable en el scope enclosing se captura por referencia, no por valor
+def make_adders():
+    adders = []
+    for i in range(3):
+        # ❌ Bug clásico: todas las funciones capturan la MISMA i
+        adders.append(lambda x: x + i)
+    return adders
+
+adds = make_adders()
+print([f(10) for f in adds])  # [12, 12, 12] — todas usan i=2 (valor final)
+
+# ✅ Solución: capturar el valor actual con argumento por defecto
+def make_adders_fixed():
+    adders = []
+    for i in range(3):
+        adders.append(lambda x, i=i: x + i)  # i=i congela el valor
+    return adders
+
+adds_fixed = make_adders_fixed()
+print([f(10) for f in adds_fixed])  # [10, 11, 12] — correcto`
+    }
+  ]}
+  output={"1\n2\n7\n1\n[12, 12, 12]\n[10, 11, 12]"}
+/>
+
+<Callout variant="warn" title="Las lambdas en bucles capturan por referencia">
+El bug del closure en bucle es uno de los más comunes en Python. La solución con `i=i` como argumento por defecto es el patrón canónico. Alternativa: usar `functools.partial`.
+</Callout>
+
+</Section>
+
+<Section id="global-y-nonlocal" title="global y nonlocal para modificar scopes externos">
+
+Por defecto, asignar a una variable dentro de una función crea una variable local. Para modificar una variable global o enclosing, debes declararlo explícitamente con `global` o `nonlocal`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Sin global: Python crea una variable local
+contador = 0
+
+def increment_broken():
+    contador = contador + 1  # UnboundLocalError: lee antes de asignar localmente
+
+try:
+    increment_broken()
+except UnboundLocalError as e:
+    print(f"Error: {e}")
+
+# Con global: modifica la variable del módulo
+def increment_global():
+    global contador
+    contador += 1
+
+increment_global()
+increment_global()
+print(contador)  # 2
+
+# nonlocal: modifica una variable enclosing (no global)
+def outer():
+    value = 10
+
+    def inner():
+        nonlocal value  # modifica la variable de outer
+        value *= 2
+
+    print(f"Antes: {value}")  # 10
+    inner()
+    print(f"Después: {value}")  # 20
+
+outer()
+
+# nonlocal es fundamental para estado en closures
+def make_stack():
+    items = []
+
+    def push(item):
+        items.append(item)  # OK: muta el objeto, no reasigna la variable
+
+    def pop():
+        return items.pop() if items else None
+
+    def clear():
+        nonlocal items
+        items = []  # reasigna — necesita nonlocal
+
+    return push, pop, clear
+
+push, pop, clear = make_stack()
+push(1); push(2); push(3)
+print(pop())  # 3
+clear()
+print(pop())  # None`
+    }
+  ]}
+  output={"Error: local variable 'contador' referenced before assignment\n2\nAntes: 10\nDespués: 20\n3\nNone"}
+/>
+
+</Section>
+
+<Section id="ambito-de-clase" title="Ámbito de clase y por qué es diferente">
+
+El ámbito de una clase no forma parte de la cadena LEGB de los métodos. Las variables de clase no son visibles directamente desde dentro de los métodos — hay que acceder a ellas por `self.attr` o `ClassName.attr`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# El scope de clase NO es Enclosing para los métodos
+class Config:
+    default_timeout = 30   # atributo de clase
+
+    def get_timeout(self):
+        # No se puede acceder directamente a default_timeout aquí
+        # print(default_timeout)  # NameError: name 'default_timeout' is not defined
+        return self.default_timeout  # correcto: vía self (o Config.default_timeout)
+
+c = Config()
+print(c.get_timeout())  # 30
+
+# Esto causa confusión con comprehensions dentro de clases
+class MyClass:
+    items = [1, 2, 3]
+    # doubled = [x * 2 for x in items]  # NameError en Python 3!
+    # (en Python 2 funcionaba por un quirk, en Python 3 no)
+
+    doubled = list(map(lambda x: x * 2, items))  # ✅ correcto
+
+print(MyClass.doubled)  # [2, 4, 6]
+
+# Por qué: la comprehension crea su propio scope local
+# y desde ese scope, "items" no está en L, E (no hay función enclosing), ni G
+# Solo está en el namespace de la clase, que no forma parte de LEGB
+
+# Verificar el scope con locals() y globals()
+x = "global x"
+
+def demo():
+    y = "local y"
+    print("locals:", list(locals().keys()))   # ['y']
+    print("globals has x:", "x" in globals()) # True
+
+demo()`
+    }
+  ]}
+  output={"30\n[2, 4, 6]\nlocals: ['y']\nglobals has x: True"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Predice el valor de x en cada scope", diff: "med", minutes: 4 },
+    { num: "02", name: "Modifica una variable global con la keyword global", diff: "easy", minutes: 3 },
+    { num: "03", name: "Usa nonlocal dentro de un closure", diff: "med", minutes: 5 },
+    { num: "04", name: "Explica por qué este código falla (unboundlocal)", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

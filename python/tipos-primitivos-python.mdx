@@ -1,0 +1,229 @@
+---
+title: "Tipos primitivos: int, float, str, bool y None"
+short: "Tipos primitivos"
+chapter: "02"
+num: "02"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python es de tipado dinámico: las variables no tienen tipo, los valores sí. Conocer los cinco tipos primitivos es el primer paso para escribir código sin sorpresas."
+pro: false
+---
+
+<Section id="int-float" title="int y float">
+
+`int` representa números enteros (sin límite de tamaño en Python) y `float` representa números con punto decimal (implementado como un double de 64 bits de IEEE 754).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# int — enteros sin límite de tamaño
+edad = 25
+poblacion = 8_000_000_000      # guion bajo como separador visual
+numero_grande = 2 ** 100        # Python maneja enteros arbitrariamente grandes
+
+# float — números con decimal
+precio = 19.99
+temperatura = -3.5
+notacion_cientifica = 1.5e10    # 15,000,000,000
+
+# Operaciones y su tipo resultante
+print(10 / 3)     # 3.3333... → float (siempre)
+print(10 // 3)    # 3         → int (división entera)
+print(10 % 3)     # 1         → int (módulo)
+
+# Problemas de precisión con float (heredados de IEEE 754)
+print(0.1 + 0.2)  # 0.30000000000000004 ← ¡no es exacto!
+
+# Para finanzas, usar decimal.Decimal
+from decimal import Decimal
+print(Decimal("0.1") + Decimal("0.2"))  # 0.3 ← exacto
+`
+    }
+  ]}
+  output={"3.3333333333333335\n3\n1\n0.30000000000000004\n0.3"}
+/>
+
+<Callout variant="warn" title="No uses float para dinero">
+`0.1 + 0.2 == 0.3` devuelve `False` en Python (y en casi todos los lenguajes). Para cálculos financieros, usa siempre `decimal.Decimal` con strings, no con floats.
+</Callout>
+
+</Section>
+
+<Section id="str" title="str — cadenas de texto">
+
+Las cadenas en Python son secuencias inmutables de caracteres Unicode. Se pueden definir con comillas simples, dobles o triples.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Las tres formas de definir strings
+nombre = 'Fernando'           # comillas simples
+ciudad = "Madrid"             # comillas dobles (equivalente)
+mensaje = """Este es un
+string multilínea
+con saltos de línea reales."""
+
+# Caracteres de escape
+tab = "columna1\tcolumna2"
+nueva_linea = "línea1\nlínea2"
+barra = "C:\\\\Users\\\\Fernando"     # barra invertida literal
+
+# Raw strings — ignoran los escapes (útil para regex y rutas Windows)
+ruta = r"C:\Users\Fernando\Desktop"
+patron = r"\d+\.\d+"  # regex sin escapes dobles
+
+# Operaciones básicas con strings
+texto = "Hola, mundo"
+print(len(texto))          # 11
+print(texto.upper())       # HOLA, MUNDO
+print(texto.lower())       # hola, mundo
+print(texto.replace("mundo", "Python"))  # Hola, Python
+print(texto[0])            # H  (indexación)
+print(texto[-1])           # o  (índice negativo = desde el final)
+print(texto[0:4])          # Hola (slicing)
+print("mundo" in texto)    # True
+`
+    }
+  ]}
+  output={"11\nHOLA, MUNDO\nhola, mundo\nHola, Python\nH\no\nHola\nTrue"}
+/>
+
+</Section>
+
+<Section id="bool-none" title="bool y None">
+
+`bool` tiene solo dos valores: `True` y `False`. En Python, `bool` es una subclase de `int` — `True` vale `1` y `False` vale `0`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# bool — verdadero o falso
+es_mayor = True
+esta_activo = False
+
+# bool es subclase de int
+print(True + True)   # 2
+print(True * 5)      # 5
+print(False + 1)     # 1
+
+# None — ausencia de valor
+resultado = None
+print(resultado)           # None
+print(type(resultado))     # <class 'NoneType'>
+
+# Comparar con None: siempre usar 'is', no '=='
+if resultado is None:
+    print("resultado no tiene valor")
+
+# None es falsy — se comporta como False en contextos booleanos
+if not resultado:
+    print("resultado es falsy")
+`
+    }
+  ]}
+  output={"2\n5\n1\nNone\n<class 'NoneType'>\nresultado no tiene valor\nresultado es falsy"}
+/>
+
+<Callout variant="tip" title="is vs == para None">
+Usa siempre `valor is None` en lugar de `valor == None`. `is` compara identidad de objeto (son el mismo objeto en memoria), mientras `==` llama al método `__eq__` que puede estar sobrescrito. Para `None`, `is` es la forma correcta e idiomática.
+</Callout>
+
+</Section>
+
+<Section id="type-isinstance" title="type() e isinstance()">
+
+Para inspeccionar el tipo de un valor en tiempo de ejecución, Python ofrece `type()` e `isinstance()`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `valor = 42
+
+# type() — devuelve el tipo exacto
+print(type(valor))           # <class 'int'>
+print(type(valor) == int)    # True
+
+# isinstance() — comprueba si es instancia de un tipo (o de una jerarquía)
+print(isinstance(valor, int))          # True
+print(isinstance(valor, (int, float))) # True — acepta tupla de tipos
+print(isinstance(valor, str))          # False
+
+# Por qué isinstance() es mejor que type() para checks:
+# isinstance() respeta la herencia
+print(isinstance(True, int))   # True ← bool hereda de int
+print(type(True) == int)       # False ← type() es estricto
+`
+    }
+  ]}
+  output={"<class 'int'>\nTrue\nTrue\nTrue\nFalse\nTrue\nFalse"}
+/>
+
+</Section>
+
+<Section id="conversion-tipos" title="Conversión de tipos">
+
+Python no hace conversiones implícitas entre tipos — debes ser explícito:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Conversiones explícitas (casting)
+int("42")         # → 42
+int(3.9)          # → 3 (trunca, no redondea)
+float("3.14")     # → 3.14
+float(10)         # → 10.0
+str(42)           # → "42"
+str(True)         # → "True"
+bool(0)           # → False
+bool(1)           # → True
+bool("")          # → False
+bool("texto")     # → True
+
+# Conversión que puede fallar — manejar con try/except
+entrada = "abc"
+try:
+    numero = int(entrada)
+except ValueError:
+    print(f"'{entrada}' no es un número válido")
+
+# Conversión segura de input() — siempre devuelve string
+# edad_str = input("¿Cuántos años tienes? ")
+# edad = int(edad_str)  # convertir explícitamente
+`
+    }
+  ]}
+  output={"'abc' no es un número válido"}
+/>
+
+<Callout variant="warn" title="input() siempre devuelve str">
+Cuando lees datos del usuario con `input()`, el resultado es siempre un string, incluso si el usuario escribe un número. Siempre convierte explícitamente: `edad = int(input("Tu edad: "))`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cuatro ejercicios para dominar los tipos primitivos de Python."
+  items={[
+    { num: "01", name: "Convierte temperaturas de Celsius a Fahrenheit", diff: "easy", minutes: 3 },
+    { num: "02", name: "Comprueba si un valor es None o vacío", diff: "easy", minutes: 3 },
+    { num: "03", name: "Usa isinstance() para validar tipos", diff: "med", minutes: 5 },
+    { num: "04", name: "Explica la diferencia entre 0, False, None y ''", diff: "easy", minutes: 4 },
+  ]}
+/>
+</Section>

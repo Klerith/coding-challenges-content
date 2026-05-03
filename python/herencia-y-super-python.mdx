@@ -1,0 +1,252 @@
+---
+title: "Herencia y super(): reutilizar y extender clases"
+short: "Herencia y super()"
+chapter: "09"
+num: "02"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "La herencia permite crear jerarquías de clases que comparten comportamiento. super() es la forma correcta de llamar al padre — evita hard-codear el nombre de la clase."
+pro: false
+---
+
+<Section id="herencia-basica" title="Herencia básica">
+
+Para que una clase herede de otra, se escribe el nombre de la clase padre entre paréntesis. La clase hija hereda todos los métodos y atributos del padre y puede añadir los suyos propios.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Animal:
+    """Clase base para todos los animales."""
+
+    def __init__(self, name: str, species: str) -> None:
+        self.name = name
+        self.species = species
+        self.is_alive = True
+
+    def breathe(self) -> str:
+        return f"{self.name} está respirando"
+
+    def eat(self, food: str) -> str:
+        return f"{self.name} come {food}"
+
+    def __repr__(self) -> str:
+        return f"{self.species}('{self.name}')"
+
+
+# Dog hereda de Animal
+class Dog(Animal):
+    def __init__(self, name: str, breed: str) -> None:
+        # Llama al __init__ del padre con super()
+        super().__init__(name, species="Canis lupus familiaris")
+        self.breed = breed
+
+    def bark(self) -> str:
+        return f"{self.name}: ¡Guau!"
+
+
+class Cat(Animal):
+    def __init__(self, name: str, indoor: bool = True) -> None:
+        super().__init__(name, species="Felis catus")
+        self.indoor = indoor
+
+    def meow(self) -> str:
+        return f"{self.name}: ¡Miau!"
+
+
+rex = Dog("Rex", "Labrador")
+whiskers = Cat("Whiskers")
+
+# Métodos heredados del padre
+print(rex.breathe())          # Rex está respirando
+print(whiskers.eat("atún"))   # Whiskers come atún
+
+# Métodos propios de cada subclase
+print(rex.bark())    # Rex: ¡Guau!
+print(whiskers.meow())  # Whiskers: ¡Miau!`
+    }
+  ]}
+  output={"Rex está respirando\nWhiskers come atún\nRex: ¡Guau!\nWhiskers: ¡Miau!"}
+/>
+
+</Section>
+
+<Section id="super-init" title="super().__init__()">
+
+`super()` devuelve un proxy del padre en la jerarquía MRO (Method Resolution Order). Usar `super().__init__()` garantiza que el constructor del padre se ejecuta correctamente, incluso en jerarquías complejas con herencia múltiple.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Vehicle:
+    def __init__(self, make: str, model: str, year: int) -> None:
+        self.make = make
+        self.model = model
+        self.year = year
+        self.mileage: float = 0.0
+
+    def drive(self, km: float) -> None:
+        self.mileage += km
+
+    def info(self) -> str:
+        return f"{self.year} {self.make} {self.model} ({self.mileage:.0f} km)"
+
+
+class ElectricVehicle(Vehicle):
+    def __init__(self, make: str, model: str, year: int, battery_kwh: float) -> None:
+        # super().__init__ inicializa todos los atributos del padre
+        super().__init__(make, model, year)
+        # Atributo adicional específico de vehículos eléctricos
+        self.battery_kwh = battery_kwh
+        self.charge_level: float = 100.0
+
+    def charge(self, percent: float) -> None:
+        self.charge_level = min(100.0, self.charge_level + percent)
+
+    def info(self) -> str:
+        base = super().info()  # reutiliza el método del padre
+        return f"{base} | Batería: {self.charge_level:.0f}%"
+
+
+tesla = ElectricVehicle("Tesla", "Model 3", 2024, 75.0)
+tesla.drive(150)
+tesla.charge(20)
+print(tesla.info())
+# 2024 Tesla Model 3 (150 km) | Batería: 100%`
+    }
+  ]}
+  output={"2024 Tesla Model 3 (150 km) | Batería: 100%"}
+/>
+
+<CompareTable
+  headers={["Sin super() — frágil", "Con super() — robusto"]}
+  rows={[
+    [{ kind: "bad", value: "Vehicle.__init__(self, make, model, year)" }, { kind: "good", value: "super().__init__(make, model, year)" }],
+    [{ kind: "bad", value: "Si renombras la clase padre, hay que actualizar todas las referencias" }, { kind: "good", value: "Funciona sin cambios aunque se renombre la clase padre" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="sobrescribir-metodos" title="Sobrescribir métodos (override)">
+
+Una subclase puede redefinir cualquier método del padre. Python siempre llama al método de la clase más específica primero. Puedes llamar al padre con `super().metodo()` para extender en vez de reemplazar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Shape:
+    def area(self) -> float:
+        return 0.0
+
+    def describe(self) -> str:
+        return f"Soy una figura con área {self.area():.2f}"
+
+
+class Circle(Shape):
+    def __init__(self, radius: float) -> None:
+        self.radius = radius
+
+    # Sobreescribir area() completamente
+    def area(self) -> float:
+        import math
+        return math.pi * self.radius ** 2
+
+    # Extender describe() usando el método del padre
+    def describe(self) -> str:
+        base = super().describe()
+        return f"{base} y radio {self.radius}"
+
+
+class Square(Shape):
+    def __init__(self, side: float) -> None:
+        self.side = side
+
+    def area(self) -> float:
+        return self.side ** 2
+
+
+c = Circle(5.0)
+s = Square(4.0)
+
+print(c.area())       # 78.53981633974483
+print(s.area())       # 16.0
+print(c.describe())   # Soy una figura con área 78.54 y radio 5.0
+print(s.describe())   # Soy una figura con área 16.00`
+    }
+  ]}
+  output={"78.53981633974483\n16.0\nSoy una figura con área 78.54 y radio 5.0\nSoy una figura con área 16.00"}
+/>
+
+</Section>
+
+<Section id="isinstance-issubclass" title="isinstance() y issubclass()">
+
+`isinstance(obj, Clase)` comprueba si un objeto es una instancia de una clase o de cualquiera de sus subclases. `issubclass(Hija, Padre)` comprueba la relación entre clases.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Animal:
+    pass
+
+class Dog(Animal):
+    pass
+
+class Cat(Animal):
+    pass
+
+class GoldenRetriever(Dog):
+    pass
+
+golden = GoldenRetriever()
+
+# isinstance: sube por toda la jerarquía
+print(isinstance(golden, GoldenRetriever))  # True
+print(isinstance(golden, Dog))              # True
+print(isinstance(golden, Animal))           # True
+print(isinstance(golden, Cat))              # False
+
+# issubclass: relación entre clases
+print(issubclass(GoldenRetriever, Dog))     # True
+print(issubclass(GoldenRetriever, Animal))  # True
+print(issubclass(Dog, Cat))                 # False
+
+# Caso práctico: procesar una lista de animales mixtos
+animales = [Dog(), Cat(), GoldenRetriever(), Animal()]
+perros = [a for a in animales if isinstance(a, Dog)]
+print(f"Perros encontrados: {len(perros)}")  # 2 (Dog y GoldenRetriever)`
+    }
+  ]}
+  output={"True\nTrue\nTrue\nFalse\nTrue\nTrue\nFalse\nPerros encontrados: 2"}
+/>
+
+<Callout variant="tip" title="isinstance() prefiere type()">
+Usa `isinstance(obj, Clase)` en vez de `type(obj) == Clase`. El primero respeta la herencia; el segundo solo coincide con el tipo exacto. `type(GoldenRetriever()) == Dog` es `False`, pero `isinstance(GoldenRetriever(), Dog)` es `True`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Clase Animal con subclases Dog y Cat", diff: "easy", minutes: 5 },
+    { num: "02", name: "Extiende BankAccount con SavingsAccount que añade interés", diff: "med", minutes: 7 },
+    { num: "03", name: "Usa super() para extender __init__ sin repetir", diff: "med", minutes: 6 },
+    { num: "04", name: "Verifica herencia con isinstance() e issubclass()", diff: "easy", minutes: 4 },
+  ]}
+/>
+</Section>

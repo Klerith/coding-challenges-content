@@ -1,0 +1,223 @@
+---
+title: "Generadores y yield: secuencias bajo demanda y memoria eficiente"
+short: "Generadores y yield"
+chapter: "08"
+num: "03"
+chapterTitle: "Colecciones avanzadas"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un generador produce valores uno a uno cuando se piden, sin guardar toda la secuencia en memoria. Ideal para ficheros grandes, streams y secuencias infinitas."
+pro: false
+---
+
+<Section id="yield-basico" title="yield básico — función generadora">
+
+Una función generadora es como una función normal, pero en vez de `return` usa `yield`. Cada llamada a `yield` pausa la función y devuelve un valor. La próxima vez que se pide el siguiente valor, la función reanuda donde se quedó.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Función normal: calcula todo y retorna una lista
+def contar_hasta_lista(n: int) -> list[int]:
+    resultado = []
+    for i in range(1, n + 1):
+        resultado.append(i)
+    return resultado  # toda la lista en memoria
+
+# Función generadora: produce un valor a la vez
+def contar_hasta(n: int):
+    for i in range(1, n + 1):
+        yield i  # pausa aquí, entrega i, luego reanuda
+
+# Ambas se usan igual en un for loop
+for numero in contar_hasta(5):
+    print(numero, end=" ")
+# 1 2 3 4 5
+
+# La diferencia: el generador es lazy
+gen = contar_hasta(1_000_000)
+print(type(gen))  # <class 'generator'>
+# Todavía no calculó nada — solo cuando pidas el primer next()`
+    }
+  ]}
+  output={"1 2 3 4 5\n<class 'generator'>"}
+/>
+
+<Callout variant="info" title="yield vs return">
+Una función con `yield` nunca termina con `return` (aunque puedes usarlo para lanzar `StopIteration`). Cada `yield` es un punto de pausa. La función guarda su estado completo entre llamadas: variables locales, posición en el loop, todo.
+</Callout>
+
+</Section>
+
+<Section id="next-y-protocolo-iterador" title="next() y el protocolo iterador">
+
+Bajo el capó, un generador implementa el protocolo iterador: tiene `__iter__` y `__next__`. Puedes consumirlo manualmente con `next()` o automáticamente con un for loop.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def tres_valores():
+    yield "primero"
+    yield "segundo"
+    yield "tercero"
+
+gen = tres_valores()
+
+# Consumir manualmente con next()
+print(next(gen))  # primero
+print(next(gen))  # segundo
+print(next(gen))  # tercero
+
+# Más llamadas lanzan StopIteration
+try:
+    print(next(gen))
+except StopIteration:
+    print("El generador se agotó")
+
+# Valor por defecto en next() para evitar excepción
+gen2 = tres_valores()
+print(next(gen2, "no hay más"))  # primero
+print(next(gen2, "no hay más"))  # segundo
+print(next(gen2, "no hay más"))  # tercero
+print(next(gen2, "no hay más"))  # no hay más`
+    }
+  ]}
+  output={"primero\nsegundo\ntercero\nEl generador se agotó\nprimero\nsegundo\ntercero\nno hay más"}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Un generador infinito: nunca lanza StopIteration por sí solo
+def numeros_naturales():
+    n = 1
+    while True:      # loop infinito — está bien en un generador
+        yield n
+        n += 1
+
+# Tomar solo los primeros 5
+gen = numeros_naturales()
+primeros_cinco = [next(gen) for _ in range(5)]
+print(primeros_cinco)  # [1, 2, 3, 4, 5]
+
+# O usar itertools.islice para cortar secuencias infinitas
+from itertools import islice
+print(list(islice(numeros_naturales(), 10)))
+# [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]`
+    }
+  ]}
+  output={"[1, 2, 3, 4, 5]\n[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"}
+/>
+
+</Section>
+
+<Section id="generator-expressions" title="Generator expressions (comprehension con paréntesis)">
+
+Una generator expression es como una list comprehension pero con paréntesis. No crea la lista en memoria — produce valores uno a uno cuando se necesitan.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# List comprehension: toda la lista en memoria
+lista = [n ** 2 for n in range(1_000_000)]
+
+# Generator expression: lazy, sin memoria extra
+gen = (n ** 2 for n in range(1_000_000))
+
+# sum() acepta cualquier iterable — usa el generador directamente
+total = sum(n ** 2 for n in range(1, 11))
+print(total)  # 385
+
+# Filtrar en una generator expression
+pares_grandes = (n for n in range(100) if n % 2 == 0 and n > 50)
+print(list(pares_grandes))  # [52, 54, 56, ..., 98]
+
+# Pasar generator expression a una función — los paréntesis dobles se simplifican
+maximo = max(len(palabra) for palabra in ["hola", "mundo", "python"])
+print(maximo)  # 6`
+    }
+  ]}
+  output={"385\n[52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98]\n6"}
+/>
+
+<CompareTable
+  headers={["List comprehension", "Generator expression"]}
+  rows={[
+    [{ kind: "bad", value: "[x**2 for x in range(10**6)]" }, { kind: "good", value: "(x**2 for x in range(10**6))" }],
+    [{ kind: "bad", value: "Crea toda la lista en RAM" }, { kind: "good", value: "Produce un valor a la vez" }],
+    [{ kind: "good", value: "Ideal cuando necesitas indexar o reusar" }, { kind: "good", value: "Ideal para sum(), max(), for loop único" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="casos-de-uso-reales" title="Casos de uso reales (ficheros, streams, secuencias)">
+
+Los generadores brillan cuando los datos son demasiado grandes para caber en memoria: ficheros de logs, exports de CSV, paginación de APIs.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Leer un fichero grande línea a línea sin cargarlo en memoria
+def leer_lineas(ruta: str):
+    with open(ruta, "r", encoding="utf-8") as f:
+        for linea in f:
+            yield linea.strip()
+
+# El fichero se lee una línea a la vez
+for linea in leer_lineas("datos.txt"):
+    if "ERROR" in linea:
+        print(linea)
+
+# Pipeline de generadores: cada etapa es lazy
+def parsear_csv(ruta: str):
+    for linea in leer_lineas(ruta):
+        if linea:  # saltar líneas vacías
+            yield linea.split(",")
+
+def filtrar_activos(filas):
+    for fila in filas:
+        if len(fila) > 2 and fila[2] == "activo":
+            yield fila
+
+# Combinar el pipeline — nada se ejecuta hasta el for final
+filas = parsear_csv("usuarios.csv")
+activos = filtrar_activos(filas)
+
+# Solo aquí se procesan los datos, línea a línea
+for usuario in activos:
+    print(usuario[0])  # nombre del usuario activo`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Pipeline de generadores">
+Puedes encadenar generadores como etapas de una tubería. Cada generador recibe otro generador y produce valores transformados. El dato fluye de principio a fin sin materializarse como lista en ningún punto — memoria O(1) sin importar el tamaño del fichero.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Generador de números de Fibonacci sin límite", diff: "easy", minutes: 5 },
+    { num: "02", name: "Generador que lee un CSV línea a línea", diff: "med", minutes: 6 },
+    { num: "03", name: "Generator expression para suma de cuadrados", diff: "easy", minutes: 3 },
+    { num: "04", name: "Implementa range() propio con yield", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

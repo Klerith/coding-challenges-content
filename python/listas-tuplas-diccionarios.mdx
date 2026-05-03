@@ -1,0 +1,230 @@
+---
+title: "Listas, tuplas y diccionarios: las colecciones esenciales"
+short: "Listas, tuplas y dicts"
+chapter: "02"
+num: "06"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "En Python, casi todo vive dentro de una lista, una tupla o un diccionario. Estas tres colecciones son el pan de cada día de cualquier programa real."
+pro: false
+---
+
+<Section id="listas" title="Listas (mutables)">
+
+Una lista es una secuencia ordenada y mutable de elementos. Se define con corchetes `[]` y puede contener elementos de distintos tipos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Crear listas
+frutas = ["manzana", "pera", "uva"]
+numeros = [1, 2, 3, 4, 5]
+mezclada = [42, "texto", True, None, 3.14]  # tipos distintos
+vacia = []
+
+# Acceso por índice (empieza en 0, negativos desde el final)
+print(frutas[0])    # manzana
+print(frutas[-1])   # uva (último elemento)
+
+# Slicing: [inicio:fin:paso]
+print(numeros[1:4])   # [2, 3, 4]
+print(numeros[::2])   # [1, 3, 5]  (cada 2 elementos)
+print(numeros[::-1])  # [5, 4, 3, 2, 1]  (invertir)
+
+# Modificar listas (son mutables)
+frutas.append("mango")          # agregar al final
+frutas.insert(1, "cereza")      # insertar en posición 1
+frutas.extend(["kiwi", "lima"]) # agregar múltiples al final
+frutas.remove("pera")           # eliminar por valor (primera ocurrencia)
+del frutas[0]                   # eliminar por índice
+ultimo = frutas.pop()           # extraer y eliminar el último
+
+# Consultar listas
+print(len(frutas))              # longitud
+print("uva" in frutas)          # True — comprueba pertenencia
+print(frutas.index("uva"))      # índice de "uva"
+print(frutas.count("kiwi"))     # número de ocurrencias
+
+# Ordenar
+numeros_desordenados = [3, 1, 4, 1, 5, 9, 2, 6]
+numeros_desordenados.sort()              # ordena en el lugar (muta la lista)
+ordenada = sorted([3, 1, 2])             # devuelve nueva lista ordenada
+`
+    }
+  ]}
+  output={"manzana\nuva\n[2, 3, 4]\n[1, 3, 5]\n[5, 4, 3, 2, 1]"}
+/>
+
+</Section>
+
+<Section id="tuplas" title="Tuplas (inmutables)">
+
+Las tuplas son como listas, pero inmutables: una vez creadas, no se pueden modificar. Se usan para datos que no deben cambiar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Crear tuplas
+coordenadas = (40.7128, -74.0060)    # Nueva York
+rgb_rojo = (255, 0, 0)
+punto = (3, 4)
+un_elemento = (42,)    # ← la coma es OBLIGATORIA para tuplas de 1 elemento
+sin_parentesis = 1, 2, 3  # los paréntesis son opcionales
+
+# Acceso igual que listas
+print(coordenadas[0])    # 40.7128
+print(rgb_rojo[-1])      # 0
+
+# Inmutabilidad — esto lanza TypeError
+# coordenadas[0] = 0.0  # TypeError: 'tuple' object does not support item assignment
+
+# Desempaquetar tuplas
+latitud, longitud = coordenadas
+print(f"Lat: {latitud}, Lon: {longitud}")
+
+# Uso común: retornar múltiples valores desde una función
+def min_max(numeros):
+    return min(numeros), max(numeros)
+
+minimo, maximo = min_max([3, 1, 4, 1, 5, 9])
+print(f"Min: {minimo}, Max: {maximo}")
+
+# Tuplas de tuplas (coordenadas de una ruta)
+ruta = ((0, 0), (3, 4), (6, 8))
+for x, y in ruta:
+    print(f"Punto: ({x}, {y})")
+`
+    }
+  ]}
+  output={"40.7128\n0\nLat: 40.7128, Lon: -74.006\nMin: 1, Max: 9\nPunto: (0, 0)\nPunto: (3, 4)\nPunto: (6, 8)"}
+/>
+
+<Callout variant="tip" title="¿Lista o tupla?">
+Usa **tupla** cuando los datos representan un registro inmutable (coordenadas, fecha, configuración). Usa **lista** cuando la colección puede crecer, encogerse o reordenarse. Una regla práctica: si la colección tiene significado posicional (primero = latitud, segundo = longitud), usa tupla.
+</Callout>
+
+</Section>
+
+<Section id="diccionarios" title="Diccionarios (key-value)">
+
+Un diccionario es una colección de pares clave-valor, optimizada para buscar por clave en O(1). Las claves deben ser inmutables (strings, números, tuplas).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Crear diccionarios
+usuario = {
+    "nombre": "Ana García",
+    "edad": 28,
+    "activo": True,
+    "puntaje": 1450
+}
+
+# Acceso por clave
+print(usuario["nombre"])     # Ana García
+print(usuario.get("edad"))   # 28
+
+# .get() es más seguro — devuelve None (o un default) si la clave no existe
+print(usuario.get("email"))          # None (no lanza KeyError)
+print(usuario.get("email", "N/A"))   # "N/A" (valor por defecto)
+
+# Modificar y agregar
+usuario["edad"] = 29         # actualizar valor existente
+usuario["email"] = "ana@ejemplo.com"  # agregar nueva clave
+
+# Eliminar
+del usuario["puntaje"]               # eliminar clave
+email = usuario.pop("email")         # extraer y eliminar
+
+# Iterar un diccionario
+for clave in usuario:               # itera las claves
+    print(clave, usuario[clave])
+
+for clave, valor in usuario.items():  # itera pares
+    print(f"{clave}: {valor}")
+
+print(list(usuario.keys()))    # ["nombre", "edad", "activo"]
+print(list(usuario.values()))  # ["Ana García", 29, True]
+
+# Diccionario anidado
+config = {
+    "base_de_datos": {
+        "host": "localhost",
+        "puerto": 5432,
+        "nombre": "mi_app"
+    }
+}
+print(config["base_de_datos"]["puerto"])  # 5432
+`
+    }
+  ]}
+  output={"Ana García\n28\nNone\nN/A\nnombre Ana García\nedad 29\nactivo True\nnombre: Ana García\nedad: 29\nactivo: True\n['nombre', 'edad', 'activo']\n['Ana García', 29, True]\n5432"}
+/>
+
+</Section>
+
+<Section id="cuando-usar" title="Cuándo usar cada uno">
+
+<CompareTable
+  headers={["Colección", "Cuándo usarla", "Ejemplo de uso"]}
+  rows={[
+    ["Lista `[]`", "Secuencia ordenada que puede cambiar", "Lista de tareas, historial de acciones"],
+    ["Tupla `()`", "Registro inmutable con posición significativa", "Coordenadas (lat, lon), colores RGB"],
+    ["Diccionario `{}`", "Buscar por nombre (clave), datos estructurados", "Config, usuario, respuesta de API"],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ✅ Lista: colección de items del mismo tipo que crece
+tareas = ["comprar leche", "llamar al médico"]
+tareas.append("enviar informe")
+
+# ✅ Tupla: registro de datos con posición fija
+punto_gps = (19.4326, -99.1332)   # (latitud, longitud)
+
+# ✅ Diccionario: objeto con campos nombrados
+producto = {
+    "id": "PROD-001",
+    "nombre": "Teclado mecánico",
+    "precio": 89.99,
+    "en_stock": True
+}
+
+# Verificar si una clave existe antes de acceder
+if "precio" in producto:
+    print(f"Precio: ${producto['precio']:.2f}")
+`
+    }
+  ]}
+  output={"Precio: $89.99"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cinco ejercicios para dominar las colecciones esenciales de Python."
+  items={[
+    { num: "01", name: "Crea una lista de compras y agrégale items", diff: "easy", minutes: 3 },
+    { num: "02", name: "Accede a valores de un diccionario anidado", diff: "easy", minutes: 4 },
+    { num: "03", name: "Desempaqueta una tupla de coordenadas", diff: "easy", minutes: 3 },
+    { num: "04", name: "Itera un diccionario con .items()", diff: "med", minutes: 4 },
+    { num: "05", name: "Convierte una lista de pares en diccionario", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

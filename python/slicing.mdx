@@ -1,0 +1,184 @@
+---
+title: "Slicing: rebanar listas, strings y tuplas con [start:stop:step]"
+short: "Slicing"
+chapter: "08"
+num: "05"
+chapterTitle: "Colecciones avanzadas"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "El slicing de Python es tan expresivo que tiene su propio objeto: `slice`. Invertir una lista, saltear elementos, copiar shallow — todo en una sola expresión."
+pro: false
+---
+
+<Section id="sintaxis-start-stop-step" title="Sintaxis [start:stop:step]">
+
+El slice `[start:stop:step]` extrae una subsecuencia desde el índice `start` hasta `stop` (excluido), saltando de `step` en `step`. Los tres parámetros son opcionales — Python asume valores por defecto sensatos cuando se omiten.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `letras = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+#          [0]   [1]  [2]  [3]  [4]  [5]  [6]
+
+# [start:stop] — desde start hasta stop (sin incluir stop)
+print(letras[1:4])    # ['b', 'c', 'd']
+
+# Omitir start — desde el principio
+print(letras[:3])     # ['a', 'b', 'c']
+
+# Omitir stop — hasta el final
+print(letras[4:])     # ['e', 'f', 'g']
+
+# step — cada cuántos elementos saltar
+print(letras[::2])    # ['a', 'c', 'e', 'g'] (posiciones 0, 2, 4, 6)
+print(letras[1::2])   # ['b', 'd', 'f'] (posiciones 1, 3, 5)
+
+# start + stop + step combinados
+numeros = list(range(20))
+print(numeros[2:15:3])  # [2, 5, 8, 11, 14]`
+    }
+  ]}
+  output={"['b', 'c', 'd']\n['a', 'b', 'c']\n['e', 'f', 'g']\n['a', 'c', 'e', 'g']\n['b', 'd', 'f']\n[2, 5, 8, 11, 14]"}
+/>
+
+<Callout variant="info" title="El slicing nunca lanza IndexError">
+A diferencia del acceso por índice (`lista[100]` lanza `IndexError`), el slicing es tolerante. `lista[100:200]` simplemente retorna una lista vacía si los índices están fuera de rango.
+</Callout>
+
+</Section>
+
+<Section id="indices-negativos" title="Índices negativos">
+
+Los índices negativos cuentan desde el final. `-1` es el último elemento, `-2` el penúltimo, y así sucesivamente. También funcionan en slices.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `datos = [10, 20, 30, 40, 50, 60, 70]
+#         [0]  [1]  [2]  [3]  [4]  [5]  [6]
+#        [-7] [-6] [-5] [-4] [-3] [-2] [-1]
+
+# Acceso por índice negativo
+print(datos[-1])   # 70 (último)
+print(datos[-3])   # 50 (tercero desde el final)
+
+# Slicing con índices negativos
+print(datos[-3:])   # [50, 60, 70] (últimos 3)
+print(datos[:-3])   # [10, 20, 30, 40] (todos menos los últimos 3)
+print(datos[-5:-2]) # [30, 40, 50]
+
+# Caso práctico: extraer extensión de un nombre de archivo
+archivo = "informe_2024.csv"
+extension = archivo[-3:]
+print(extension)  # csv
+
+# Los últimos N elementos de una lista
+def ultimos(lista: list, n: int) -> list:
+    return lista[-n:]
+
+print(ultimos([1, 2, 3, 4, 5], 3))  # [3, 4, 5]`
+    }
+  ]}
+  output={"70\n50\n[50, 60, 70]\n[10, 20, 30, 40]\n[30, 40, 50]\ncsv\n[3, 4, 5]"}
+/>
+
+</Section>
+
+<Section id="copiar-con-slice" title="Copiar con [:]">
+
+`lista[:]` crea una copia shallow de la lista completa. Es equivalente a `lista.copy()` — los cambios a la copia no afectan al original (mientras los elementos no sean mutables como otras listas).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `original = [1, 2, 3, 4, 5]
+
+# Asignación directa: NO es una copia (mismo objeto)
+referencia = original
+referencia.append(99)
+print(original)   # [1, 2, 3, 4, 5, 99] — ¡el original cambió!
+
+# Copia con [:]: objeto independiente
+original = [1, 2, 3, 4, 5]
+copia = original[:]
+copia.append(99)
+print(original)  # [1, 2, 3, 4, 5] — el original NO cambió
+print(copia)     # [1, 2, 3, 4, 5, 99]
+
+# También funciona para strings y tuplas
+texto = "hola mundo"
+subcadena = texto[5:]
+print(subcadena)  # mundo
+
+# Strings son inmutables — el slicing siempre crea una nueva cadena
+print(texto[0:4])  # hola`
+    }
+  ]}
+  output={"[1, 2, 3, 4, 5, 99]\n[1, 2, 3, 4, 5]\n[1, 2, 3, 4, 5, 99]\nmundo\nhola"}
+/>
+
+<Callout variant="warn" title="Copia shallow, no deep">
+`lista[:]` copia la lista, pero los elementos dentro no se copian. Si la lista contiene otras listas (u objetos mutables), los elementos siguen siendo compartidos. Para una copia profunda usa `copy.deepcopy()`.
+</Callout>
+
+</Section>
+
+<Section id="invertir-con-step-negativo" title="Invertir con [::-1]">
+
+`[::-1]` invierte cualquier secuencia en una sola expresión. Es el truco de slicing más famoso de Python — y también el más eficiente para strings.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Invertir una lista
+numeros = [1, 2, 3, 4, 5]
+invertida = numeros[::-1]
+print(invertida)  # [5, 4, 3, 2, 1]
+print(numeros)    # [1, 2, 3, 4, 5] — el original no cambia
+
+# Invertir un string
+texto = "python"
+print(texto[::-1])  # nohtyp
+
+# Verificar si una palabra es palíndroma
+def es_palindromo(palabra: str) -> bool:
+    normalizada = palabra.lower().replace(" ", "")
+    return normalizada == normalizada[::-1]
+
+print(es_palindromo("racecar"))  # True
+print(es_palindromo("python"))   # False
+print(es_palindromo("A man a plan a canal Panama"))  # True... casi
+# (necesitaría quitar tildes y espacios)
+
+# step negativo con start y stop: subconjunto invertido
+letras = list("abcdefg")
+print(letras[6:1:-1])  # ['g', 'f', 'e', 'd', 'c']`
+    }
+  ]}
+  output={"[5, 4, 3, 2, 1]\n[1, 2, 3, 4, 5]\nnohtyp\nTrue\nFalse\nFalse\n['g', 'f', 'e', 'd', 'c']"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Extrae los 3 primeros y los 3 últimos elementos", diff: "easy", minutes: 3 },
+    { num: "02", name: "Invierte una cadena con slicing", diff: "easy", minutes: 2 },
+    { num: "03", name: "Obtén los elementos en posición par", diff: "easy", minutes: 3 },
+    { num: "04", name: "Copia una lista y verifica que es independiente", diff: "med", minutes: 4 },
+  ]}
+/>
+</Section>

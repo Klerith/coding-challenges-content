@@ -1,0 +1,255 @@
+---
+title: "MRO y herencia múltiple: el algoritmo C3 de Python"
+short: "MRO y herencia múltiple"
+chapter: "13"
+num: "04"
+chapterTitle: "Conceptos profundos de Python"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python permite herencia de múltiples clases. El algoritmo C3 (Method Resolution Order) define el orden en que se buscan los métodos — evitando el problema del diamante que plaga a otros lenguajes."
+pro: true
+---
+
+<Section id="problema-del-diamante" title="El problema del diamante">
+
+El problema del diamante ocurre cuando una clase hereda de dos clases que a su vez heredan de una misma clase base. ¿Qué método se usa? ¿Cuál base se inicializa primero? Python lo resuelve con el algoritmo C3.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Jerarquía en diamante:
+#       Animal
+#      /      \
+#   Volador   Nadador
+#      \      /
+#       Pato
+
+class Animal:
+    def __init__(self):
+        print("Animal.__init__")
+
+    def respirar(self):
+        return "respirando..."
+
+class Volador(Animal):
+    def __init__(self):
+        print("Volador.__init__")
+        super().__init__()   # super() sigue el MRO, no la herencia directa
+
+    def mover(self):
+        return "volando"
+
+class Nadador(Animal):
+    def __init__(self):
+        print("Nadador.__init__")
+        super().__init__()
+
+    def mover(self):
+        return "nadando"
+
+class Pato(Volador, Nadador):
+    def __init__(self):
+        print("Pato.__init__")
+        super().__init__()   # inicia toda la cadena MRO
+
+pato = Pato()
+# Pato.__init__
+# Volador.__init__
+# Nadador.__init__
+# Animal.__init__
+# Animal.__init__ se llama UNA SOLA VEZ — C3 garantiza esto
+
+print(pato.mover())      # "volando" — Volador está primero en el MRO
+print(pato.respirar())   # "respirando..." — de Animal`
+    }
+  ]}
+  output={"Pato.__init__\nVolador.__init__\nNadador.__init__\nAnimal.__init__\nvolando\nrespirando..."}
+/>
+
+</Section>
+
+<Section id="algoritmo-c3" title="El algoritmo C3 explicado">
+
+C3 linearization calcula el MRO respetando dos reglas: los hijos van antes que los padres, y el orden de las bases se preserva. El resultado es una lista lineal y sin ambigüedad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# El MRO de Pato es: [Pato, Volador, Nadador, Animal, object]
+# C3 resuelve esto preservando el orden local de cada clase
+
+class A:
+    def metodo(self): return "A"
+
+class B(A):
+    def metodo(self): return "B → " + super().metodo()
+
+class C(A):
+    def metodo(self): return "C → " + super().metodo()
+
+class D(B, C):
+    def metodo(self): return "D → " + super().metodo()
+
+print(D().metodo())    # D → B → C → A
+print(D.__mro__)
+# (<class 'D'>, <class 'B'>, <class 'C'>, <class 'A'>, <class 'object'>)
+
+# C3 rechaza jerarquías inconsistentes
+try:
+    class X: pass
+    class Y(X): pass
+    # Inconsistente: X antes de Y en primera base, Y antes de X en segunda
+    class Z(X, Y): pass   # TypeError: Cannot create a consistent MRO
+except TypeError as e:
+    print(f"MRO inconsistente: {e}")
+
+# Reglas del C3:
+# 1. La clase siempre va antes que sus bases
+# 2. El orden de las bases declaradas se preserva
+# 3. Si una clase aparece en múltiples listas, solo pasa cuando
+#    ya no aparece en la cabeza de ninguna otra lista`
+    }
+  ]}
+  output={"D → B → C → A\n(<class '__main__.D'>, <class '__main__.B'>, <class '__main__.C'>, <class '__main__.A'>, <class 'object'>)\nMRO inconsistente: Cannot create a consistent method resolution order..."}
+/>
+
+</Section>
+
+<Section id="mro-inspeccionar" title="__mro__ y mro() para inspeccionar">
+
+Cada clase expone su MRO a través del atributo `__mro__` (una tupla) y el método `mro()` (una lista). También se puede inspeccionar con `help(MiClase)`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Base:
+    pass
+
+class Mixin1(Base):
+    def metodo1(self):
+        return "mixin1"
+
+class Mixin2(Base):
+    def metodo2(self):
+        return "mixin2"
+
+class Final(Mixin1, Mixin2):
+    pass
+
+# __mro__ retorna una tupla
+print(Final.__mro__)
+# (<class 'Final'>, <class 'Mixin1'>, <class 'Mixin2'>, <class 'Base'>, <class 'object'>)
+
+# mro() retorna una lista
+for cls in Final.mro():
+    print(f"  {cls.__name__}")
+# Final → Mixin1 → Mixin2 → Base → object
+
+# Herramienta de diagnóstico: qué clase provee cada método
+def method_source(cls, method_name: str) -> str:
+    for klass in cls.__mro__:
+        if method_name in klass.__dict__:
+            return klass.__name__
+    return "no encontrado"
+
+print(method_source(Final, "metodo1"))  # Mixin1
+print(method_source(Final, "metodo2"))  # Mixin2
+print(method_source(Final, "__init__")) # object
+
+# Inspeccionar el MRO de clases built-in
+print([c.__name__ for c in int.__mro__])   # ['int', 'object']
+print([c.__name__ for c in bool.__mro__])  # ['bool', 'int', 'object']`
+    }
+  ]}
+  output={"(<class '__main__.Final'>, <class '__main__.Mixin1'>, <class '__main__.Mixin2'>, <class '__main__.Base'>, <class 'object'>)\nFinal\nMixin1\nMixin2\nBase\nobject\nMixin1\nMixin2\nobject\n['int', 'object']\n['bool', 'int', 'object']"}
+/>
+
+</Section>
+
+<Section id="mixin-pattern" title="Mixin pattern con herencia múltiple">
+
+Los mixins son clases pequeñas que añaden funcionalidad específica a otras clases mediante herencia múltiple. No deben instanciarse solos y no tienen estado propio — solo proveen métodos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import json
+import time
+import functools
+
+# Mixin de serialización JSON
+class JSONMixin:
+    def to_json(self) -> str:
+        return json.dumps(self.__dict__, ensure_ascii=False, default=str)
+
+    @classmethod
+    def from_json(cls, json_str: str):
+        data = json.loads(json_str)
+        obj = cls.__new__(cls)
+        obj.__dict__.update(data)
+        return obj
+
+# Mixin de representación
+class ReprMixin:
+    def __repr__(self) -> str:
+        attrs = ", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({attrs})"
+
+# Mixin de validación
+class ValidatedMixin:
+    def validate(self) -> bool:
+        for attr, value in self.__dict__.items():
+            if value is None:
+                raise ValueError(f"'{attr}' no puede ser None")
+        return True
+
+# Clase final: hereda de todos los mixins + base propia
+class Product(JSONMixin, ReprMixin, ValidatedMixin):
+    def __init__(self, name: str, price: float, stock: int):
+        self.name = name
+        self.price = price
+        self.stock = stock
+
+p = Product("Python Handbook", 29.99, 50)
+print(repr(p))          # Product(name='Python Handbook', price=29.99, stock=50)
+print(p.to_json())      # {"name": "Python Handbook", "price": 29.99, "stock": 50}
+print(p.validate())     # True
+
+p2 = Product.from_json('{"name": "Go Book", "price": 24.99, "stock": 10}')
+print(repr(p2))         # Product(name='Go Book', price=24.99, stock=10)
+
+# Los mixins siguen el MRO correctamente
+print([c.__name__ for c in Product.__mro__])
+# ['Product', 'JSONMixin', 'ReprMixin', 'ValidatedMixin', 'object']`
+    }
+  ]}
+  output={"Product(name='Python Handbook', price=29.99, stock=50)\n{\"name\": \"Python Handbook\", \"price\": 29.99, \"stock\": 50}\nTrue\nProduct(name='Go Book', price=24.99, stock=10)\n['Product', 'JSONMixin', 'ReprMixin', 'ValidatedMixin', 'object']"}
+/>
+
+<Callout variant="tip" title="Convención de nombres para mixins">
+Por convención, los mixins llevan el sufijo `Mixin` en su nombre (`JSONMixin`, `LogMixin`, `TimingMixin`). Esto señala que no deben instanciarse solos y que son piezas de funcionalidad para componer con otras clases.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Usa __mro__ para entender el orden de búsqueda", diff: "easy", minutes: 4 },
+    { num: "02", name: "Implementa LogMixin y TimingMixin con herencia múltiple", diff: "med", minutes: 7 },
+    { num: "03", name: "Resuelve el diamante con super() y C3", diff: "hard", minutes: 9 },
+  ]}
+/>
+</Section>

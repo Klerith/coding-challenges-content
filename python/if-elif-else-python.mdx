@@ -1,0 +1,192 @@
+---
+title: "if / elif / else: tomar decisiones en Python"
+short: "if / elif / else"
+chapter: "03"
+num: "01"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Las decisiones son el alma de cualquier programa. if, elif y else en Python tienen una sintaxis clara que hace que el código fluya como una conversación."
+pro: false
+---
+
+<Section id="if-basico" title="if básico">
+
+El bloque `if` ejecuta código solo si la condición es verdadera. La indentación (4 espacios) delimita el bloque — no hay llaves `{}`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `edad = 20
+
+if edad >= 18:
+    print("Eres mayor de edad")
+    print("Puedes votar")
+
+# Si la condición es False, el bloque se omite
+temperatura = 10
+
+if temperatura > 30:
+    print("Hace calor")   # ← no se ejecuta
+
+print("Fin del programa")  # ← siempre se ejecuta
+`
+    }
+  ]}
+  output={"Eres mayor de edad\nPuedes votar\nFin del programa"}
+/>
+
+<Callout variant="warn" title="La indentación es parte de la sintaxis">
+En Python, la indentación no es opcional ni decorativa — es parte de la sintaxis. Un error de indentación es un `IndentationError` que impide que el programa corra. Usa siempre 4 espacios (no tabs) por nivel.
+</Callout>
+
+</Section>
+
+<Section id="elif-else" title="elif y else">
+
+`elif` es la contracción de «else if». `else` captura todos los casos que no cumplieron ninguna condición anterior:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `nota = 75
+
+if nota >= 90:
+    calificacion = "A"
+elif nota >= 80:
+    calificacion = "B"
+elif nota >= 70:
+    calificacion = "C"
+elif nota >= 60:
+    calificacion = "D"
+else:
+    calificacion = "F"
+
+print(f"Nota: {nota} → Calificación: {calificacion}")
+
+# if / else en una sola expresión (ternario)
+mensaje = "aprobado" if nota >= 60 else "reprobado"
+print(f"Estado: {mensaje}")
+`
+    }
+  ]}
+  output={"Nota: 75 → Calificación: C\nEstado: aprobado"}
+/>
+
+**Python evalúa las condiciones en orden y ejecuta solo el primer bloque verdadero.** Una vez que una condición es `True`, el resto de `elif` y `else` se ignoran.
+
+</Section>
+
+<Section id="valores-falsy" title="Valores «falsy» en Python">
+
+En Python, no solo `False` es falso. Los siguientes valores se comportan como `False` en un contexto booleano:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Valores falsy — se comportan como False en un if
+valores_falsy = [
+    False,    # el False literal
+    0,        # el cero (int)
+    0.0,      # el cero (float)
+    "",       # string vacío
+    [],       # lista vacía
+    {},       # dict vacío
+    (),       # tupla vacía
+    None,     # ausencia de valor
+]
+
+for valor in valores_falsy:
+    if not valor:
+        print(f"{repr(valor):15} → falsy")
+
+# Todo lo demás es truthy
+if "texto":
+    print("Los strings no vacíos son truthy")
+
+if [1, 2, 3]:
+    print("Las listas no vacías son truthy")
+
+if 42:
+    print("Los enteros != 0 son truthy")
+`
+    }
+  ]}
+  output={"False           → falsy\n0               → falsy\n0.0             → falsy\n''              → falsy\n[]              → falsy\n{}              → falsy\n()              → falsy\nNone            → falsy\nLos strings no vacíos son truthy\nLas listas no vacías son truthy\nLos enteros != 0 son truthy"}
+/>
+
+<Callout variant="tip" title="Aprovecha los valores falsy">
+En lugar de `if len(lista) > 0:`, en Python se escribe `if lista:`. En lugar de `if nombre != "":`, se escribe `if nombre:`. Este estilo es más idiomático y conciso.
+</Callout>
+
+</Section>
+
+<Section id="condiciones-compuestas" title="Condiciones compuestas">
+
+Puedes combinar condiciones con `and`, `or` y `not`, y encadenar comparaciones directamente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `edad = 25
+tiene_carnet = True
+puntos_multa = 3
+
+# Condiciones con and / or / not
+if edad >= 18 and tiene_carnet:
+    print("Puede conducir")
+
+if edad < 16 or not tiene_carnet:
+    print("No puede conducir")
+
+# Encadenamiento de comparaciones (exclusivo de Python)
+if 0 < puntos_multa <= 3:
+    print("Sin restricciones")
+elif 4 <= puntos_multa <= 8:
+    print("Conducción restringida")
+else:
+    print("Carnet suspendido")
+
+# Validación de contraseña con múltiples condiciones
+password = "MiPass123"
+
+tiene_minuscula = any(c.islower() for c in password)
+tiene_mayuscula = any(c.isupper() for c in password)
+tiene_numero = any(c.isdigit() for c in password)
+es_larga = len(password) >= 8
+
+if tiene_minuscula and tiene_mayuscula and tiene_numero and es_larga:
+    print("Contraseña segura ✓")
+else:
+    print("Contraseña débil ✗")
+`
+    }
+  ]}
+  output={"Puede conducir\nSin restricciones\nContraseña segura ✓"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cuatro ejercicios para dominar las decisiones en Python."
+  items={[
+    { num: "01", name: "Calificación de notas: A/B/C/D/F", diff: "easy", minutes: 3 },
+    { num: "02", name: "Verifica si un número es par, impar o cero", diff: "easy", minutes: 3 },
+    { num: "03", name: "Clasifica la edad en etapas de vida", diff: "easy", minutes: 4 },
+    { num: "04", name: "Valida usuario y contraseña con múltiples condiciones", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

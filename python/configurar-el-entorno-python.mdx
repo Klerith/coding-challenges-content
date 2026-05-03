@@ -1,0 +1,265 @@
+---
+title: "Configurar el entorno: Python, uv y el editor"
+short: "Configurar el entorno"
+chapter: "01"
+num: "04"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 0
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un entorno bien configurado evita horas de frustración. Vamos con la combinación moderna: Python 3.13, uv para gestionar paquetes, y VS Code o PyCharm."
+pro: false
+---
+
+<Section id="instalar-python" title="Instalar Python">
+
+La forma recomendada de instalar Python varía según el sistema operativo. Siempre instala Python 3 — Python 2 está obsoleto.
+
+**macOS**
+
+La opción más simple es usar `brew` (Homebrew):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal (macOS)",
+      code: `# Instalar Homebrew si no lo tienes:
+# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Instalar Python 3.13
+# brew install python@3.13
+
+# Verificar la instalación
+# python3 --version   →  Python 3.13.x
+`
+    }
+  ]}
+/>
+
+**Windows**
+
+Descarga el instalador oficial desde [python.org/downloads](https://python.org/downloads). Durante la instalación, **activa la opción «Add Python to PATH»** — sin esto, no podrás usar `python` desde la terminal.
+
+**Linux (Ubuntu/Debian)**
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal (Linux)",
+      code: `# sudo apt update
+# sudo apt install python3.13 python3.13-venv python3-pip
+
+# En distribuciones modernas, Python 3 ya viene preinstalado
+# python3 --version
+`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="python vs python3">
+En muchos sistemas, `python` apunta a Python 2 (si está instalado) y `python3` a Python 3. Siempre usa `python3` explícitamente o configura tu shell para que `python` apunte a Python 3.
+</Callout>
+
+</Section>
+
+<Section id="uv-gestor-moderno" title="uv — el gestor moderno de paquetes">
+
+`uv` es la herramienta moderna para gestionar paquetes y entornos virtuales en Python. Es 10-100x más rápido que `pip` y reemplaza `pip`, `virtualenv`, `pyenv` y `poetry` en un solo comando.
+
+**Instalar uv:**
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal",
+      code: `# macOS / Linux:
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell):
+# powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Verificar
+# uv --version  →  uv 0.5.x
+`
+    }
+  ]}
+/>
+
+**Flujo básico con uv:**
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal",
+      code: `# Crear un nuevo proyecto
+# uv init mi-proyecto
+# cd mi-proyecto
+
+# Agregar una dependencia
+# uv add requests
+
+# Ejecutar código en el entorno virtual del proyecto
+# uv run python mi_script.py
+
+# Instalar todas las dependencias de un proyecto existente
+# uv sync
+
+# Ver el entorno actual
+# uv tree
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="¿Por qué uv y no pip?">
+`pip` sigue siendo la herramienta estándar y funciona perfectamente para aprender. `uv` es la opción moderna para proyectos reales: resuelve conflictos de versiones, gestiona entornos virtuales automáticamente y es dramáticamente más rápido.
+</Callout>
+
+**Entornos virtuales: el concepto clave**
+
+Un entorno virtual es una copia aislada de Python donde instalas paquetes sin afectar el sistema. Cada proyecto debería tener el suyo:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal (pip tradicional)",
+      code: `# Crear un entorno virtual
+# python3 -m venv .venv
+
+# Activarlo (macOS/Linux)
+# source .venv/bin/activate
+
+# Activarlo (Windows)
+# .venv\Scripts\activate
+
+# El prompt cambia a (.venv) para indicar que está activo
+# Instalar paquetes (solo afectan al entorno virtual)
+# pip install requests
+
+# Desactivar
+# deactivate
+`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="configurar-editor" title="Configurar el editor">
+
+**VS Code (recomendado para principiantes)**
+
+1. Descarga VS Code desde [code.visualstudio.com](https://code.visualstudio.com)
+2. Instala la extensión oficial **Python** (de Microsoft)
+3. Instala **Pylance** para autocompletado avanzado
+4. Instala **Ruff** para formateo y linting automático
+
+Configuración recomendada en `.vscode/settings.json`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: ".vscode/settings.json",
+      code: `# Este archivo es JSON (no Python), pero lo mostramos aquí por contexto:
+# {
+#   "python.defaultInterpreterPath": ".venv/bin/python",
+#   "editor.formatOnSave": true,
+#   "[python]": {
+#     "editor.defaultFormatter": "charliermarsh.ruff",
+#     "editor.codeActionsOnSave": {
+#       "source.organizeImports": "explicit"
+#     }
+#   }
+# }
+`
+    }
+  ]}
+/>
+
+**PyCharm (recomendado para proyectos grandes)**
+
+PyCharm Community Edition es gratuito y tiene soporte nativo para Python sin extensiones. Es la opción preferida para proyectos grandes o equipos que trabajan con Django.
+
+**Jupyter Notebooks**
+
+Para ciencia de datos y exploración interactiva, los Notebooks de Jupyter son la herramienta estándar. VS Code tiene soporte nativo con la extensión Jupyter.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal",
+      code: `# Instalar Jupyter
+# uv add jupyter
+
+# Iniciar Jupyter Lab (interfaz moderna)
+# uv run jupyter lab
+
+# Iniciar Jupyter Notebook (clásico)
+# uv run jupyter notebook
+`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="verificar-instalacion" title="Verificar la instalación">
+
+Antes de continuar, verifica que todo funciona correctamente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Crea un archivo llamado verificar.py con este contenido:
+import sys
+import platform
+
+print(f"Python: {sys.version}")
+print(f"Sistema: {platform.system()} {platform.release()}")
+print(f"Arquitectura: {platform.machine()}")
+
+# Verifica que los módulos básicos funcionan
+import json
+import os
+import pathlib
+
+print("✓ Módulos estándar disponibles")
+print("✓ Entorno listo para programar")
+`
+    }
+  ]}
+  output={"Python: 3.13.0 (main, ...)\nSistema: Darwin 24.x.x\nArquitectura: arm64\n✓ Módulos estándar disponibles\n✓ Entorno listo para programar"}
+/>
+
+Ejecuta el archivo desde la terminal:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Terminal",
+      code: `# python3 verificar.py
+# o con uv:
+# uv run verificar.py
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Problemas comunes">
+Si `python3` no se reconoce en Windows, el PATH no está configurado. Vuelve a ejecutar el instalador de Python y activa «Add Python to PATH». En macOS, asegúrate de que Homebrew esté en el PATH con `echo $PATH`.
+</Callout>
+
+</Section>

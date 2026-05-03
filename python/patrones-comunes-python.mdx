@@ -1,0 +1,312 @@
+---
+title: "Patrones comunes: Singleton, Factory, Observer y Strategy en Python"
+short: "Patrones comunes"
+chapter: "14"
+num: "06"
+chapterTitle: "Bonus prácticos"
+difficulty: "advanced"
+readingMinutes: 11
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Los design patterns son soluciones probadas a problemas recurrentes. Python permite implementarlos de forma más concisa que Java gracias a first-class functions, metaclases y duck typing."
+pro: true
+---
+
+<Section id="singleton-metaclase" title="Singleton con metaclase">
+
+El Singleton garantiza que solo exista una instancia de la clase. En Python se puede implementar con metaclase, con decorador, o con un módulo (ya que los módulos son singletones por naturaleza).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Implementación con metaclase (la más robusta)
+class SingletonMeta(type):
+    _instances: dict = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class Logger(metaclass=SingletonMeta):
+    def __init__(self):
+        self.logs: list[str] = []
+        print("Logger inicializado")  # solo se llama UNA vez
+
+    def log(self, message: str) -> None:
+        import datetime
+        entry = f"{datetime.datetime.now().isoformat()} {message}"
+        self.logs.append(entry)
+
+# Crear el singleton
+logger1 = Logger()   # "Logger inicializado"
+logger2 = Logger()   # nada — ya existe
+
+print(logger1 is logger2)   # True — misma instancia
+
+logger1.log("Inicio del sistema")
+print(logger2.logs)  # ['2026-05-03T... Inicio del sistema']
+# logger2.logs es el mismo objeto que logger1.logs
+
+# Alternativa más simple: módulo como singleton
+# config.py:
+# DATABASE_URL = "postgres://..."
+# Esta es la forma más "pythonica" de singleton para configuración
+
+# Implementación con decorador
+def singleton(cls):
+    instances = {}
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return get_instance
+
+@singleton
+class Config:
+    def __init__(self):
+        self.debug = False`
+    }
+  ]}
+  output={"Logger inicializado\nTrue\n['2026-05-03T10:30:00 Inicio del sistema']"}
+/>
+
+</Section>
+
+<Section id="factory-method" title="Factory Method y Abstract Factory">
+
+El Factory Method delega la creación de objetos a subclases o a una función. En Python, las funciones de primera clase hacen que el Abstract Factory sea mucho más conciso que en Java.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from abc import ABC, abstractmethod
+from typing import Callable
+
+# Factory Method: función que crea objetos según tipo
+class Parser(ABC):
+    @abstractmethod
+    def parse(self, data: str) -> dict: ...
+
+class JSONParser(Parser):
+    def parse(self, data: str) -> dict:
+        import json
+        return json.loads(data)
+
+class CSVParser(Parser):
+    def parse(self, data: str) -> dict:
+        lines = data.strip().split("\n")
+        headers = lines[0].split(",")
+        rows = [dict(zip(headers, line.split(","))) for line in lines[1:]]
+        return {"rows": rows, "count": len(rows)}
+
+# Factory: función que retorna el parser correcto
+def create_parser(format_name: str) -> Parser:
+    parsers = {
+        "json": JSONParser,
+        "csv": CSVParser,
+    }
+    cls = parsers.get(format_name.lower())
+    if cls is None:
+        raise ValueError(f"Formato desconocido: {format_name!r}. Usa: {list(parsers)}")
+    return cls()
+
+# Uso
+parser = create_parser("json")
+data = parser.parse('{"name": "Python", "version": 3}')
+print(data)  # {'name': 'Python', 'version': 3}
+
+parser2 = create_parser("csv")
+csv_data = "nombre,edad\nAna,30\nCarlos,25"
+result = parser2.parse(csv_data)
+print(result["count"])   # 2
+
+# Abstract Factory con funciones (más pythónico)
+# En vez de clases abstractas, un dict de funciones
+ParserFactory = dict[str, Callable[[str], dict]]
+
+def make_parser_factory(*formats) -> ParserFactory:
+    return {fmt: create_parser(fmt).parse for fmt in formats}
+
+factory = make_parser_factory("json", "csv")
+print(factory["json"]('{"ok": true}'))  # {'ok': True}`
+    }
+  ]}
+  output={"{'name': 'Python', 'version': 3}\n2\n{'ok': True}"}
+/>
+
+</Section>
+
+<Section id="observer-callbacks" title="Observer con callbacks y eventos">
+
+El Observer (o Pub/Sub) permite que múltiples objetos reaccionen a eventos sin acoplamiento directo. En Python, las funciones de primera clase hacen que no necesites interfaces explícitas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Callable, Any
+from collections import defaultdict
+
+class EventEmitter:
+    """Sistema de eventos simple con on() y emit()."""
+
+    def __init__(self):
+        self._handlers: dict[str, list[Callable]] = defaultdict(list)
+
+    def on(self, event: str, handler: Callable) -> "EventEmitter":
+        """Registra un handler para un evento. Retorna self para encadenamiento."""
+        self._handlers[event].append(handler)
+        return self
+
+    def off(self, event: str, handler: Callable) -> None:
+        """Elimina un handler específico."""
+        if event in self._handlers:
+            self._handlers[event].remove(handler)
+
+    def emit(self, event: str, *args, **kwargs) -> None:
+        """Dispara el evento, llamando a todos los handlers registrados."""
+        for handler in self._handlers[event]:
+            handler(*args, **kwargs)
+
+    def once(self, event: str, handler: Callable) -> None:
+        """Handler que se ejecuta solo una vez."""
+        def wrapper(*args, **kwargs):
+            handler(*args, **kwargs)
+            self.off(event, wrapper)
+        self.on(event, wrapper)
+
+# Sistema de pedidos con eventos
+class OrderSystem(EventEmitter):
+    def create_order(self, order_id: str, items: list) -> dict:
+        order = {"id": order_id, "items": items, "status": "created"}
+        self.emit("order:created", order)
+        return order
+
+    def ship_order(self, order: dict) -> None:
+        order["status"] = "shipped"
+        self.emit("order:shipped", order)
+
+# Handlers independientes (observadores)
+def send_email(order: dict) -> None:
+    print(f"[Email] Pedido {order['id']} creado — {len(order['items'])} items")
+
+def update_inventory(order: dict) -> None:
+    print(f"[Inventario] Reservando stock para pedido {order['id']}")
+
+def notify_warehouse(order: dict) -> None:
+    print(f"[Almacén] Preparar envío para pedido {order['id']}")
+
+# Conectar observadores
+sistema = OrderSystem()
+sistema.on("order:created", send_email)
+sistema.on("order:created", update_inventory)
+sistema.on("order:shipped", notify_warehouse)
+
+pedido = sistema.create_order("ORD-001", ["libro", "ratón"])
+sistema.ship_order(pedido)`
+    }
+  ]}
+  output={"[Email] Pedido ORD-001 creado — 2 items\n[Inventario] Reservando stock para pedido ORD-001\n[Almacén] Preparar envío para pedido ORD-001"}
+/>
+
+</Section>
+
+<Section id="strategy-funciones" title="Strategy con funciones de primera clase">
+
+El Strategy define una familia de algoritmos intercambiables. En Java requiere una interfaz y múltiples clases. En Python, una función es suficiente — los algoritmos son simplemente funciones.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Callable, TypeVar
+
+T = TypeVar("T")
+
+# Strategy con funciones (pythónico)
+SortStrategy = Callable[[list], list]
+
+def bubble_sort(items: list) -> list:
+    """Burbuja: O(n²), solo para demostración."""
+    arr = items.copy()
+    n = len(arr)
+    for i in range(n):
+        for j in range(n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+    return arr
+
+def merge_sort(items: list) -> list:
+    """Merge sort: O(n log n)."""
+    if len(items) <= 1:
+        return items[:]
+    mid = len(items) // 2
+    left = merge_sort(items[:mid])
+    right = merge_sort(items[mid:])
+    result, i, j = [], 0, 0
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            result.append(left[i]); i += 1
+        else:
+            result.append(right[j]); j += 1
+    return result + left[i:] + right[j:]
+
+def python_sort(items: list) -> list:
+    """Timsort nativo de Python."""
+    return sorted(items)
+
+class Sorter:
+    def __init__(self, strategy: SortStrategy = python_sort):
+        self.strategy = strategy
+
+    def sort(self, data: list) -> list:
+        return self.strategy(data)
+
+    def set_strategy(self, strategy: SortStrategy) -> None:
+        self.strategy = strategy
+
+# Usar la estrategia intercambiable
+datos = [64, 34, 25, 12, 22, 11, 90]
+
+sorter = Sorter(bubble_sort)
+print(f"Burbuja: {sorter.sort(datos)}")
+
+sorter.set_strategy(merge_sort)
+print(f"Merge:   {sorter.sort(datos)}")
+
+sorter.set_strategy(python_sort)
+print(f"Python:  {sorter.sort(datos)}")
+
+# También se puede pasar lambda como estrategia
+sorter.set_strategy(lambda items: sorted(items, reverse=True))
+print(f"Inverso: {sorter.sort(datos)}")`
+    }
+  ]}
+  output={"Burbuja: [11, 12, 22, 25, 34, 64, 90]\nMerge:   [11, 12, 22, 25, 34, 64, 90]\nPython:  [11, 12, 22, 25, 34, 64, 90]\nInverso: [90, 64, 34, 25, 22, 12, 11]"}
+/>
+
+<Callout variant="tip" title="Python idiomático prefiere composición sobre herencia">
+En Java los patrones suelen requerir jerarquías de clases profundas porque las funciones no son valores de primera clase. En Python, pasar funciones como argumentos elimina la necesidad de muchas de esas clases intermedias. Esto no es "menos patrón" — es Python usando sus fortalezas.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa Logger Singleton que solo se instancia una vez", diff: "med", minutes: 6 },
+    { num: "02", name: "Factory que crea parsers para JSON/CSV/XML", diff: "med", minutes: 7 },
+    { num: "03", name: "Observer: sistema de eventos con on() y emit()", diff: "hard", minutes: 9 },
+    { num: "04", name: "Strategy: algoritmos de ordenación intercambiables", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

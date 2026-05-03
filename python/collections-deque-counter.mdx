@@ -1,0 +1,224 @@
+---
+title: "collections: deque, Counter, defaultdict y OrderedDict"
+short: "deque, Counter, defaultdict"
+chapter: "11"
+num: "02"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "El módulo collections es la caja de herramientas de estructuras de datos de Python. deque para colas eficientes, Counter para contar, defaultdict para evitar KeyError."
+pro: false
+---
+
+<Section id="deque-appendleft" title="deque — appendleft/popleft en O(1)">
+
+`deque` (double-ended queue) es una lista optimizada para insertar y eliminar en ambos extremos en tiempo O(1). Una lista normal tarda O(n) al insertar al inicio porque debe desplazar todos los elementos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from collections import deque
+
+# Crear un deque
+cola = deque([1, 2, 3])
+
+# Añadir al final (como lista) y al inicio — ambos O(1)
+cola.append(4)       # [1, 2, 3, 4]
+cola.appendleft(0)   # [0, 1, 2, 3, 4]
+
+# Eliminar del final y del inicio — ambos O(1)
+ultimo = cola.pop()       # 4 — cola: [0, 1, 2, 3]
+primero = cola.popleft()  # 0 — cola: [1, 2, 3]
+
+print(cola)    # deque([1, 2, 3])
+print(ultimo)  # 4
+print(primero) # 0
+
+# maxlen: ventana deslizante — descarta el extremo opuesto
+ultimas_5 = deque(maxlen=5)
+for n in range(10):
+    ultimas_5.append(n)
+print(ultimas_5)  # deque([5, 6, 7, 8, 9], maxlen=5)
+
+# Rotar: mover n posiciones a la derecha (negativo = izquierda)
+d = deque([1, 2, 3, 4, 5])
+d.rotate(2)
+print(d)  # deque([4, 5, 1, 2, 3])`
+    }
+  ]}
+  output={"deque([1, 2, 3])\n4\n0\ndeque([5, 6, 7, 8, 9], maxlen=5)\ndeque([4, 5, 1, 2, 3])"}
+/>
+
+<CompareTable
+  headers={["list.insert(0, x)", "deque.appendleft(x)"]}
+  rows={[
+    [{ kind: "bad", value: "O(n) — desplaza todos los elementos" }, { kind: "good", value: "O(1) — puntero doble, sin desplazar nada" }],
+    [{ kind: "bad", value: "Lento para colas FIFO de alto volumen" }, { kind: "good", value: "Diseñado exactamente para ese uso" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="counter-contar" title="Counter — contar todo">
+
+`Counter` es un dict especializado en contar. Acepta cualquier iterable, cuenta las ocurrencias de cada elemento y ofrece métodos útiles como `most_common()`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from collections import Counter
+
+# Contar letras en un string
+letras = Counter("abracadabra")
+print(letras)  # Counter({'a': 5, 'b': 2, 'r': 2, 'c': 1, 'd': 1})
+
+# Contar palabras en un texto
+texto = "el cielo es azul el mar es azul el aire es fresco"
+palabras = Counter(texto.split())
+print(palabras.most_common(3))
+# [('el', 3), ('es', 3), ('azul', 2)]
+
+# Operaciones aritméticas entre Counters
+c1 = Counter({"python": 3, "js": 2, "go": 1})
+c2 = Counter({"python": 1, "rust": 4, "go": 2})
+
+print(c1 + c2)  # Counter({'rust': 4, 'python': 4, 'go': 3, 'js': 2})
+print(c1 - c2)  # Counter({'python': 2, 'js': 2}) — solo positivos
+
+# Acceso a elementos no presentes: retorna 0, no KeyError
+print(letras["z"])  # 0
+
+# total() para la suma de todos los conteos
+print(letras.total())  # 11
+
+# Actualizar con más datos
+letras.update("aaa")
+print(letras["a"])  # 8`
+    }
+  ]}
+  output={"Counter({'a': 5, 'b': 2, 'r': 2, 'c': 1, 'd': 1})\n[('el', 3), ('es', 3), ('azul', 2)]\nCounter({'rust': 4, 'python': 4, 'go': 3, 'js': 2})\nCounter({'python': 2, 'js': 2})\n0\n11\n8"}
+/>
+
+</Section>
+
+<Section id="defaultdict-valores-por-defecto" title="defaultdict — valores por defecto automáticos">
+
+`defaultdict` evita el `KeyError` al acceder a claves inexistentes. Acepta una función de fábrica que genera el valor por defecto automáticamente cuando la clave no existe.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from collections import defaultdict
+
+# Sin defaultdict: error al acumular sin inicializar
+try:
+    d = {}
+    d["python"].append("Ana")  # KeyError: 'python'
+except KeyError as e:
+    print(f"Error: {e}")
+
+# Con defaultdict(list): la lista se crea automáticamente
+grupos = defaultdict(list)
+datos = [("python", "Ana"), ("js", "Carlos"), ("python", "Diana"), ("js", "Eva")]
+
+for lenguaje, nombre in datos:
+    grupos[lenguaje].append(nombre)  # sin verificar si la clave existe
+
+print(dict(grupos))
+# {'python': ['Ana', 'Diana'], 'js': ['Carlos', 'Eva']}
+
+# defaultdict(int): contador manual
+visitas = defaultdict(int)
+paginas = ["/home", "/about", "/home", "/contact", "/home"]
+for pagina in paginas:
+    visitas[pagina] += 1
+print(dict(visitas))
+# {'/home': 3, '/about': 1, '/contact': 1}
+
+# defaultdict(set): agrupar en sets (sin duplicados)
+tags_por_post = defaultdict(set)
+tags_por_post["post1"].add("python")
+tags_por_post["post1"].add("python")  # ignorado (ya existe)
+tags_por_post["post1"].add("tutorial")
+print(dict(tags_por_post))  # {'post1': {'python', 'tutorial'}}`
+    }
+  ]}
+  output={"Error: 'python'\n{'python': ['Ana', 'Diana'], 'js': ['Carlos', 'Eva']}\n{'/home': 3, '/about': 1, '/contact': 1}\n{'post1': {'python', 'tutorial'}}"}
+/>
+
+</Section>
+
+<Section id="ordereddict-chainmap" title="OrderedDict y ChainMap">
+
+`OrderedDict` mantiene el orden de inserción (como los dicts normales en Python 3.7+), pero ofrece `move_to_end()` y comparación sensible al orden. `ChainMap` combina múltiples dicts en una vista única.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from collections import OrderedDict, ChainMap
+
+# OrderedDict: útil cuando move_to_end() importa
+cache = OrderedDict()
+cache["a"] = 1
+cache["b"] = 2
+cache["c"] = 3
+
+cache.move_to_end("a")           # mueve "a" al final
+print(list(cache.keys()))        # ['b', 'c', 'a']
+
+cache.move_to_end("c", last=False)  # mueve "c" al inicio
+print(list(cache.keys()))           # ['c', 'b', 'a']
+
+# OrderedDict LRU cache manual (pop el primero cuando está lleno)
+lru = OrderedDict(maxlen=3) if False else OrderedDict()
+
+def lru_get(key):
+    if key in lru:
+        lru.move_to_end(key)  # marca como recientemente usado
+    return lru.get(key)
+
+# ChainMap: busca en múltiples dicts en orden
+config_default = {"debug": False, "timeout": 30, "host": "localhost"}
+config_usuario = {"debug": True, "host": "produccion.example.com"}
+
+# config_usuario tiene prioridad sobre config_default
+config = ChainMap(config_usuario, config_default)
+print(config["debug"])    # True  (del usuario)
+print(config["timeout"])  # 30    (del default)
+print(config["host"])     # 'produccion.example.com' (del usuario)
+
+# Útil para configuraciones con capas: CLI > env > archivo > defaults`
+    }
+  ]}
+  output={"['b', 'c', 'a']\n['c', 'b', 'a']\nTrue\n30\nproduccion.example.com"}
+/>
+
+<Callout variant="tip" title="ChainMap es una vista, no una copia">
+ChainMap no fusiona los dicts — crea una vista que busca en orden. Si modificas el ChainMap, los cambios van al primer dict. Los dicts originales no se modifican al leer.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa una cola FIFO con deque", diff: "easy", minutes: 4 },
+    { num: "02", name: "Cuenta las palabras más frecuentes con Counter", diff: "easy", minutes: 3 },
+    { num: "03", name: "Agrupa elementos por categoría con defaultdict(list)", diff: "med", minutes: 5 },
+    { num: "04", name: "Implementa historial de comandos con deque(maxlen=10)", diff: "med", minutes: 5 },
+    { num: "05", name: "Combina dos configs con ChainMap", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,229 @@
+---
+title: "Decoradores con argumentos y aplicados a clases"
+short: "Decoradores avanzados"
+chapter: "12"
+num: "02"
+chapterTitle: "Python avanzado"
+difficulty: "advanced"
+readingMinutes: 11
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Los decoradores con argumentos añaden un nivel extra de closure: una función que retorna un decorador que retorna la función envuelta. También pueden decorar clases enteras, modificando la metaclase."
+pro: true
+---
+
+<Section id="decorador-con-argumentos" title="Decorador con argumentos — tres niveles de closure">
+
+Un decorador sin argumentos tiene dos niveles: `decorator(func) → wrapper`. Un decorador con argumentos tiene tres: `decorator_factory(args) → decorator(func) → wrapper`. El nivel extra es la "fábrica de decoradores".
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import functools
+import time
+
+# Decorador CON argumentos: necesita tres niveles
+def retry(max_attempts: int = 3, delay: float = 0.5):
+    """Reintenta la función hasta max_attempts veces si lanza excepción."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_error = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_error = e
+                    print(f"Intento {attempt}/{max_attempts} fallido: {e}")
+                    if attempt < max_attempts:
+                        time.sleep(delay)
+            raise last_error  # re-lanza el último error
+        return wrapper
+    return decorator
+
+# Uso: @retry(max_attempts=3, delay=0.1)
+# La fábrica `retry(3, 0.1)` devuelve el decorador real
+@retry(max_attempts=3, delay=0.01)
+def fetch_data(url: str) -> dict:
+    import random
+    if random.random() < 0.7:  # falla el 70% de las veces
+        raise ConnectionError(f"No se pudo conectar a {url}")
+    return {"data": "ok"}
+
+try:
+    result = fetch_data("https://api.example.com")
+    print(result)
+except ConnectionError:
+    print("Falló después de 3 intentos")
+
+# Decorador con argumento único (patrón simplificado)
+def repeat(n: int):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for _ in range(n):
+                result = func(*args, **kwargs)
+            return result
+        return wrapper
+    return decorator
+
+@repeat(3)
+def say(msg: str) -> None:
+    print(msg)
+
+say("hola")  # imprime "hola" 3 veces`
+    }
+  ]}
+  output={"Intento 1/3 fallido: No se pudo conectar a https://api.example.com\nIntento 2/3 fallido: ...\nhola\nhola\nhola"}
+/>
+
+<CompareTable
+  headers={["Sin argumentos", "Con argumentos"]}
+  rows={[
+    [{ kind: "good", value: "@mi_decorador\ndef func(): ..." }, { kind: "good", value: "@mi_decorador(arg=val)\ndef func(): ..." }],
+    [{ kind: "good", value: "def mi_decorador(func):\n    def wrapper(): ...\n    return wrapper" }, { kind: "good", value: "def mi_decorador(arg):\n    def decorator(func):\n        def wrapper(): ...\n        return wrapper\n    return decorator" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="decorador-de-clase" title="Decorador de clase — modifica la clase entera">
+
+Un decorador puede recibir una clase en lugar de una función. Puede añadir métodos, modificar atributos o envolver todos los métodos automáticamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import functools
+
+# Decorador que añade un método to_dict() a cualquier clase
+def add_repr(cls):
+    """Añade __repr__ automático basándose en __dict__."""
+    def __repr__(self):
+        attrs = ", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
+        return f"{cls.__name__}({attrs})"
+    cls.__repr__ = __repr__
+    return cls
+
+@add_repr
+class Point:
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+p = Point(3.0, 4.0)
+print(p)  # Point(x=3.0, y=4.0)
+
+# Decorador que loggea todos los métodos de la clase
+def log_all_methods(cls):
+    """Envuelve cada método público con logging."""
+    for name, method in list(vars(cls).items()):
+        if callable(method) and not name.startswith("_"):
+            @functools.wraps(method)
+            def make_logged(m):
+                @functools.wraps(m)
+                def logged(self, *args, **kwargs):
+                    print(f"[LOG] {cls.__name__}.{m.__name__}({args}, {kwargs})")
+                    return m(self, *args, **kwargs)
+                return logged
+            setattr(cls, name, make_logged(method))
+    return cls
+
+@log_all_methods
+class Calculator:
+    def add(self, a: int, b: int) -> int:
+        return a + b
+
+    def multiply(self, a: int, b: int) -> int:
+        return a * b
+
+calc = Calculator()
+print(calc.add(3, 4))       # [LOG] Calculator.add((3, 4), {})\n7
+print(calc.multiply(2, 5))  # [LOG] Calculator.multiply((2, 5), {})\n10`
+    }
+  ]}
+  output={"Point(x=3.0, y=4.0)\n[LOG] Calculator.add((3, 4), {})\n7\n[LOG] Calculator.multiply((2, 5), {})\n10"}
+/>
+
+<Callout variant="tip" title="dataclass es un decorador de clase">
+`@dataclass` del módulo `dataclasses` es exactamente un decorador de clase. Inspecciona las anotaciones de tipo y genera `__init__`, `__repr__`, `__eq__` automáticamente. Es el ejemplo más usado de este patrón en la librería estándar.
+</Callout>
+
+</Section>
+
+<Section id="preservar-wrapped" title="Preservar __wrapped__ y stacking correcto">
+
+`functools.wraps` añade el atributo `__wrapped__` apuntando a la función original. Esto permite deshacer decoradores para testing, y `inspect.unwrap()` lo usa para llegar al fondo de la cadena.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import functools
+import inspect
+
+def timer(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        import time
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        print(f"{func.__name__}: {time.perf_counter()-start:.4f}s")
+        return result
+    return wrapper
+
+def validate_positive(func):
+    @functools.wraps(func)
+    def wrapper(n: int):
+        if n < 0:
+            raise ValueError(f"Se esperaba un número positivo, recibido: {n}")
+        return func(n)
+    return wrapper
+
+@timer
+@validate_positive
+def factorial(n: int) -> int:
+    if n == 0:
+        return 1
+    return n * factorial.__wrapped__(n - 1)  # llama al original sin timer
+
+print(factorial(5))   # 120 (con tiempo)
+
+# __wrapped__ apunta a la función inmediatamente debajo
+print(factorial.__wrapped__)          # <function factorial...> con validate_positive
+print(factorial.__wrapped__.__wrapped__)  # <function factorial...> original
+
+# inspect.unwrap() llega hasta el final de la cadena
+original = inspect.unwrap(factorial)
+print(original.__name__)  # factorial
+print(original(5))        # 120 (sin decoradores)
+
+# Útil en tests: ejecutar la función sin efectos secundarios
+def test_factorial():
+    pure = inspect.unwrap(factorial)
+    assert pure(0) == 1
+    assert pure(5) == 120
+    print("Tests pasados")`
+    }
+  ]}
+  output={"factorial: 0.0001s\n120\n<function factorial...>\nfactorial\n120\nTests pasados"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Decorador @repeat(n) que ejecuta la función n veces", diff: "med", minutes: 7 },
+    { num: "02", name: "Decorador @validate_type que comprueba tipos en runtime", diff: "hard", minutes: 10 },
+    { num: "03", name: "Decorador de clase que añade serialización JSON", diff: "hard", minutes: 10 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,218 @@
+---
+title: "Clases: el plano para crear objetos en Python"
+short: "Clases"
+chapter: "09"
+num: "01"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Una clase es un molde para crear objetos con estado (atributos) y comportamiento (métodos). En Python, todo es un objeto — incluyendo las propias clases."
+pro: false
+---
+
+<Section id="definir-clase-y-init" title="Definir una clase y __init__">
+
+La keyword `class` define un nuevo tipo. El método `__init__` es el constructor — se llama automáticamente cuando creas una instancia. Su primer parámetro es siempre `self`, que referencia al objeto que se está creando.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Dog:
+    """Representa un perro con nombre y raza."""
+
+    def __init__(self, name: str, breed: str, age: int) -> None:
+        # Atributos de instancia: únicos por objeto
+        self.name = name
+        self.breed = breed
+        self.age = age
+
+    def bark(self) -> str:
+        return f"¡Guau! Soy {self.name}"
+
+    def describe(self) -> str:
+        return f"{self.name} es un {self.breed} de {self.age} años"
+
+# Crear instancias
+rex = Dog("Rex", "Pastor Alemán", 3)
+luna = Dog("Luna", "Golden Retriever", 2)
+
+print(rex.bark())       # ¡Guau! Soy Rex
+print(luna.describe())  # Luna es un Golden Retriever de 2 años
+
+# Acceder y modificar atributos directamente
+rex.age = 4
+print(rex.age)  # 4`
+    }
+  ]}
+  output={"¡Guau! Soy Rex\nLuna es un Golden Retriever de 2 años\n4"}
+/>
+
+<Callout variant="info" title="self no es especial para el intérprete">
+`self` es solo una convención — podrías llamarlo `esto` o `yo` y funcionaría. Pero toda la comunidad Python usa `self`. Es el primer parámetro de cualquier método de instancia y representa el objeto sobre el que se llama el método.
+</Callout>
+
+</Section>
+
+<Section id="atributos-instancia-vs-clase" title="Atributos de instancia vs de clase">
+
+Los atributos de instancia pertenecen a cada objeto y se definen en `__init__`. Los atributos de clase pertenecen a la clase misma y son compartidos por todas las instancias.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class BankAccount:
+    # Atributo de clase: compartido por todas las cuentas
+    interest_rate: float = 0.02
+    currency: str = "EUR"
+
+    def __init__(self, owner: str, balance: float = 0.0) -> None:
+        # Atributos de instancia: únicos por cuenta
+        self.owner = owner
+        self.balance = balance
+
+    def apply_interest(self) -> None:
+        # Acceder al atributo de clase a través de self o de la clase
+        self.balance *= 1 + BankAccount.interest_rate
+
+cuenta_a = BankAccount("Ana", 1000.0)
+cuenta_b = BankAccount("Bob", 500.0)
+
+# El atributo de clase es el mismo para todos
+print(BankAccount.interest_rate)  # 0.02
+print(cuenta_a.interest_rate)     # 0.02 (heredado de la clase)
+
+# Cambiar en la clase afecta a todas las instancias
+BankAccount.interest_rate = 0.03
+print(cuenta_a.interest_rate)     # 0.03
+print(cuenta_b.interest_rate)     # 0.03
+
+# Asignar en instancia crea un atributo de instancia (sombrea el de clase)
+cuenta_a.interest_rate = 0.05
+print(cuenta_a.interest_rate)     # 0.05 (atributo propio de cuenta_a)
+print(cuenta_b.interest_rate)     # 0.03 (sigue usando el de clase)`
+    }
+  ]}
+  output={"0.02\n0.02\n0.03\n0.03\n0.05\n0.03"}
+/>
+
+</Section>
+
+<Section id="metodos-de-instancia" title="Métodos de instancia">
+
+Un método de instancia es una función definida dentro de la clase que recibe `self` como primer argumento. Puede leer y modificar los atributos del objeto, y llamar a otros métodos del mismo objeto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Rectangle:
+    def __init__(self, width: float, height: float) -> None:
+        self.width = width
+        self.height = height
+
+    def area(self) -> float:
+        return self.width * self.height
+
+    def perimeter(self) -> float:
+        return 2 * (self.width + self.height)
+
+    def is_square(self) -> bool:
+        return self.width == self.height
+
+    def scale(self, factor: float) -> None:
+        """Escala el rectángulo en el lugar."""
+        self.width *= factor
+        self.height *= factor
+
+    def __repr__(self) -> str:
+        return f"Rectangle({self.width}, {self.height})"
+
+r = Rectangle(4.0, 3.0)
+print(r.area())       # 12.0
+print(r.perimeter())  # 14.0
+print(r.is_square())  # False
+
+r.scale(2)
+print(r)  # Rectangle(8.0, 6.0)
+print(r.area())  # 48.0`
+    }
+  ]}
+  output={"12.0\n14.0\nFalse\nRectangle(8.0, 6.0)\n48.0"}
+/>
+
+</Section>
+
+<Section id="crear-multiples-instancias" title="Crear múltiples instancias">
+
+Cada instancia tiene su propio espacio de atributos. Modificar una instancia no afecta a las otras — esto es lo fundamental de la orientación a objetos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Student:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.grades: list[float] = []
+
+    def add_grade(self, grade: float) -> None:
+        self.grades.append(grade)
+
+    def average(self) -> float:
+        if not self.grades:
+            return 0.0
+        return sum(self.grades) / len(self.grades)
+
+    def __repr__(self) -> str:
+        avg = self.average()
+        return f"Student('{self.name}', avg={avg:.1f})"
+
+# Crear múltiples instancias independientes
+ana = Student("Ana")
+bob = Student("Bob")
+
+ana.add_grade(8.5)
+ana.add_grade(9.0)
+ana.add_grade(7.5)
+
+bob.add_grade(6.0)
+bob.add_grade(7.0)
+
+print(ana)  # Student('Ana', avg=8.3)
+print(bob)  # Student('Bob', avg=6.5)
+
+# Las listas de notas son independientes
+print(ana.grades)  # [8.5, 9.0, 7.5]
+print(bob.grades)  # [6.0, 7.0]`
+    }
+  ]}
+  output={"Student('Ana', avg=8.3)\nStudent('Bob', avg=6.5)\n[8.5, 9.0, 7.5]\n[6.0, 7.0]"}
+/>
+
+<Callout variant="warn" title="Cuidado con listas mutables como valor por defecto en __init__">
+Nunca escribas `def __init__(self, items=[])`. Esa lista es compartida entre todas las instancias. Usa siempre `items=None` y luego `self.items = items if items is not None else []`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Clase BankAccount con deposit y withdraw", diff: "easy", minutes: 5 },
+    { num: "02", name: "Clase Rectangle con area() y perimeter()", diff: "easy", minutes: 4 },
+    { num: "03", name: "Clase Stack con push, pop e is_empty", diff: "med", minutes: 6 },
+    { num: "04", name: "Clase Temperature que almacena Celsius", diff: "med", minutes: 6 },
+    { num: "05", name: "Atributo de clase para contar instancias creadas", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

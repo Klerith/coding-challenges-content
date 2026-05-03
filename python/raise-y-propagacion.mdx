@@ -1,0 +1,208 @@
+---
+title: "raise y propagación: lanzar excepciones conscientemente"
+short: "raise y propagación"
+chapter: "07"
+num: "02"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "raise es tu forma de decir «aquí hay un error y no sé cómo resolverlo aquí». La propagación permite que las excepciones suban por el stack hasta encontrar quien las maneje — o terminar el programa."
+pro: false
+---
+
+<Section id="raise-nueva-excepcion" title="raise con excepción nueva">
+
+`raise` lanza una excepción desde cualquier punto del código. El stack se desenrolla hacia arriba hasta que alguien la captura con `except`, o el programa termina con un traceback.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def validar_edad(edad: int) -> None:
+    if edad < 0:
+        raise ValueError(f"La edad no puede ser negativa: {edad}")
+    if edad > 150:
+        raise ValueError(f"Edad inverosímil: {edad}")
+
+def crear_usuario(nombre: str, edad: int) -> dict:
+    if not nombre.strip():
+        raise ValueError("El nombre no puede estar vacío")
+
+    validar_edad(edad)   # puede lanzar ValueError
+
+    return {"nombre": nombre, "edad": edad}
+
+# Uso correcto ✅
+usuario = crear_usuario("Ana", 28)
+print(usuario)  # {'nombre': 'Ana', 'edad': 28}
+
+# Error capturado ✅
+try:
+    crear_usuario("", 28)
+except ValueError as e:
+    print(f"Error: {e}")  # Error: El nombre no puede estar vacío
+
+# Error no capturado — sube por el stack ⬆️
+# crear_usuario("Carlos", -5)
+# ValueError: La edad no puede ser negativa: -5`
+    }
+  ]}
+  output={"{'nombre': 'Ana', 'edad': 28}\nError: El nombre no puede estar vacío"}
+/>
+
+<Callout variant="tip" title="raise con clase vs con instancia">
+`raise ValueError("mensaje")` — con instancia (preferido, más descriptivo).
+`raise ValueError` — con clase (crea la instancia sin mensaje). Solo úsalo cuando el tipo es suficientemente descriptivo por sí solo.
+</Callout>
+
+</Section>
+
+<Section id="raise-encadenar" title="raise desde dentro de except — encadenar excepciones">
+
+Cuando capturas una excepción y decides relanzar una diferente (más abstracta o más específica para tu dominio), usa `raise NuevaExcepcion from excepcion_original`. Esto preserva el contexto original en el traceback.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import json
+
+class ConfigError(Exception):
+    """Error de configuración de la aplicación."""
+
+def cargar_config(ruta: str) -> dict:
+    try:
+        with open(ruta) as f:
+            return json.load(f)
+    except FileNotFoundError as e:
+        # Convertimos FileNotFoundError en ConfigError de dominio
+        raise ConfigError(f"Archivo de config no encontrado: {ruta}") from e
+    except json.JSONDecodeError as e:
+        # El 'from e' preserva la causa original en el traceback
+        raise ConfigError(f"Config con formato inválido en {ruta}") from e
+
+try:
+    config = cargar_config("config.json")
+except ConfigError as e:
+    print(f"Error de config: {e}")
+    # El __cause__ apunta al error original
+    if e.__cause__:
+        print(f"Causa: {type(e.__cause__).__name__}: {e.__cause__}")`
+    }
+  ]}
+  output={"Error de config: Archivo de config no encontrado: config.json\nCausa: FileNotFoundError: [Errno 2] No such file or directory: 'config.json'"}
+/>
+
+<Callout variant="info" title="raise X from Y vs raise X from None">
+`raise NuevaExc from original` — preserva la causa (recomendado). El traceback muestra «The above exception was the direct cause of…».
+
+`raise NuevaExc from None` — suprime la cadena. Útil cuando el error original expone detalles de implementación que no quieres mostrar (contraseñas, rutas internas, etc.).
+</Callout>
+
+</Section>
+
+<Section id="raise-sin-argumentos" title="raise sin argumentos — re-raise">
+
+`raise` sin argumentos dentro de un `except` relanza la excepción activa. Es útil cuando quieres hacer algo adicional (logging, métricas) y luego dejar que el error siga propagándose.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import logging
+
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
+
+def pago(monto: float, metodo: str) -> bool:
+    try:
+        if monto <= 0:
+            raise ValueError(f"Monto inválido: {monto}")
+        if metodo not in ("tarjeta", "transferencia"):
+            raise ValueError(f"Método no soportado: {metodo}")
+        return True
+    except ValueError as e:
+        # Loggeamos el error con contexto adicional
+        logger.error("Pago rechazado — monto=%.2f método=%s error=%s",
+                     monto, metodo, e)
+        raise   # re-lanza el ValueError original sin modificarlo
+
+# El llamador recibe el error original
+try:
+    pago(-50, "tarjeta")
+except ValueError as e:
+    print(f"Capturado en llamador: {e}")
+    # Capturado en llamador: Monto inválido: -50`
+    }
+  ]}
+  output={"ERROR:__main__:Pago rechazado — monto=-50.00 método=tarjeta error=Monto inválido: -50\nCapturado en llamador: Monto inválido: -50"}
+/>
+
+</Section>
+
+<Section id="cuando-raise-vs-none" title="Cuándo raise y cuándo retornar None">
+
+Esta es una de las decisiones de diseño más importantes. La regla general: usa excepciones para situaciones excepcionales, y retorna valores especiales (`None`, `[]`, `{}`) cuando la ausencia de un resultado es un caso normal.
+
+<CompareTable
+  headers={["Retorna None/vacío", "Lanza excepción"]}
+  rows={[
+    [{ kind: "good", value: "buscar_usuario(id) → el usuario puede no existir" }, { kind: "bad", value: "buscar_usuario(id) → si no existe es un error de lógica" }],
+    [{ kind: "good", value: "filtrar_por_categoria([]) → lista vacía es válida" }, { kind: "bad", value: "dividir(a, 0) → la división por cero nunca es válida" }],
+    [{ kind: "good", value: "config.get('clave', default) → clave puede faltar" }, { kind: "bad", value: "config['clave_requerida'] → debe existir siempre" }],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Optional
+
+# ✅ Retorna None: no encontrar un usuario es un caso normal
+def buscar_usuario(user_id: int) -> Optional[dict]:
+    usuarios = {1: {"nombre": "Ana"}, 2: {"nombre": "Carlos"}}
+    return usuarios.get(user_id)   # None si no existe
+
+# ✅ Lanza excepción: los parámetros deben ser válidos siempre
+def registrar_usuario(email: str, contrasena: str) -> dict:
+    if "@" not in email:
+        raise ValueError(f"Email inválido: {email}")
+    if len(contrasena) < 8:
+        raise ValueError("La contraseña debe tener al menos 8 caracteres")
+    return {"email": email, "activo": True}
+
+# Uso
+usuario = buscar_usuario(99)
+if usuario is None:
+    print("Usuario no encontrado — flujo normal")
+
+try:
+    registrar_usuario("sin-arroba", "123")
+except ValueError as e:
+    print(f"Error de validación: {e}")`
+    }
+  ]}
+  output={"Usuario no encontrado — flujo normal\nError de validación: Email inválido: sin-arroba"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Valida argumentos con raise ValueError", diff: "easy", minutes: 3 },
+    { num: "02", name: "Encadena excepciones con raise X from Y", diff: "med", minutes: 5 },
+    { num: "03", name: "Re-lanza una excepción después de loggearla", diff: "med", minutes: 5 },
+    { num: "04", name: "Diseña una función que falla intencionalmente", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

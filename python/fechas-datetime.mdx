@@ -1,0 +1,231 @@
+---
+title: "datetime, timedelta y zoneinfo: trabajar con fechas y zonas horarias"
+short: "datetime y zoneinfo"
+chapter: "14"
+num: "03"
+chapterTitle: "Bonus prácticos"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Las fechas son tramposas: zonas horarias, DST, formatos regionales. datetime es el estándar, timedelta para diferencias, y zoneinfo (Python 3.9+) reemplaza pytz para manejar zonas horarias."
+pro: false
+---
+
+<Section id="datetime-now-utcnow" title="datetime.now() y los objetos naive vs aware">
+
+`datetime.now()` retorna la hora local del sistema, `datetime.utcnow()` retorna la hora UTC, pero ambas son "naive" — sin información de zona horaria. Para producción, usa siempre datetimes "aware" (con zona horaria).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from datetime import datetime, date, time, timezone
+
+# datetime naive (sin zona horaria) — peligroso en producción
+ahora_local = datetime.now()
+ahora_utc_naive = datetime.utcnow()  # deprecado en Python 3.12
+
+# datetime aware (con zona horaria) — correcto
+ahora_utc = datetime.now(tz=timezone.utc)
+print(ahora_utc)
+# 2026-05-03 10:30:00+00:00
+
+# Los componentes de un datetime
+dt = datetime(2026, 5, 3, 14, 30, 45)
+print(dt.year)    # 2026
+print(dt.month)   # 5
+print(dt.day)     # 3
+print(dt.hour)    # 14
+print(dt.minute)  # 30
+print(dt.second)  # 45
+
+# date y time por separado
+solo_fecha = date(2026, 5, 3)
+solo_hora = time(14, 30, 45)
+print(solo_fecha)  # 2026-05-03
+print(solo_hora)   # 14:30:45
+
+# date.today() — solo la fecha de hoy
+hoy = date.today()
+print(hoy)  # 2026-05-03
+
+# Extraer date o time de un datetime
+dt = datetime(2026, 5, 3, 14, 30)
+print(dt.date())  # 2026-05-03
+print(dt.time())  # 14:30:00`
+    }
+  ]}
+  output={"2026-05-03 10:30:00+00:00\n2026\n5\n3\n14\n30\n45\n2026-05-03\n14:30:45\n2026-05-03\n2026-05-03\n14:30:00"}
+/>
+
+</Section>
+
+<Section id="timedelta-aritmetica" title="timedelta — diferencias y aritmética">
+
+`timedelta` representa una duración. Se obtiene restando dos datetimes y se puede usar para sumar o restar tiempo a un datetime.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from datetime import datetime, timedelta, date
+
+# Crear timedeltas
+un_dia = timedelta(days=1)
+dos_semanas = timedelta(weeks=2)
+hora_y_media = timedelta(hours=1, minutes=30)
+complejo = timedelta(days=3, hours=2, minutes=15, seconds=30)
+
+print(complejo)          # 3 days, 2:15:30
+print(complejo.days)     # 3
+print(complejo.seconds)  # 8130 (2*3600 + 15*60 + 30)
+print(complejo.total_seconds())  # 267330.0
+
+# Aritmética con datetimes
+hoy = date.today()
+manana = hoy + timedelta(days=1)
+hace_una_semana = hoy - timedelta(weeks=1)
+
+print(f"Mañana: {manana}")
+print(f"Hace una semana: {hace_una_semana}")
+
+# Diferencia entre dos fechas
+nacimiento = date(1991, 12, 25)
+hoy_date = date(2026, 5, 3)
+edad = hoy_date - nacimiento
+print(f"Días vividos: {edad.days:,}")   # 12,548
+print(f"Años aproximados: {edad.days // 365}")  # 34
+
+# Con datetime: incluye horas
+evento = datetime(2026, 5, 10, 9, 0)
+ahora = datetime(2026, 5, 3, 14, 30)
+faltan = evento - ahora
+print(f"Faltan {faltan.days} días y {faltan.seconds // 3600} horas")`
+    }
+  ]}
+  output={"3 days, 2:15:30\n3\n8130\n267330.0\nMañana: 2026-05-04\nHace una semana: 2026-04-26\nDías vividos: 12,548\nAños aproximados: 34\nFaltan 6 días y 18 horas"}
+/>
+
+</Section>
+
+<Section id="strftime-strptime" title="strftime y strptime para formatear y parsear">
+
+`strftime()` convierte un datetime a string con un formato dado. `strptime()` hace lo inverso: parsea un string a datetime según el patrón.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from datetime import datetime
+
+dt = datetime(2026, 5, 3, 14, 30, 45)
+
+# strftime: datetime → string formateado
+# Códigos comunes:
+# %Y: año 4 dígitos, %m: mes 01-12, %d: día 01-31
+# %H: hora 00-23, %M: minutos, %S: segundos
+# %A: nombre del día (inglés), %B: nombre del mes (inglés)
+# %I: hora 01-12, %p: AM/PM
+
+print(dt.strftime("%Y-%m-%d"))             # 2026-05-03
+print(dt.strftime("%d/%m/%Y %H:%M"))       # 03/05/2026 14:30
+print(dt.strftime("%Y-%m-%dT%H:%M:%S"))    # 2026-05-03T14:30:45 (ISO 8601)
+
+# Para nombres en español, usar locale o manual
+MESES_ES = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
+            7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"}
+DIAS_ES = {0:"lunes",1:"martes",2:"miércoles",3:"jueves",
+           4:"viernes",5:"sábado",6:"domingo"}
+
+fecha_esp = f"{dt.day} de {MESES_ES[dt.month]} de {dt.year}"
+print(fecha_esp)  # 3 de mayo de 2026
+
+# strptime: string → datetime
+formatos = [
+    ("03/05/2026", "%d/%m/%Y"),
+    ("2026-05-03 14:30", "%Y-%m-%d %H:%M"),
+    ("May 3, 2026", "%b %d, %Y"),
+]
+
+for fecha_str, fmt in formatos:
+    parsed = datetime.strptime(fecha_str, fmt)
+    print(f"{fecha_str:20} → {parsed.date()}")
+
+# ISO 8601: el formato más portátil
+iso = dt.isoformat()
+print(iso)                           # 2026-05-03T14:30:45
+back = datetime.fromisoformat(iso)  # parsea ISO 8601 directo
+print(back == dt)                   # True`
+    }
+  ]}
+  output={"2026-05-03\n03/05/2026 14:30\n2026-05-03T14:30:45\n3 de mayo de 2026\n03/05/2026          → 2026-05-03\n2026-05-03 14:30    → 2026-05-03\nMay 3, 2026         → 2026-05-03\n2026-05-03T14:30:45\nTrue"}
+/>
+
+</Section>
+
+<Section id="zoneinfo" title="zoneinfo para zonas horarias (Python 3.9+)">
+
+`zoneinfo` es la librería estándar para zonas horarias desde Python 3.9. Reemplaza `pytz` con una API más limpia y está basada en la base de datos IANA de zonas horarias.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Crear datetimes con zona horaria
+madrid = ZoneInfo("Europe/Madrid")
+nueva_york = ZoneInfo("America/New_York")
+tokio = ZoneInfo("Asia/Tokyo")
+
+# Datetime aware con zona horaria
+ahora_madrid = datetime.now(tz=madrid)
+print(ahora_madrid)
+# 2026-05-03 16:30:00+02:00 (CEST en verano)
+
+# Convertir entre zonas horarias
+reunion_utc = datetime(2026, 5, 3, 14, 0, tzinfo=ZoneInfo("UTC"))
+reunion_madrid = reunion_utc.astimezone(madrid)
+reunion_ny = reunion_utc.astimezone(nueva_york)
+reunion_tokio = reunion_utc.astimezone(tokio)
+
+print(f"UTC:       {reunion_utc.strftime('%H:%M %Z')}")     # 14:00 UTC
+print(f"Madrid:    {reunion_madrid.strftime('%H:%M %Z')}")  # 16:00 CEST
+print(f"Nueva York:{reunion_ny.strftime('%H:%M %Z')}")      # 10:00 EDT
+print(f"Tokio:     {reunion_tokio.strftime('%H:%M %Z')}")   # 23:00 JST
+
+# DST (Daylight Saving Time): zoneinfo lo maneja automáticamente
+invierno = datetime(2026, 1, 15, 12, 0, tzinfo=madrid)
+verano = datetime(2026, 7, 15, 12, 0, tzinfo=madrid)
+
+print(f"Enero (CET):  UTC offset = {invierno.utcoffset()}")  # 1:00:00
+print(f"Julio (CEST): UTC offset = {verano.utcoffset()}")    # 2:00:00`
+    }
+  ]}
+  output={"2026-05-03 16:30:00+02:00\nUTC:       14:00 UTC\nMadrid:    16:00 CEST\nNueva York:10:00 EDT\nTokio:     23:00 JST\nEnero (CET):  UTC offset = 1:00:00\nJulio (CEST): UTC offset = 2:00:00"}
+/>
+
+<Callout variant="tip" title="Siempre almacena en UTC, muestra en local">
+La práctica recomendada: guarda todos los timestamps en la base de datos en UTC (aware). Convierte a la zona horaria del usuario solo al mostrar en la UI. Esto evita bugs de DST y facilita comparaciones.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Calcula cuántos días faltan para una fecha", diff: "easy", minutes: 3 },
+    { num: "02", name: "Convierte entre zonas horarias con zoneinfo", diff: "med", minutes: 5 },
+    { num: "03", name: "Parsea fechas con strptime en múltiples formatos", diff: "med", minutes: 5 },
+    { num: "04", name: "Formatea la fecha actual en español con strftime", diff: "easy", minutes: 3 },
+  ]}
+/>
+</Section>

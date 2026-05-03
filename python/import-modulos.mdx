@@ -1,0 +1,192 @@
+---
+title: "import y from: organizar el código en módulos"
+short: "import y from"
+chapter: "10"
+num: "01"
+chapterTitle: "Módulos y paquetes"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un módulo es simplemente un archivo .py. import lo carga. La diferencia entre `import math` y `from math import sqrt` va más allá de la sintaxis — afecta el namespace y la legibilidad."
+pro: false
+---
+
+<Section id="import-basico" title="import básico">
+
+`import modulo` carga el módulo y lo añade al namespace actual como un objeto. Para acceder a sus funciones y clases, usas `modulo.nombre`. Todo queda bajo el espacio de nombres del módulo — no hay colisiones.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import math
+import random
+import datetime
+
+# Acceso con el prefijo del módulo — claro y sin ambigüedad
+print(math.pi)           # 3.141592653589793
+print(math.sqrt(16))     # 4.0
+print(math.floor(3.7))   # 3
+
+# random
+numero = random.randint(1, 10)
+print(f"Número aleatorio: {numero}")
+
+# datetime — el módulo contiene clases y funciones
+hoy = datetime.date.today()
+print(hoy)  # 2026-05-03
+
+# Inspeccionar qué hay en un módulo
+print(dir(math))  # [..., 'ceil', 'cos', 'floor', 'pi', 'sqrt', ...]`
+    }
+  ]}
+  output={"3.141592653589793\n4.0\n3\nNúmero aleatorio: 7\n2026-05-03"}
+/>
+
+<Callout variant="info" title="Python importa un módulo solo una vez">
+Aunque escribas `import math` en diez archivos distintos, Python lo carga en memoria una sola vez y lo guarda en `sys.modules`. Los imports posteriores solo recuperan la referencia ya cargada — no releen el archivo.
+</Callout>
+
+</Section>
+
+<Section id="from-import" title="from ... import ...">
+
+`from modulo import nombre` importa un nombre específico directamente al namespace actual. No necesitas el prefijo al usarlo, pero puede ocultar de dónde viene si el nombre es genérico.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from math import sqrt, pi, ceil
+
+# Sin prefijo — más conciso cuando usas pocas cosas de un módulo
+print(sqrt(25))   # 5.0
+print(pi)         # 3.141592653589793
+print(ceil(3.2))  # 4
+
+# Importar múltiples nombres
+from datetime import date, timedelta, datetime
+
+hoy = date.today()
+manana = hoy + timedelta(days=1)
+print(f"Hoy: {hoy}, Mañana: {manana}")
+
+# from ... import * — importa todo (evitar en producción)
+# from math import *  # contamina el namespace — difícil saber de dónde viene cada nombre
+
+# Importar una clase
+from collections import defaultdict, Counter
+
+palabras = ["python", "es", "python", "genial", "python"]
+frecuencia = Counter(palabras)
+print(frecuencia)  # Counter({'python': 3, 'es': 1, 'genial': 1})`
+    }
+  ]}
+  output={"5.0\n3.141592653589793\n4\nHoy: 2026-05-03, Mañana: 2026-05-04\nCounter({'python': 3, 'es': 1, 'genial': 1})"}
+/>
+
+<CompareTable
+  headers={["import modulo", "from modulo import nombre"]}
+  rows={[
+    [{ kind: "good", value: "import math\nmath.sqrt(4)" }, { kind: "good", value: "from math import sqrt\nsqrt(4)" }],
+    [{ kind: "good", value: "Claro de dónde viene. Recomendado cuando usas muchas cosas del módulo" }, { kind: "good", value: "Más conciso. Recomendado cuando usas 1-3 cosas específicas" }],
+    [{ kind: "bad", value: "Más verbose con módulos de nombre largo" }, { kind: "bad", value: "Puede ocultar el origen si el nombre es genérico (ej: open, type)" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="alias-con-as" title="Alias con as">
+
+`import modulo as alias` o `from modulo import nombre as alias` crea un nombre alternativo. Útil para módulos con nombres largos o para evitar colisiones de nombres.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Alias de módulo — convención estándar en la comunidad
+import numpy as np          # convención universal
+import pandas as pd         # convención universal
+import matplotlib.pyplot as plt  # convención universal
+
+# Para módulos propios con nombres largos
+import datetime as dt
+
+ahora = dt.datetime.now()
+print(ahora.strftime("%Y-%m-%d %H:%M"))
+
+# Alias de nombre — cuando el nombre colisiona con algo local
+from os.path import join as path_join
+from urllib.parse import urljoin as url_join
+
+ruta = path_join("/home", "usuario", "proyecto")
+url = url_join("https://ejemplo.com/api/", "usuarios")
+
+print(ruta)  # /home/usuario/proyecto
+print(url)   # https://ejemplo.com/api/usuarios`
+    }
+  ]}
+  output={"2026-05-03 14:30\n/home/usuario/proyecto\nhttps://ejemplo.com/api/usuarios"}
+/>
+
+</Section>
+
+<Section id="imports-relativos-vs-absolutos" title="Imports relativos vs absolutos">
+
+En un paquete, puedes importar con rutas absolutas desde la raíz del proyecto o con rutas relativas (`.` para el mismo paquete, `..` para el padre). Los absolutos son más claros; los relativos son útiles para evitar hard-codear el nombre del paquete.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Estructura hipotética del proyecto:
+# myapp/
+#   __init__.py
+#   utils.py
+#   models/
+#     __init__.py
+#     user.py
+#     product.py
+
+# Desde myapp/models/user.py:
+
+# Import absoluto — claro, funciona desde cualquier lugar
+from myapp.utils import format_date, validate_email
+
+# Import relativo — . significa "mismo directorio"
+from . import product          # importa myapp/models/product.py
+from .product import Product   # importa la clase Product
+
+# Import relativo al padre — .. sube un nivel
+from .. import utils           # importa myapp/utils.py
+from ..utils import format_date
+
+# Cuándo usar cada uno:
+# - Absolutos: preferidos en proyectos; más explícitos
+# - Relativos: útiles dentro de un paquete para independizarlo de su nombre`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Guía de estilo PEP 8 para imports">
+PEP 8 recomienda ordenar los imports en tres bloques separados por una línea en blanco: 1) módulos de la biblioteca estándar, 2) paquetes de terceros (pip), 3) módulos propios del proyecto. Herramientas como `isort` automatizan este orden.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Importa datetime y formatea la fecha actual", diff: "easy", minutes: 3 },
+    { num: "02", name: "Usa `from os.path import join, exists` para construir rutas", diff: "easy", minutes: 3 },
+    { num: "03", name: "Organiza dos módulos y úsalos desde un tercero", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

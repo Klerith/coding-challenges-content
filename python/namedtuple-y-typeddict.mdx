@@ -1,0 +1,261 @@
+---
+title: "namedtuple y TypedDict: datos estructurados con tipo"
+short: "namedtuple y TypedDict"
+chapter: "11"
+num: "03"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "advanced"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "namedtuple crea tuplas con campos nombrados, inmutables y ligeras. TypedDict añade type hints a dicts literales para que mypy pueda verificarlos. Ambas son alternativas valiosas a dataclass."
+pro: true
+---
+
+<Section id="namedtuple-basico" title="namedtuple básico y _fields">
+
+`namedtuple` crea una subclase de tupla cuyos campos tienen nombre. Es inmutable como las tuplas, ocupa la misma memoria, pero permite acceder a los campos por nombre en lugar de índice.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from collections import namedtuple
+
+# Definición: nombre de la clase y campos como string o lista
+Point = namedtuple("Point", ["x", "y"])
+Color = namedtuple("Color", "red green blue")  # también acepta string con espacios
+
+# Crear instancias
+p = Point(3, 4)
+c = Color(255, 128, 0)
+
+# Acceso por nombre (legible) o por índice (compatible con tupla)
+print(p.x, p.y)      # 3 4
+print(p[0], p[1])    # 3 4 — mismo acceso
+print(c.red)         # 255
+
+# Introspección
+print(Point._fields)    # ('x', 'y')
+print(p._asdict())      # {'x': 3, 'y': 4}
+
+# _replace: crea una copia con campos modificados (no muta el original)
+p2 = p._replace(x=10)
+print(p2)   # Point(x=10, y=4)
+print(p)    # Point(x=3, y=4) — sin cambios
+
+# Desempacar como tupla normal
+x, y = p
+print(x, y)  # 3 4
+
+# Valores por defecto (Python 3.6.1+)
+Point3D = namedtuple("Point3D", ["x", "y", "z"], defaults=[0])
+p3 = Point3D(1, 2)
+print(p3)  # Point3D(x=1, y=2, z=0)`
+    }
+  ]}
+  output={"3 4\n3 4\n255\n('x', 'y')\n{'x': 3, 'y': 4}\nPoint(x=10, y=4)\nPoint(x=3, y=4)\n3 4\nPoint3D(x=1, y=2, z=0)"}
+/>
+
+</Section>
+
+<Section id="typing-namedtuple" title="typing.NamedTuple — sintaxis moderna">
+
+`typing.NamedTuple` permite definir namedtuples con type hints y documentación, con una sintaxis de clase más clara y compatible con mypy.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import NamedTuple, Optional
+
+# Sintaxis moderna: clase con type hints
+class Employee(NamedTuple):
+    name: str
+    department: str
+    salary: float
+    manager: Optional[str] = None  # campo con valor por defecto
+
+emp = Employee("Ana García", "Ingeniería", 75_000.0)
+emp2 = Employee("Carlos", "Design", 65_000.0, manager="Ana García")
+
+print(emp)
+# Employee(name='Ana García', department='Ingeniería', salary=75000.0, manager=None)
+
+print(emp2.manager)  # Ana García
+
+# Se puede serializar fácilmente
+import json
+data = emp._asdict()
+print(json.dumps(data, ensure_ascii=False))
+# {"name": "Ana García", "department": "Ingeniería", "salary": 75000.0, "manager": null}
+
+# Compatible con isinstance y tipado
+print(isinstance(emp, tuple))    # True
+print(isinstance(emp, Employee)) # True
+
+# Métodos propios — pueden añadirse en la clase
+class Vector(NamedTuple):
+    x: float
+    y: float
+
+    def magnitude(self) -> float:
+        return (self.x ** 2 + self.y ** 2) ** 0.5
+
+    def __add__(self, other: "Vector") -> "Vector":
+        return Vector(self.x + other.x, self.y + other.y)
+
+v1 = Vector(3.0, 4.0)
+print(v1.magnitude())          # 5.0
+print(v1 + Vector(1.0, 1.0))  # Vector(x=4.0, y=5.0)`
+    }
+  ]}
+  output={"Employee(name='Ana García', department='Ingeniería', salary=75000.0, manager=None)\nAna García\n{\"name\": \"Ana García\", \"department\": \"Ingeniería\", \"salary\": 75000.0, \"manager\": null}\nTrue\nTrue\n5.0\nVector(x=4.0, y=5.0)"}
+/>
+
+</Section>
+
+<Section id="typeddict" title="TypedDict — dicts tipados para mypy">
+
+`TypedDict` declara el "esquema" de un diccionario para que mypy pueda verificar que los campos tienen los tipos correctos. A diferencia de dataclass, sigue siendo un dict normal en runtime.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import TypedDict
+
+# Definición básica
+class Movie(TypedDict):
+    title: str
+    year: int
+    rating: float
+
+# Crear un Movie: es un dict normal en runtime
+film: Movie = {
+    "title": "Dune: Part Two",
+    "year": 2024,
+    "rating": 8.5,
+}
+
+print(film["title"])  # Dune: Part Two
+print(type(film))     # <class 'dict'>
+
+# mypy verificaría esto en tiempo de análisis estático:
+# film["year"] = "not a number"  # ← mypy error: expected int
+
+# TypedDict con herencia
+class MovieWithCast(Movie):
+    director: str
+    cast: list[str]
+
+full: MovieWithCast = {
+    "title": "Dune",
+    "year": 2021,
+    "rating": 8.0,
+    "director": "Denis Villeneuve",
+    "cast": ["Timothée Chalamet", "Zendaya"],
+}
+
+# Útil para tipar respuestas de API JSON
+class APIResponse(TypedDict):
+    status: int
+    data: dict
+    message: str
+
+def parse_response(raw: dict) -> APIResponse:
+    return APIResponse(
+        status=raw.get("status", 200),
+        data=raw.get("data", {}),
+        message=raw.get("message", "ok"),
+    )`
+    }
+  ]}
+  output={"Dune: Part Two\n<class 'dict'>"}
+/>
+
+</Section>
+
+<Section id="required-notRequired" title="Required y NotRequired (Python 3.11+)">
+
+`Required` y `NotRequired` permiten mezclar campos obligatorios y opcionales dentro de un mismo `TypedDict`, sin necesidad de herencia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import TypedDict, Required, NotRequired
+
+# total=False hace que todos los campos sean opcionales por defecto
+class Config(TypedDict, total=False):
+    host: str
+    port: int
+    debug: bool
+
+# Mezclar: algunos requeridos, otros opcionales
+class UserProfile(TypedDict):
+    id: Required[int]          # siempre obligatorio
+    username: Required[str]    # siempre obligatorio
+    bio: NotRequired[str]      # opcional
+    avatar_url: NotRequired[str]  # opcional
+
+# En Python 3.11+ con total=False se puede hacer más limpio:
+class PartialUser(TypedDict, total=False):
+    bio: str
+    avatar_url: str
+
+class FullUser(PartialUser):
+    id: int       # Required por defecto (total=True heredado)
+    username: str
+
+# Ejemplo real: actualización parcial en una API REST
+def update_user(user_id: int, updates: PartialUser) -> None:
+    # Solo los campos presentes se actualizan
+    fields = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values())
+    print(f"UPDATE users SET {fields} WHERE id = {user_id}")
+    print(f"Valores: {values}")
+
+update_user(42, {"bio": "Developer en Python"})`
+    }
+  ]}
+  output={"UPDATE users SET bio = ? WHERE id = 42\nValores: ['Developer en Python']"}
+/>
+
+</Section>
+
+<Section id="comparacion-estructuras" title="Comparación: namedtuple vs dataclass vs TypedDict">
+
+Cada estructura tiene su lugar. La elección depende de si necesitas mutabilidad, verificación de tipos en runtime, compatibilidad con dict, o rendimiento mínimo.
+
+<CompareTable
+  headers={["namedtuple", "dataclass", "TypedDict"]}
+  rows={[
+    [{ kind: "good", value: "Inmutable (como tupla)" }, { kind: "good", value: "Mutable por defecto (frozen=True opcional)" }, { kind: "good", value: "Mutable (es un dict)" }],
+    [{ kind: "good", value: "Menor memoria (como tupla)" }, { kind: "bad", value: "Mayor memoria (slots opcional)" }, { kind: "good", value: "Memoria de dict estándar" }],
+    [{ kind: "bad", value: "Sin verificación runtime de tipos" }, { kind: "good", value: "__post_init__ para validar" }, { kind: "bad", value: "Solo verificación estática (mypy)" }],
+    [{ kind: "bad", value: "No se puede pasar donde se espera dict" }, { kind: "bad", value: "Requiere asdict() para serializar" }, { kind: "good", value: "Es un dict — compatible con json.dumps() directo" }],
+  ]}
+/>
+
+<Callout variant="tip" title="Guía rápida de selección">
+Usa `namedtuple` para datos ligeros e inmutables (coordenadas, registros de base de datos en lectura). Usa `dataclass` cuando necesites lógica, validación o mutabilidad. Usa `TypedDict` para tipar respuestas JSON de APIs sin deserialización extra.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea un namedtuple Point3D y usa _asdict()", diff: "easy", minutes: 4 },
+    { num: "02", name: "Define un TypedDict para una respuesta de API", diff: "med", minutes: 5 },
+    { num: "03", name: "Convierte entre namedtuple, dict y dataclass", diff: "hard", minutes: 8 },
+  ]}
+/>
+</Section>

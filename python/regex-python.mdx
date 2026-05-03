@@ -1,0 +1,236 @@
+---
+title: "Expresiones regulares con re: buscar y transformar texto"
+short: "Expresiones regulares"
+chapter: "14"
+num: "02"
+chapterTitle: "Bonus prácticos"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Las regex son el scalpel del texto: precisas pero peligrosas en manos inexpertas. re.search, re.findall y re.sub cubren el 90% de los casos. El flag re.VERBOSE hace los patrones legibles."
+pro: false
+---
+
+<Section id="search-match-findall" title="re.search(), re.match(), re.findall()">
+
+Las tres funciones básicas de búsqueda: `search` busca en cualquier parte del string, `match` solo al inicio, y `findall` retorna todas las coincidencias.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import re
+
+texto = "El precio es $29.99 y el descuento es $5.00"
+
+# re.search(): busca la primera coincidencia en cualquier parte
+match = re.search(r"\$\d+\.\d{2}", texto)
+if match:
+    print(match.group())    # $29.99
+    print(match.start())    # 13 (posición en el string)
+    print(match.end())      # 19
+
+# re.match(): solo busca al INICIO del string
+inicio = re.match(r"\$\d+", texto)
+print(inicio)  # None — el string no empieza con $
+
+inicio2 = re.match(r"El", texto)
+print(inicio2.group())  # El
+
+# re.findall(): retorna TODAS las coincidencias como lista
+precios = re.findall(r"\$\d+\.\d{2}", texto)
+print(precios)  # ['$29.99', '$5.00']
+
+# findall con grupos: retorna lista de tuplas
+email_texto = "Contacta a ana@example.com o carlos@empresa.org"
+emails = re.findall(r"(\w+)@(\w+)\.(\w+)", email_texto)
+print(emails)
+# [('ana', 'example', 'com'), ('carlos', 'empresa', 'org')]
+
+# re.fullmatch(): el PATRÓN COMPLETO debe coincidir con el string completo
+print(re.fullmatch(r"\d{4}", "2026"))  # Match
+print(re.fullmatch(r"\d{4}", "26"))    # None`
+    }
+  ]}
+  output={"$29.99\n13\n19\nNone\nEl\n['$29.99', '$5.00']\n[('ana', 'example', 'com'), ('carlos', 'empresa', 'org')]\n<re.Match object; span=(0, 4), match='2026'>\nNone"}
+/>
+
+</Section>
+
+<Section id="grupos-y-sub" title="Grupos de captura y re.sub()">
+
+Los grupos `()` capturan substrings que puedes extraer y reutilizar. `re.sub()` reemplaza coincidencias, pudiendo referenciar grupos capturados en el reemplazo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import re
+
+# Grupos de captura
+fecha = "Hoy es 2026-05-03 y mañana será 2026-05-04"
+
+# Capturar año, mes y día por separado
+patron_fecha = r"(\d{4})-(\d{2})-(\d{2})"
+for match in re.finditer(patron_fecha, fecha):
+    anio, mes, dia = match.groups()
+    print(f"Año: {anio}, Mes: {mes}, Día: {dia}")
+
+# Grupos nombrados: (?P<nombre>patrón)
+log_line = "2026-05-03 10:30:45 ERROR Connection timeout"
+patron_log = r"(?P<date>\d{4}-\d{2}-\d{2}) (?P<time>\d{2}:\d{2}:\d{2}) (?P<level>\w+) (?P<msg>.+)"
+m = re.match(patron_log, log_line)
+if m:
+    print(m.group("level"))  # ERROR
+    print(m.group("msg"))    # Connection timeout
+    print(m.groupdict())     # {'date': '2026-05-03', ...}
+
+# re.sub(): reemplazar con grupos
+# Convertir fecha YYYY-MM-DD a DD/MM/YYYY
+fechas = "Fecha inicio: 2026-01-15, Fecha fin: 2026-12-31"
+reformateada = re.sub(
+    r"(\d{4})-(\d{2})-(\d{2})",
+    r"\3/\2/\1",  # \1 \2 \3 referencian los grupos capturados
+    fechas
+)
+print(reformateada)  # Fecha inicio: 15/01/2026, Fecha fin: 31/12/2026
+
+# re.sub() con función como reemplazo
+def make_uppercase(m):
+    return m.group().upper()
+
+resultado = re.sub(r"\b\w{5,}\b", make_uppercase, "hola mundo python rocks")
+print(resultado)  # hola mundo PYTHON ROCKS`
+    }
+  ]}
+  output={"Año: 2026, Mes: 05, Día: 03\nAño: 2026, Mes: 05, Día: 04\nERROR\nConnection timeout\n{'date': '2026-05-03', 'time': '10:30:45', 'level': 'ERROR', 'msg': 'Connection timeout'}\nFecha inicio: 15/01/2026, Fecha fin: 31/12/2026\nhola mundo PYTHON ROCKS"}
+/>
+
+</Section>
+
+<Section id="flags-verbose" title="Flags: re.I, re.M, re.VERBOSE">
+
+Los flags modifican el comportamiento de la búsqueda. `re.I` ignora mayúsculas/minúsculas, `re.M` hace que `^` y `$` coincidan con inicio/fin de línea, y `re.VERBOSE` permite comentarios en el patrón.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import re
+
+# re.IGNORECASE (re.I): case-insensitive
+texto = "Python, PYTHON y python son lo mismo"
+matches = re.findall(r"python", texto, re.I)
+print(matches)  # ['Python', 'PYTHON', 'python']
+
+# re.MULTILINE (re.M): ^ y $ coinciden con cada línea
+codigo = """def foo():
+    pass
+
+def bar():
+    return 1"""
+
+funciones = re.findall(r"^def \w+", codigo, re.M)
+print(funciones)  # ['def foo', 'def bar']
+
+# re.VERBOSE (re.X): patrón con comentarios y espacios
+# Patrón para validar email (legible)
+email_pattern = re.compile(r"""
+    ^                   # inicio del string
+    [\w.+-]+            # parte local: letras, digits, puntos, +, -
+    @                   # arroba
+    [\w-]+              # dominio: letras y guiones
+    (?:\.[\w-]+)*       # subdominios opcionales (no captura)
+    \.                  # punto antes del TLD
+    [a-zA-Z]{2,}        # TLD: 2 o más letras
+    $                   # fin del string
+""", re.VERBOSE)
+
+emails_test = ["user@example.com", "bad-email", "otro@sub.domain.org", "sin_arroba"]
+for email in emails_test:
+    valid = "✓" if email_pattern.match(email) else "✗"
+    print(f"{valid} {email}")
+
+# Combinar flags con |
+patron = re.compile(r"^python", re.I | re.M)`
+    }
+  ]}
+  output={"['Python', 'PYTHON', 'python']\n['def foo', 'def bar']\n✓ user@example.com\n✗ bad-email\n✓ otro@sub.domain.org\n✗ sin_arroba"}
+/>
+
+</Section>
+
+<Section id="compile" title="Compilar con re.compile()">
+
+`re.compile()` compila el patrón en un objeto `Pattern` reutilizable. Cuando usas el mismo patrón muchas veces, compilar mejora el rendimiento y hace el código más legible.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import re
+from typing import Optional
+
+# Compilar una sola vez, usar muchas veces
+PHONE_PATTERN = re.compile(
+    r"(?:(?:\+34|0034)[\s-]?)?[6789]\d{2}[\s-]?\d{3}[\s-]?\d{3}"
+)
+
+def extract_phones(text: str) -> list[str]:
+    return PHONE_PATTERN.findall(text)
+
+def is_valid_phone(phone: str) -> bool:
+    return bool(PHONE_PATTERN.fullmatch(phone.strip()))
+
+textos = [
+    "Llama al 612 345 678 o al 693-456-789",
+    "Internacional: +34 91 234 56 78",
+    "No hay teléfono aquí",
+]
+
+for t in textos:
+    phones = extract_phones(t)
+    print(f"{t[:30]:30} → {phones}")
+
+# re.split(): dividir con patrón
+CSV_OR_SEMICOLON = re.compile(r"[,;]\s*")
+data = "Ana García, 30; Python Developer,  Madrid"
+fields = CSV_OR_SEMICOLON.split(data)
+print(fields)
+# ['Ana García', '30', 'Python Developer', 'Madrid']
+
+# re.finditer(): iterador de matches (más eficiente que findall para textos grandes)
+texto_largo = "error en línea 42, advertencia en línea 78, error en línea 99"
+LINEA = re.compile(r"(error|advertencia) en línea (\d+)")
+
+for m in LINEA.finditer(texto_largo):
+    tipo, linea = m.groups()
+    print(f"  [{tipo.upper()}] Línea {linea}")`
+    }
+  ]}
+  output={"Llama al 612 345 678...    → ['612 345 678', '693-456-789']\nInternacional: +34 91 234  → ['+34 91 234 56 78']\nNo hay teléfono aquí       → []\n['Ana García', '30', 'Python Developer', 'Madrid']\n  [ERROR] Línea 42\n  [ADVERTENCIA] Línea 78\n  [ERROR] Línea 99"}
+/>
+
+<Callout variant="warn" title="Backtracking catastrófico">
+Patrones con cuantificadores anidados como `(a+)+` pueden tardar exponencialmente en strings que no coinciden. Evita patrones ambiguos y siempre testea con strings que fallen. Para datos no confiables, usa un timeout o `regex` (la librería alternativa con soporte de atomic groups).
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Extrae todos los emails de un texto", diff: "easy", minutes: 4 },
+    { num: "02", name: "Valida un número de teléfono con regex", diff: "med", minutes: 5 },
+    { num: "03", name: "Reemplaza múltiples espacios por uno con re.sub", diff: "easy", minutes: 3 },
+    { num: "04", name: "Parsea una fecha con grupos de captura", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,233 @@
+---
+title: "Mutabilidad: valores, referencias y por qué los bugs se esconden ahí"
+short: "Mutabilidad"
+chapter: "13"
+num: "01"
+chapterTitle: "Conceptos profundos de Python"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "En Python, las variables son etiquetas, no cajas. Entender la diferencia entre objetos mutables e inmutables explica por qué modificar una lista en una función puede afectar al código que la llama."
+pro: false
+---
+
+<Section id="mutables-vs-inmutables" title="Objetos mutables vs inmutables">
+
+En Python una variable es una etiqueta que apunta a un objeto en memoria. Un objeto inmutable no puede cambiar su contenido; uno mutable sí puede. La distinción determina qué comportamiento esperar al copiar o pasar valores.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Inmutables: int, float, str, tuple, frozenset, bool
+x = 42
+y = x         # y apunta al mismo objeto
+y = 100       # y ahora apunta a un nuevo objeto — x no cambia
+print(x)      # 42 — sin cambios
+
+# Los strings son inmutables
+s = "hola"
+# s[0] = "H"  # TypeError: 'str' object does not support item assignment
+
+# Para "modificar" un string, se crea uno nuevo
+s = s.upper()
+print(s)  # HOLA — s apunta al nuevo objeto
+
+# Mutables: list, dict, set, bytearray, objetos custom
+lista_a = [1, 2, 3]
+lista_b = lista_a  # lista_b apunta al MISMO objeto
+lista_b.append(4)
+print(lista_a)  # [1, 2, 3, 4] — ¡lista_a también cambió!
+print(lista_a is lista_b)  # True — mismo objeto
+
+# Verificar con id() — dirección en memoria
+a = [1, 2, 3]
+b = [1, 2, 3]
+print(a == b)   # True — mismo contenido
+print(a is b)   # False — objetos distintos
+print(id(a) == id(b))  # False
+
+# Inmutables: ¿el id cambia?
+n = 10
+print(id(n))   # alguna dirección
+n += 1         # crea un nuevo objeto int 11
+print(id(n))   # dirección diferente — n apunta a nuevo objeto`
+    }
+  ]}
+  output={"42\nHOLA\n[1, 2, 3, 4]\nTrue\nTrue\nFalse\nFalse"}
+/>
+
+</Section>
+
+<Section id="efecto-secundario-referencia" title="Pasado por referencia — el efecto secundario inesperado">
+
+Python pasa objetos "por referencia de objeto". Las funciones reciben una referencia al mismo objeto, no una copia. Modificar un objeto mutable dentro de una función afecta al original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# El problema: función que modifica su argumento sin querer
+def add_default_values(config: dict) -> dict:
+    config["timeout"] = config.get("timeout", 30)  # modifica el dict original
+    config["retries"] = config.get("retries", 3)
+    return config
+
+mi_config = {"host": "localhost"}
+resultado = add_default_values(mi_config)
+
+print(resultado)  # {'host': 'localhost', 'timeout': 30, 'retries': 3}
+print(mi_config)  # {'host': 'localhost', 'timeout': 30, 'retries': 3}
+# ¡mi_config fue modificado! Quizás no era la intención
+
+# Con listas: el bug es aún más sorprendente
+def append_item(items: list, item) -> list:
+    items.append(item)  # modifica la lista original
+    return items
+
+original = [1, 2, 3]
+nuevo = append_item(original, 4)
+print(original)  # [1, 2, 3, 4] — ¡modificada!
+print(nuevo is original)  # True — es el mismo objeto
+
+# Solución: operar sobre una copia
+def add_defaults_safe(config: dict) -> dict:
+    result = {**config}  # crea una copia shallow con spread
+    result.setdefault("timeout", 30)
+    result.setdefault("retries", 3)
+    return result
+
+mi_config2 = {"host": "localhost"}
+resultado2 = add_defaults_safe(mi_config2)
+print(mi_config2)  # {'host': 'localhost'} — intacto
+print(resultado2)  # {'host': 'localhost', 'timeout': 30, 'retries': 3}`
+    }
+  ]}
+  output={"{'host': 'localhost', 'timeout': 30, 'retries': 3}\n{'host': 'localhost', 'timeout': 30, 'retries': 3}\n[1, 2, 3, 4]\nTrue\n{'host': 'localhost'}\n{'host': 'localhost', 'timeout': 30, 'retries': 3}"}
+/>
+
+</Section>
+
+<Section id="shallow-vs-deep-copy" title="Copias shallow vs deep">
+
+Una copia shallow duplica el contenedor pero no los objetos anidados — ambas copias comparten referencias a los mismos objetos internos. `copy.deepcopy()` duplica todo recursivamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import copy
+
+# Copia shallow: varias formas
+original = [[1, 2], [3, 4], [5, 6]]
+
+shallow1 = original.copy()          # método .copy()
+shallow2 = original[:]              # slicing completo
+shallow3 = list(original)           # constructor list()
+shallow4 = copy.copy(original)      # copy.copy()
+
+# Modificar el contenedor externo no afecta
+shallow1.append([7, 8])
+print(len(original))    # 3 — no afectado
+print(len(shallow1))    # 4
+
+# Pero modificar un elemento anidado SÍ afecta
+shallow2[0].append(99)
+print(original[0])   # [1, 2, 99] — ¡afectado!
+print(shallow2[0])   # [1, 2, 99] — mismo objeto
+
+# Copia deep: independencia total
+deep = copy.deepcopy(original)
+deep[0].append(999)
+print(original[0])  # [1, 2, 99] — sin cambios
+print(deep[0])      # [1, 2, 99, 999] — solo en deep
+
+# Shallow es suficiente para objetos planos (sin anidamiento)
+nombres = ["Ana", "Carlos", "Diana"]
+copia_nombres = nombres.copy()
+copia_nombres[0] = "Eva"
+print(nombres[0])       # Ana — no afectado (strings son inmutables)`
+    }
+  ]}
+  output={"3\n4\n[1, 2, 99]\n[1, 2, 99]\n[1, 2, 99]\n[1, 2, 99, 999]\nAna"}
+/>
+
+<CompareTable
+  headers={["Shallow copy", "Deep copy"]}
+  rows={[
+    [{ kind: "good", value: "Rápida, bajo costo de memoria" }, { kind: "bad", value: "Más lenta, duplica todo el árbol" }],
+    [{ kind: "bad", value: "Objetos anidados aún compartidos" }, { kind: "good", value: "Objetos anidados completamente independientes" }],
+    [{ kind: "good", value: "Suficiente para datos planos (lista de strings)" }, { kind: "good", value: "Necesaria para datos anidados (lista de listas, dict de dicts)" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="bug-argumento-mutable" title="El bug clásico del argumento mutable por defecto">
+
+Este es el bug más famoso de Python para principiantes avanzados: usar un objeto mutable como valor por defecto de un parámetro. El valor por defecto se crea **una sola vez** cuando se define la función, no en cada llamada.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ❌ Bug clásico: valor por defecto mutable
+def add_item(item, container=[]):  # [] se crea UNA SOLA VEZ
+    container.append(item)
+    return container
+
+print(add_item("a"))   # ['a']
+print(add_item("b"))   # ['a', 'b'] — ¡reutiliza el mismo []!
+print(add_item("c"))   # ['a', 'b', 'c']
+
+# El [] está "vivo" en la función
+print(add_item.__defaults__)  # (['a', 'b', 'c'],) — sigue ahí
+
+# ✅ Solución: usar None como centinela
+def add_item_safe(item, container=None):
+    if container is None:
+        container = []  # nuevo [] en cada llamada
+    container.append(item)
+    return container
+
+print(add_item_safe("a"))   # ['a']
+print(add_item_safe("b"))   # ['b'] — nueva lista
+print(add_item_safe("c"))   # ['c'] — nueva lista
+
+# Pasar la misma lista explícitamente sigue funcionando
+mi_lista = [1, 2]
+print(add_item_safe(3, mi_lista))   # [1, 2, 3]
+print(add_item_safe(4, mi_lista))   # [1, 2, 3, 4]
+
+# El mismo bug aplica a dict y set
+def register(name, registry={}):   # ❌ mismo problema
+    registry[name] = True
+    return registry`
+    }
+  ]}
+  output={"['a']\n['a', 'b']\n['a', 'b', 'c']\n(['a', 'b', 'c'],)\n['a']\n['b']\n['c']\n[1, 2, 3]\n[1, 2, 3, 4]"}
+/>
+
+<Callout variant="warn" title="Nunca uses mutables como valores por defecto">
+`def func(items=[])`, `def func(config={})`, `def func(visited=set())` — todos son bugs en espera de manifestarse. Usa siempre `None` como centinela y crea el objeto mutable dentro de la función.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Demuestra el efecto secundario al modificar una lista", diff: "easy", minutes: 3 },
+    { num: "02", name: "Corrige la función usando copy.deepcopy", diff: "easy", minutes: 4 },
+    { num: "03", name: "Identifica el bug del argumento por defecto mutable", diff: "med", minutes: 5 },
+    { num: "04", name: "Implementa una función que no modifica su argumento", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,236 @@
+---
+title: "self, métodos de instancia, @classmethod y @staticmethod"
+short: "self y tipos de métodos"
+chapter: "09"
+num: "03"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python tiene tres tipos de métodos en una clase: de instancia (acceden a self), de clase (acceden a cls y actúan sobre la clase) y estáticos (funciones que viven en la clase por organización). Conocer la diferencia es señal de madurez."
+pro: true
+---
+
+<Section id="metodo-instancia-y-self" title="Método de instancia y self">
+
+Un método de instancia recibe `self` como primer argumento. `self` es el objeto en sí — a través de él puedes leer y modificar cualquier atributo de la instancia o llamar a otros métodos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Counter:
+    def __init__(self, start: int = 0) -> None:
+        self.count = start
+        self._history: list[int] = [start]
+
+    # Método de instancia: accede y modifica self
+    def increment(self, amount: int = 1) -> None:
+        self.count += amount
+        self._history.append(self.count)
+
+    def reset(self) -> None:
+        self.count = 0
+        self._history.append(0)
+
+    def history(self) -> list[int]:
+        return self._history.copy()
+
+    # Los métodos pueden llamarse entre sí a través de self
+    def double_increment(self) -> None:
+        self.increment()    # self.increment() llama al método del mismo objeto
+        self.increment()
+
+
+c = Counter(10)
+c.increment(5)
+c.double_increment()
+print(c.count)    # 22
+print(c.history())  # [10, 15, 16, 17]`
+    }
+  ]}
+  output={"22\n[10, 15, 16, 17]"}
+/>
+
+</Section>
+
+<Section id="classmethod-y-cls" title="@classmethod y cls">
+
+Un `@classmethod` recibe `cls` (la clase) en lugar de `self` (la instancia). Se llama sobre la clase directamente — `Clase.metodo()` — aunque también funciona sobre instancias. Tiene acceso a los atributos de clase pero no a los de instancia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Temperature:
+    absolute_zero_celsius: float = -273.15
+
+    def __init__(self, celsius: float) -> None:
+        if celsius < Temperature.absolute_zero_celsius:
+            raise ValueError(f"Temperatura por debajo del cero absoluto")
+        self.celsius = celsius
+
+    # @classmethod — recibe cls, no self
+    @classmethod
+    def from_fahrenheit(cls, fahrenheit: float) -> "Temperature":
+        """Factory method: crea Temperature desde Fahrenheit."""
+        celsius = (fahrenheit - 32) * 5 / 9
+        return cls(celsius)  # cls() crea una instancia de la clase (o subclase)
+
+    @classmethod
+    def from_kelvin(cls, kelvin: float) -> "Temperature":
+        """Factory method: crea Temperature desde Kelvin."""
+        return cls(kelvin + cls.absolute_zero_celsius)
+
+    def to_fahrenheit(self) -> float:
+        return self.celsius * 9 / 5 + 32
+
+    def __repr__(self) -> str:
+        return f"Temperature({self.celsius:.2f}°C)"
+
+
+# Crear instancias desde distintas unidades
+t1 = Temperature(100)
+t2 = Temperature.from_fahrenheit(212)
+t3 = Temperature.from_kelvin(373.15)
+
+print(t1)  # Temperature(100.00°C)
+print(t2)  # Temperature(100.00°C)
+print(t3)  # Temperature(100.00°C)
+
+# También funciona sobre instancias (aunque es raro usarlo así)
+t4 = t1.from_fahrenheit(32)
+print(t4)  # Temperature(0.00°C)`
+    }
+  ]}
+  output={"Temperature(100.00°C)\nTemperature(100.00°C)\nTemperature(100.00°C)\nTemperature(0.00°C)"}
+/>
+
+</Section>
+
+<Section id="staticmethod" title="@staticmethod">
+
+Un `@staticmethod` no recibe ni `self` ni `cls`. Es simplemente una función que vive dentro de la clase por razones organizativas — su lógica está relacionada con la clase, pero no necesita acceder a ningún estado de ella.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class MathUtils:
+    PI: float = 3.141592653589793
+
+    @staticmethod
+    def is_prime(n: int) -> bool:
+        """Verifica si n es primo — no necesita ni self ni cls."""
+        if n < 2:
+            return False
+        for i in range(2, int(n ** 0.5) + 1):
+            if n % i == 0:
+                return False
+        return True
+
+    @staticmethod
+    def gcd(a: int, b: int) -> int:
+        """Máximo común divisor — algoritmo de Euclides."""
+        while b:
+            a, b = b, a % b
+        return a
+
+    @staticmethod
+    def lcm(a: int, b: int) -> int:
+        """Mínimo común múltiplo."""
+        return abs(a * b) // MathUtils.gcd(a, b)
+
+
+# Se puede llamar sin instancia
+print(MathUtils.is_prime(17))   # True
+print(MathUtils.is_prime(18))   # False
+print(MathUtils.gcd(48, 18))    # 6
+print(MathUtils.lcm(4, 6))      # 12
+
+# O sobre una instancia (aunque es inusual para staticmethods)
+util = MathUtils()
+print(util.is_prime(97))  # True`
+    }
+  ]}
+  output={"True\nFalse\n6\n12\nTrue"}
+/>
+
+</Section>
+
+<Section id="factory-methods-classmethod" title="Factory methods con @classmethod">
+
+El patrón factory method con `@classmethod` es la forma idiomática de ofrecer múltiples constructores. Usar `cls(...)` en vez del nombre de la clase hace que funcione correctamente con la herencia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from datetime import date
+
+class Person:
+    def __init__(self, name: str, birth_year: int) -> None:
+        self.name = name
+        self.birth_year = birth_year
+
+    @classmethod
+    def from_birth_date(cls, name: str, birth_date: date) -> "Person":
+        """Crea una persona a partir de una fecha de nacimiento completa."""
+        return cls(name, birth_date.year)
+
+    @classmethod
+    def from_string(cls, data: str) -> "Person":
+        """Parsea 'nombre,año' para crear una Person."""
+        name, year_str = data.split(",")
+        return cls(name.strip(), int(year_str.strip()))
+
+    @property
+    def age(self) -> int:
+        return date.today().year - self.birth_year
+
+    def __repr__(self) -> str:
+        return f"Person('{self.name}', {self.birth_year})"
+
+
+# Tres formas de crear el mismo objeto
+p1 = Person("Ana", 1990)
+p2 = Person.from_birth_date("Ana", date(1990, 6, 15))
+p3 = Person.from_string("Ana, 1990")
+
+print(p1)  # Person('Ana', 1990)
+print(p2)  # Person('Ana', 1990)
+print(p3)  # Person('Ana', 1990)
+print(f"Edad: {p1.age} años")`
+    }
+  ]}
+  output={"Person('Ana', 1990)\nPerson('Ana', 1990)\nPerson('Ana', 1990)\nEdad: 36 años"}
+/>
+
+<CompareTable
+  headers={["Tipo de método", "Primer arg", "Cuándo usarlo"]}
+  rows={[
+    [{ kind: "good", value: "instancia (normal)" }, { kind: "good", value: "self" }, { kind: "good", value: "Opera sobre datos del objeto" }],
+    [{ kind: "good", value: "@classmethod" }, { kind: "good", value: "cls" }, { kind: "good", value: "Factory, constructores alternativos" }],
+    [{ kind: "good", value: "@staticmethod" }, { kind: "good", value: "(ninguno)" }, { kind: "good", value: "Función utilitaria relacionada con la clase" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea un @classmethod from_string para parsear fechas", diff: "med", minutes: 6 },
+    { num: "02", name: "Usa @staticmethod para una función de validación pura", diff: "easy", minutes: 4 },
+    { num: "03", name: "Combina @classmethod y @staticmethod en una clase", diff: "med", minutes: 7 },
+    { num: "04", name: "Factory method que retorna diferentes subclases", diff: "hard", minutes: 9 },
+  ]}
+/>
+</Section>

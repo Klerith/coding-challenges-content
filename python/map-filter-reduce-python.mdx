@@ -1,0 +1,219 @@
+---
+title: "map, filter, reduce y functools: transformar datos funcionalmente"
+short: "map, filter, reduce"
+chapter: "08"
+num: "02"
+chapterTitle: "Colecciones avanzadas"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "map, filter y reduce son las herramientas clásicas de programación funcional. Python las incluye, aunque a menudo las comprehensions son más Pythonicas. Conocerlas es esencial para entender código legado y librerías."
+pro: false
+---
+
+<Section id="map-con-funciones" title="map() con funciones y lambda">
+
+`map(función, iterable)` aplica una función a cada elemento de un iterable y devuelve un iterador lazy. Debes convertirlo a lista si quieres verlo completo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# map con una función nombrada
+def al_cuadrado(n):
+    return n ** 2
+
+numeros = [1, 2, 3, 4, 5]
+resultado = list(map(al_cuadrado, numeros))
+print(resultado)  # [1, 4, 9, 16, 25]
+
+# map con lambda (función anónima en línea)
+dobles = list(map(lambda x: x * 2, numeros))
+print(dobles)  # [2, 4, 6, 8, 10]
+
+# map sobre strings
+nombres = ["ana", "carlos", "beatriz"]
+mayusculas = list(map(str.upper, nombres))
+print(mayusculas)  # ['ANA', 'CARLOS', 'BEATRIZ']
+
+# map con múltiples iterables
+a = [1, 2, 3]
+b = [10, 20, 30]
+sumas = list(map(lambda x, y: x + y, a, b))
+print(sumas)  # [11, 22, 33]`
+    }
+  ]}
+  output={"[1, 4, 9, 16, 25]\n[2, 4, 6, 8, 10]\n['ANA', 'CARLOS', 'BEATRIZ']\n[11, 22, 33]"}
+/>
+
+<Callout variant="info" title="map() devuelve un iterador, no una lista">
+`map()` es lazy: no evalúa nada hasta que iteras. Envuelve con `list()` cuando necesitas el resultado completo, o itera directamente en un for loop para ahorrar memoria.
+</Callout>
+
+</Section>
+
+<Section id="filter-para-subconjuntos" title="filter() para subconjuntos">
+
+`filter(función, iterable)` devuelve un iterador con los elementos para los que la función retorna `True`. Si pasas `None` como función, filtra los valores falsy.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Filtrar números pares
+numeros = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+pares = list(filter(lambda n: n % 2 == 0, numeros))
+print(pares)  # [2, 4, 6, 8, 10]
+
+# Filtrar strings no vacíos
+datos = ["python", "", "es", None, "genial", ""]
+# filter con None elimina los valores falsy
+validos = list(filter(None, datos))
+print(validos)  # ['python', 'es', 'genial']
+
+# Filtrar objetos por atributo
+usuarios = [
+    {"nombre": "Ana", "activo": True},
+    {"nombre": "Bob", "activo": False},
+    {"nombre": "Carlos", "activo": True},
+]
+activos = list(filter(lambda u: u["activo"], usuarios))
+print([u["nombre"] for u in activos])  # ['Ana', 'Carlos']`
+    }
+  ]}
+  output={"[2, 4, 6, 8, 10]\n['python', 'es', 'genial']\n['Ana', 'Carlos']"}
+/>
+
+</Section>
+
+<Section id="reduce-para-acumulacion" title="functools.reduce() para acumulación">
+
+`reduce(función, iterable)` aplica una función acumulativa de izquierda a derecha, reduciendo el iterable a un solo valor. En Python 3 está en `functools`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from functools import reduce
+
+# Sumar todos los elementos
+numeros = [1, 2, 3, 4, 5]
+total = reduce(lambda acc, n: acc + n, numeros)
+print(total)  # 15
+
+# Producto de todos los elementos
+producto = reduce(lambda acc, n: acc * n, numeros)
+print(producto)  # 120
+
+# Encontrar el máximo manualmente
+maximo = reduce(lambda a, b: a if a > b else b, numeros)
+print(maximo)  # 5
+
+# Con valor inicial (segundo parámetro de reduce)
+suma_con_base = reduce(lambda acc, n: acc + n, numeros, 100)
+print(suma_con_base)  # 115  (100 + 1 + 2 + 3 + 4 + 5)`
+    }
+  ]}
+  output={"15\n120\n5\n115"}
+/>
+
+<Callout variant="tip" title="reduce vs sum/max/min">
+Para operaciones comunes como suma, máximo o mínimo, Python ya tiene `sum()`, `max()` y `min()`. Usa `reduce()` solo cuando necesitas una operación de acumulación personalizada que no tiene built-in equivalente.
+</Callout>
+
+</Section>
+
+<Section id="comprehension-vs-map-filter" title="Comparación: comprehension vs map/filter">
+
+En Python moderno, las comprehensions suelen ser más legibles que map/filter. Conoce ambas formas — el código legado usa mucho map/filter.
+
+<CompareTable
+  headers={["map / filter", "List comprehension"]}
+  rows={[
+    [{ kind: "bad", value: "list(map(lambda x: x**2, nums))" }, { kind: "good", value: "[x**2 for x in nums]" }],
+    [{ kind: "bad", value: "list(filter(lambda x: x>0, nums))" }, { kind: "good", value: "[x for x in nums if x>0]" }],
+    [{ kind: "bad", value: "list(map(f, filter(g, nums)))" }, { kind: "good", value: "[f(x) for x in nums if g(x)]" }],
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `numeros = [-3, -1, 0, 2, 4, 7]
+
+# Opción A: map + filter anidados (menos legible)
+resultado_a = list(map(lambda n: n ** 2, filter(lambda n: n > 0, numeros)))
+
+# Opción B: list comprehension (más legible)
+resultado_b = [n ** 2 for n in numeros if n > 0]
+
+print(resultado_a)  # [4, 16, 49]
+print(resultado_b)  # [4, 16, 49]
+print(resultado_a == resultado_b)  # True`
+    }
+  ]}
+  output={"[4, 16, 49]\n[4, 16, 49]\nTrue"}
+/>
+
+</Section>
+
+<Section id="functools-partial-lru-cache" title="functools.partial y functools.lru_cache">
+
+`functools` tiene más herramientas útiles: `partial` para fijar argumentos y `lru_cache` para memorizar resultados de funciones puras costosas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from functools import partial, lru_cache
+
+# partial: crea una función con argumentos pre-rellenados
+def potencia(base, exponente):
+    return base ** exponente
+
+al_cuadrado = partial(potencia, exponente=2)
+al_cubo = partial(potencia, exponente=3)
+
+print(al_cuadrado(5))  # 25
+print(al_cubo(3))      # 27
+
+# Útil con map para evitar lambdas complejas
+numeros = [1, 2, 3, 4, 5]
+print(list(map(al_cuadrado, numeros)))  # [1, 4, 9, 16, 25]
+
+# lru_cache: memoiza una función (guarda resultados ya calculados)
+@lru_cache(maxsize=None)
+def fibonacci(n: int) -> int:
+    if n < 2:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+print(fibonacci(35))   # 9227465 — rápido gracias al caché
+print(fibonacci.cache_info())  # CacheInfo(hits=33, misses=36, ...)`
+    }
+  ]}
+  output={"25\n27\n[1, 4, 9, 16, 25]\n9227465\nCacheInfo(hits=33, misses=36, maxsize=None, currsize=36)"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Convierte temperaturas con map y lambda", diff: "easy", minutes: 3 },
+    { num: "02", name: "Filtra palabras largas con filter", diff: "easy", minutes: 3 },
+    { num: "03", name: "Suma una lista con reduce", diff: "easy", minutes: 4 },
+    { num: "04", name: "Crea una función parcial con functools.partial", diff: "med", minutes: 5 },
+    { num: "05", name: "Memoiza una función recursiva con lru_cache", diff: "med", minutes: 6 },
+  ]}
+/>
+</Section>

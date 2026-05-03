@@ -1,0 +1,258 @@
+---
+title: "Type checking con mypy y ruff: detectar errores antes de ejecutar"
+short: "mypy y ruff"
+chapter: "05"
+num: "04"
+chapterTitle: "Type hints"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Los type hints son solo comentarios para el intérprete. mypy y ruff los convierten en un sistema de verificación estática que atrapa bugs antes de que el código llegue a producción."
+pro: true
+---
+
+<Section id="instalar-mypy" title="Instalar y configurar mypy">
+
+mypy es el verificador de tipos oficial del ecosistema Python, creado por Dropbox. Se instala como cualquier paquete y puede configurarse en `pyproject.toml` o `mypy.ini`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Instalar mypy y ruff
+# pip install mypy ruff
+# o con uv (recomendado):
+# uv add --dev mypy ruff
+
+# Verificar instalación
+# mypy --version  →  mypy 1.10.0
+# ruff --version  →  ruff 0.4.0
+
+# Ejecutar mypy sobre un archivo
+# mypy mi_modulo.py
+
+# Ejecutar sobre todo el proyecto
+# mypy .
+
+# Ejemplo de archivo con errores de tipos
+def sumar(a: int, b: int) -> int:
+    return a + b
+
+# Esto pasará mypy ✅
+resultado = sumar(3, 4)
+
+# Esto fallará mypy ❌ (str no es int)
+# resultado = sumar("hola", 4)`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="mypy no ejecuta el código">
+mypy analiza el código estáticamente — sin ejecutarlo. Por eso es tan rápido y seguro para usar en CI/CD. Puede analizar miles de archivos en segundos.
+</Callout>
+
+</Section>
+
+<Section id="errores-mypy" title="Ejecutar mypy y entender errores">
+
+mypy reporta errores con formato `archivo.py:línea: error: descripción [código-error]`. Entender estos mensajes es la habilidad principal.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# archivo: calculadora.py
+def dividir(a: float, b: float) -> float:
+    return a / b
+
+def calcular_promedio(numeros: list[int]) -> float:
+    if len(numeros) == 0:
+        return None    # ❌ mypy: Incompatible return value type
+    return sum(numeros) / len(numeros)
+
+def procesar_nombre(nombre: str | None) -> str:
+    return nombre.upper()  # ❌ mypy: Item "None" of "str | None"
+                           #          has no attribute "upper"
+
+# Versión correcta
+def calcular_promedio_ok(numeros: list[int]) -> float | None:
+    if len(numeros) == 0:
+        return None    # ✅ ahora el retorno es float | None
+    return sum(numeros) / len(numeros)
+
+def procesar_nombre_ok(nombre: str | None) -> str:
+    if nombre is None:
+        return "anónimo"
+    return nombre.upper()  # ✅ mypy sabe que aquí nombre es str`
+    }
+  ]}
+/>
+
+Los códigos de error más comunes:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# [assignment] — tipo incompatible en asignación
+x: int = "hola"
+# error: Incompatible types in assignment
+# (expression has type "str", variable has type "int") [assignment]
+
+# [arg-type] — argumento con tipo incorrecto
+def saludar(nombre: str) -> None:
+    print(f"Hola, {nombre}")
+
+saludar(42)
+# error: Argument 1 to "saludar" has incompatible type "int";
+#        expected "str" [arg-type]
+
+# [return-value] — tipo de retorno incorrecto
+def obtener_id() -> int:
+    return "abc"
+# error: Incompatible return value type
+#        (got "str", expected "int") [return-value]
+
+# [union-attr] — atributo no existe en todos los tipos del Union
+def longitud(valor: str | list) -> int:
+    return valor.upper()  # list no tiene upper()
+# error: Item "list[Any]" of "str | list[Any]"
+#        has no attribute "upper" [union-attr]`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ruff-tipos" title="ruff check con reglas de tipos">
+
+ruff es un linter y formateador ultra-rápido escrito en Rust. Incluye reglas específicas para type annotations que complementan mypy.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ruff detecta patrones problemáticos en anotaciones
+# Sin ejecutar mypy, ruff ya detecta:
+
+# ANN001: parámetro sin anotación
+def procesar(datos):       # ❌ ANN001: missing type annotation
+    return datos
+
+# ANN201: función pública sin anotación de retorno
+def calcular():            # ❌ ANN201: missing return type annotation
+    return 42
+
+# UP006: usar List/Dict del typing en lugar de list/dict
+from typing import List, Dict
+def funcion(items: List[int]) -> Dict[str, int]:  # ❌ UP006
+    return {}
+
+# Forma correcta (Python 3.9+)
+def funcion_ok(items: list[int]) -> dict[str, int]:  # ✅
+    return {}
+
+# Ejecutar ruff:
+# ruff check .
+# ruff check --fix .    ← corrige automáticamente lo que puede`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="pyproject-toml" title="pyproject.toml — configurar mypy y ruff">
+
+El lugar canónico para configurar ambas herramientas en un proyecto moderno es `pyproject.toml`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "pyproject.toml",
+      code: `# pyproject.toml
+
+[tool.mypy]
+python_version = "3.12"
+strict = false          # empieza sin strict, ve añadiendo
+
+# Opciones que vale la pena activar desde el inicio:
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true   # todas las funciones deben estar anotadas
+check_untyped_defs = true
+no_implicit_optional = true
+
+# Ignorar librerías sin stubs de tipos
+[[tool.mypy.overrides]]
+module = ["requests.*", "pandas.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "UP",   # pyupgrade (moderniza sintaxis)
+    "ANN",  # flake8-annotations (type hints)
+]
+ignore = [
+    "ANN101",  # self no necesita anotación
+    "ANN102",  # cls no necesita anotación
+]`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="strict mode en mypy">
+`strict = true` activa todas las verificaciones: `disallow_any_generics`, `disallow_untyped_calls`, `warn_return_any`, y más. Es ideal para proyectos nuevos. Para proyectos existentes, activa las opciones una por una para no bloquearte.
+</Callout>
+
+El comentario especial `# type: ignore` silencia mypy en una línea específica. Úsalo con un código de error para ser explícito:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import json
+from typing import Any
+
+# mypy no tiene stubs para algunas librerías externas
+datos: Any = json.loads('{"clave": 1}')  # type: ignore[misc]
+
+# Cuando integras con código legacy sin tipos
+resultado = funcion_legacy()  # type: ignore[no-untyped-call]
+
+# NUNCA hagas esto sin comentario explicativo:
+x = algo_raro()  # type: ignore  ❌
+
+# Siempre añade el código de error y una nota si hace falta:
+x = algo_raro()  # type: ignore[misc]  — API de tercero sin stubs  ✅`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Corre mypy sobre un módulo con errores intencionales", diff: "easy", minutes: 5 },
+    { num: "02", name: "Corrige los errores que reporta mypy", diff: "med", minutes: 7 },
+    { num: "03", name: "Configura mypy en strict mode en pyproject.toml", diff: "med", minutes: 6 },
+    { num: "04", name: "Usa # type: ignore con comentario explicativo", diff: "easy", minutes: 4 },
+  ]}
+/>
+</Section>

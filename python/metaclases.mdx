@@ -1,0 +1,249 @@
+---
+title: "Metaclases: clases que crean clases"
+short: "Metaclases"
+chapter: "12"
+num: "07"
+chapterTitle: "Python avanzado"
+difficulty: "advanced"
+readingMinutes: 12
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "En Python, todo es un objeto — incluyendo las clases. Una metaclase controla cómo se crea una clase: puede añadir métodos automáticamente, validar herencia, implementar singletons. Es poder absoluto, con gran responsabilidad."
+pro: true
+---
+
+<Section id="type-metaclase-defecto" title="type como metaclase por defecto">
+
+`type` no es solo la función que muestra el tipo de un objeto — es la metaclase por defecto de todas las clases en Python. Cuando Python procesa `class Foo: ...`, llama `type("Foo", bases, namespace)`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# En Python, todo es un objeto, incluyendo las clases
+class Dog:
+    def bark(self):
+        return "Woof!"
+
+# Las clases son instancias de type
+print(type(Dog))           # <class 'type'>
+print(type(int))           # <class 'type'>
+print(type(type))          # <class 'type'> — type es su propia metaclase
+
+# Crear una clase con type() directamente (forma explícita)
+# type(name, bases, namespace)
+Animal = type("Animal", (), {
+    "species": "desconocida",
+    "breathe": lambda self: f"Soy un {self.species} respirando",
+})
+
+Cat = type("Cat", (Animal,), {
+    "species": "felis catus",
+    "meow": lambda self: "Miau!",
+})
+
+c = Cat()
+print(c.breathe())  # Soy un felis catus respirando
+print(c.meow())     # Miau!
+print(isinstance(c, Animal))  # True — Cat hereda de Animal
+
+# La declaración class es azúcar:
+# class Foo(Base): attr = val
+# ↕ equivale a:
+# Foo = type("Foo", (Base,), {"attr": val})
+
+# Verificar la metaclase
+print(type(Cat))           # <class 'type'>
+print(Cat.__bases__)       # (<class '__main__.Animal'>,)
+print(Cat.__mro__)         # [Cat, Animal, object]`
+    }
+  ]}
+  output={"<class 'type'>\n<class 'type'>\n<class 'type'>\nSoy un felis catus respirando\nMiau!\nTrue\n<class 'type'>\n(<class '__main__.Animal'>,)\n[<class '__main__.Cat'>, <class '__main__.Animal'>, <class 'object'>]"}
+/>
+
+</Section>
+
+<Section id="metaclase-custom" title="Crear una metaclase custom">
+
+Una metaclase hereda de `type` y sobreescribe `__new__` o `__init__` para interceptar la creación de la clase. El método `__new__` recibe el namespace completo de la clase antes de que exista.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Metaclase que fuerza snake_case en todos los métodos
+class SnakeCaseMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        # namespace es el dict con todos los atributos de la clase
+        for attr_name in list(namespace.keys()):
+            if attr_name.startswith("_"):
+                continue  # ignorar dunder y privados
+            if any(c.isupper() for c in attr_name):
+                raise TypeError(
+                    f"Método '{attr_name}' en '{name}' debe usar snake_case"
+                )
+        return super().__new__(mcs, name, bases, namespace)
+
+class GoodAPI(metaclass=SnakeCaseMeta):
+    def get_user(self):      # ✅ snake_case
+        return "usuario"
+
+    def create_item(self):   # ✅ snake_case
+        return "ítem"
+
+print(GoodAPI().get_user())  # usuario
+
+try:
+    class BadAPI(metaclass=SnakeCaseMeta):
+        def getUser(self):   # ❌ camelCase
+            return "usuario"
+except TypeError as e:
+    print(e)  # Método 'getUser' en 'BadAPI' debe usar snake_case
+
+# Metaclase que añade un método auto_doc() a cada clase
+class AutoDocMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        # Genera documentación automática de los métodos públicos
+        public_methods = [m for m in namespace if not m.startswith("_") and callable(namespace[m])]
+        cls.auto_doc = lambda self: f"{name} tiene: {', '.join(public_methods)}"
+        return cls
+
+class MyService(metaclass=AutoDocMeta):
+    def start(self): pass
+    def stop(self): pass
+    def status(self): pass
+
+s = MyService()
+print(s.auto_doc())  # MyService tiene: start, stop, status`
+    }
+  ]}
+  output={"usuario\nMétodo 'getUser' en 'BadAPI' debe usar snake_case\nMyService tiene: start, stop, status"}
+/>
+
+</Section>
+
+<Section id="new-vs-init-metaclases" title="__new__ vs __init__ en metaclases">
+
+`__new__` construye el objeto clase (retorna la clase), `__init__` la inicializa (modifica la clase ya creada). Para metaclases, `__new__` es el lugar correcto para modificar el namespace antes de crear la clase.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class DebugMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        print(f"__new__: construyendo clase '{name}'")
+        print(f"  bases: {bases}")
+        print(f"  atributos: {[k for k in namespace if not k.startswith('__')]}")
+        cls = super().__new__(mcs, name, bases, namespace)
+        return cls
+
+    def __init__(cls, name, bases, namespace):
+        print(f"__init__: inicializando clase '{name}'")
+        super().__init__(name, bases, namespace)
+
+    def __call__(cls, *args, **kwargs):
+        print(f"__call__: creando instancia de '{cls.__name__}'")
+        return super().__call__(*args, **kwargs)
+
+class MyClass(metaclass=DebugMeta):
+    x = 10
+    def greet(self): return "hola"
+
+# __new__ y __init__ se llamaron al definir la clase
+print("---")
+obj = MyClass()  # __call__ se llama al instanciar
+
+# Orden de ejecución:
+# 1. DebugMeta.__new__   — crea el objeto clase
+# 2. DebugMeta.__init__  — inicializa el objeto clase
+# 3. (al instanciar) DebugMeta.__call__ → MyClass.__new__ → MyClass.__init__
+
+# Regla práctica:
+# __new__  → modificar el NAMESPACE antes de crear la clase
+# __init__ → modificar la clase ya creada (agregar atributos)
+# __call__ → controlar cómo se crean las INSTANCIAS (Singleton usa esto)`
+    }
+  ]}
+  output={"__new__: construyendo clase 'MyClass'\n  bases: ()\n  atributos: ['x', 'greet']\n__init__: inicializando clase 'MyClass'\n---\n__call__: creando instancia de 'MyClass'"}
+/>
+
+</Section>
+
+<Section id="casos-reales" title="Casos reales: ORMs y registro automático">
+
+Los ORMs como Django y SQLAlchemy usan metaclases para convertir definiciones de clase en esquemas de base de datos. El registro automático de subclases es otro patrón muy común.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Patrón: registro automático de subclases (plugin system)
+class PluginMeta(type):
+    _registry: dict = {}
+
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        if bases:  # no registrar la clase base
+            plugin_name = namespace.get("plugin_name", name.lower())
+            mcs._registry[plugin_name] = cls
+            print(f"Plugin registrado: '{plugin_name}' → {name}")
+        return cls
+
+class BaseParser(metaclass=PluginMeta):
+    plugin_name = "base"
+    def parse(self, data): raise NotImplementedError
+
+class JSONParser(BaseParser):
+    plugin_name = "json"
+    def parse(self, data: str):
+        import json
+        return json.loads(data)
+
+class CSVParser(BaseParser):
+    plugin_name = "csv"
+    def parse(self, data: str):
+        lines = data.strip().split("\n")
+        return [line.split(",") for line in lines]
+
+# Obtener el parser correcto por nombre
+def get_parser(format_name: str) -> BaseParser:
+    cls = PluginMeta._registry.get(format_name)
+    if not cls:
+        raise ValueError(f"Parser desconocido: {format_name}")
+    return cls()
+
+parser = get_parser("json")
+print(parser.parse('{"key": "value"}'))  # {'key': 'value'}
+
+parser2 = get_parser("csv")
+print(parser2.parse("a,b,c\n1,2,3"))    # [['a', 'b', 'c'], ['1', '2', '3']]
+
+print(PluginMeta._registry.keys())  # dict_keys(['json', 'csv'])`
+    }
+  ]}
+  output={"Plugin registrado: 'json' → JSONParser\nPlugin registrado: 'csv' → CSVParser\n{'key': 'value'}\n[['a', 'b', 'c'], ['1', '2', '3']]\ndict_keys(['json', 'csv'])"}
+/>
+
+<Callout variant="warn" title="Con gran poder, gran responsabilidad">
+Las metaclases son difíciles de debuggear y hacen el código opaco para quien no las conoce. En Python moderno, los decoradores de clase y `__init_subclass__` resuelven el 90% de los casos de uso de metaclases con mucho menos complejidad. Usa metaclases solo cuando estas alternativas no sean suficientes.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Metaclase que fuerza snake_case en nombres de métodos", diff: "hard", minutes: 10 },
+    { num: "02", name: "Metaclase Singleton que impide múltiples instancias", diff: "hard", minutes: 10 },
+    { num: "03", name: "Registro automático de subclases con metaclase", diff: "hard", minutes: 12 },
+  ]}
+/>
+</Section>

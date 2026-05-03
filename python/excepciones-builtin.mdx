@@ -1,0 +1,253 @@
+---
+title: "Excepciones built-in: TypeError, ValueError, KeyError y más"
+short: "Excepciones built-in"
+chapter: "07"
+num: "03"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python tiene más de 60 excepciones built-in organizadas en una jerarquía. Conocerlas te permite capturar exactamente lo que necesitas — ni más ni menos."
+pro: false
+---
+
+<Section id="jerarquia-excepciones" title="La jerarquía de BaseException → Exception">
+
+Todas las excepciones heredan de `BaseException`. Las que hereda directamente (sin pasar por `Exception`) son especiales: `KeyboardInterrupt`, `SystemExit` y `GeneratorExit`. El resto hereda de `Exception` — y son las que típicamente capturas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Árbol simplificado de la jerarquía:
+#
+# BaseException
+# ├── SystemExit              ← sys.exit()
+# ├── KeyboardInterrupt       ← Ctrl+C
+# ├── GeneratorExit           ← close() en un generador
+# └── Exception               ← base de todas las normales
+#     ├── TypeError
+#     ├── ValueError
+#     ├── KeyError
+#     ├── IndexError
+#     ├── AttributeError
+#     ├── NameError
+#     ├── RuntimeError
+#     ├── StopIteration
+#     ├── OSError              ← errores del sistema operativo
+#     │   ├── FileNotFoundError
+#     │   ├── PermissionError
+#     │   ├── IsADirectoryError
+#     │   └── TimeoutError
+#     └── ArithmeticError
+#         ├── ZeroDivisionError
+#         └── OverflowError
+
+# Capturar Exception atrapa TODAS las excepciones normales
+# pero NO KeyboardInterrupt ni SystemExit
+try:
+    x = 1 / 0
+except Exception as e:
+    print(f"Capturado: {type(e).__name__}: {e}")
+    # Capturado: ZeroDivisionError: division by zero`
+    }
+  ]}
+  output={"Capturado: ZeroDivisionError: division by zero"}
+/>
+
+</Section>
+
+<Section id="excepciones-comunes" title="Las más comunes">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# TypeError: operación con tipos incompatibles
+try:
+    resultado = "5" + 3       # str + int no es válido
+except TypeError as e:
+    print(f"TypeError: {e}")
+    # TypeError: can only concatenate str (not "int") to str
+
+# ValueError: tipo correcto, valor inapropiado
+try:
+    numero = int("doce")      # str pero no numérico
+except ValueError as e:
+    print(f"ValueError: {e}")
+    # ValueError: invalid literal for int() with base 10: 'doce'
+
+# KeyError: clave inexistente en dict
+try:
+    config = {"host": "localhost"}
+    puerto = config["puerto"]  # clave no existe
+except KeyError as e:
+    print(f"KeyError: {e}")
+    # KeyError: 'puerto'
+
+# IndexError: índice fuera de rango
+try:
+    lista = [1, 2, 3]
+    item = lista[10]
+except IndexError as e:
+    print(f"IndexError: {e}")
+    # IndexError: list index out of range
+
+# AttributeError: atributo o método inexistente
+try:
+    numero = 42
+    numero.upper()             # int no tiene upper()
+except AttributeError as e:
+    print(f"AttributeError: {e}")
+    # AttributeError: 'int' object has no attribute 'upper'
+
+# NameError: variable no definida
+try:
+    print(variable_inexistente)
+except NameError as e:
+    print(f"NameError: {e}")
+    # NameError: name 'variable_inexistente' is not defined`
+    }
+  ]}
+  output={"TypeError: can only concatenate str (not \"int\") to str\nValueError: invalid literal for int() with base 10: 'doce'\nKeyError: 'puerto'\nIndexError: list index out of range\nAttributeError: 'int' object has no attribute 'upper'\nNameError: name 'variable_inexistente' is not defined"}
+/>
+
+`RuntimeError` es para errores que no encajan en ninguna categoría más específica:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# RuntimeError: error en tiempo de ejecución sin categoría mejor
+import asyncio
+
+async def necesita_loop() -> None:
+    loop = asyncio.get_running_loop()
+    print(f"Loop: {loop}")
+
+# Llamar fuera del contexto correcto lanza RuntimeError
+try:
+    asyncio.get_running_loop()   # no hay loop activo
+except RuntimeError as e:
+    print(f"RuntimeError: {e}")
+    # RuntimeError: no running event loop`
+    }
+  ]}
+  output={"RuntimeError: no running event loop"}
+/>
+
+</Section>
+
+<Section id="oserror-subclases" title="OSError y sus subclases">
+
+`OSError` (también conocida como `EnvironmentError` o `IOError` en versiones antiguas) es la base de todos los errores relacionados con el sistema operativo. Sus subclases son muy específicas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import os
+
+# FileNotFoundError: archivo o directorio inexistente
+try:
+    with open("archivo_inexistente.txt") as f:
+        contenido = f.read()
+except FileNotFoundError as e:
+    print(f"No encontrado: {e.filename}")
+    # No encontrado: archivo_inexistente.txt
+
+# PermissionError: sin permisos para la operación
+try:
+    with open("/etc/shadow", "r") as f:
+        datos = f.read()
+except PermissionError as e:
+    print(f"Sin permisos: {e.filename}")
+    # Sin permisos: /etc/shadow
+
+# IsADirectoryError: intentas leer un directorio como archivo
+try:
+    with open("/tmp") as f:
+        contenido = f.read()
+except IsADirectoryError as e:
+    print(f"Es un directorio: {e.filename}")
+
+# FileExistsError: intentas crear algo que ya existe
+try:
+    os.mkdir("/tmp")   # /tmp ya existe
+except FileExistsError as e:
+    print(f"Ya existe: {e.filename}")`
+    }
+  ]}
+  output={"No encontrado: archivo_inexistente.txt\nSin permisos: /etc/shadow\nEs un directorio: /tmp\nYa existe: /tmp"}
+/>
+
+</Section>
+
+<Section id="capturar-padre-vs-exacto" title="Atrapar por clase padre vs clase exacta">
+
+Capturar `Exception` atrapa todo — lo cual puede silenciar errores que no esperabas. Ser específico hace el código más robusto y predecible.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ❌ Demasiado amplio: silencia errores inesperados
+def leer_mal(ruta: str) -> str:
+    try:
+        with open(ruta) as f:
+            return f.read()
+    except Exception:
+        return ""  # ¿FileNotFoundError? ¿PermissionError? ¿MemoryError? ¡No sé!
+
+# ✅ Específico: sabemos exactamente qué capturamos
+def leer_bien(ruta: str) -> str | None:
+    try:
+        with open(ruta) as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"  Archivo no existe: {ruta}")
+        return None
+    except PermissionError:
+        print(f"  Sin permisos para leer: {ruta}")
+        return None
+    # MemoryError, OSError genérico, etc. → se propagan (correcto)
+
+# Capturar por clase padre cuando quieres tratar igual a las subclases
+def copiar_archivo(origen: str, destino: str) -> bool:
+    try:
+        import shutil
+        shutil.copy2(origen, destino)
+        return True
+    except OSError as e:
+        # Captura FileNotFoundError, PermissionError, etc.
+        # todos son errores del SO y los tratamos igual
+        print(f"  Error del sistema: {e}")
+        return False`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Nunca uses except: (sin tipo)">
+`except:` sin tipo captura absolutamente todo, incluyendo `KeyboardInterrupt` y `SystemExit`. Esto impide que el usuario interrumpa el programa con Ctrl+C. Siempre especifica al menos `except Exception:` como mínimo.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Provoca y captura un KeyError al acceder a un dict", diff: "easy", minutes: 3 },
+    { num: "02", name: "Distingue TypeError de ValueError con un ejemplo", diff: "easy", minutes: 3 },
+    { num: "03", name: "Captura FileNotFoundError y PermissionError con OSError", diff: "med", minutes: 5 },
+    { num: "04", name: "Decide qué excepción lanzar para cada situación", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

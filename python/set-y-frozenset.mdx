@@ -1,0 +1,213 @@
+---
+title: "set y frozenset: colecciones únicas con operaciones de conjuntos"
+short: "set y frozenset"
+chapter: "11"
+num: "01"
+chapterTitle: "Estructuras de datos modernas"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Un set elimina duplicados automáticamente y soporta operaciones matemáticas de conjuntos: unión, intersección, diferencia. frozenset es su versión inmutable, que puede usarse como clave de dict."
+pro: false
+---
+
+<Section id="crear-sets" title="Crear sets y propiedades fundamentales">
+
+Un `set` es una colección desordenada de elementos únicos. Se crea con llaves `{}` o con `set()`. A diferencia del dict, no tiene clave-valor — solo valores. Los duplicados se eliminan automáticamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Crear un set con literales
+colores = {"rojo", "verde", "azul", "rojo"}  # "rojo" duplicado
+print(colores)  # {'rojo', 'verde', 'azul'} — un solo "rojo"
+
+# Crear desde una lista (elimina duplicados)
+numeros = set([1, 2, 2, 3, 3, 3, 4])
+print(numeros)  # {1, 2, 3, 4}
+
+# set() sobre un string — letras únicas
+letras = set("mississippi")
+print(letras)  # {'m', 'i', 's', 'p'}
+
+# Propiedades clave
+print(len(colores))       # 3
+print("rojo" in colores)  # True
+print("negro" in colores) # False
+
+# Añadir y eliminar elementos
+colores.add("negro")
+colores.discard("verde")  # no lanza error si no existe
+print(colores)  # {'rojo', 'azul', 'negro'}`
+    }
+  ]}
+  output={"{'rojo', 'verde', 'azul'}\n{1, 2, 3, 4}\n{'m', 'i', 's', 'p'}\n3\nTrue\nFalse\n{'rojo', 'azul', 'negro'}"}
+/>
+
+<Callout variant="warn" title="set() vacío, no {}">
+`{}` crea un dict vacío, no un set vacío. Para un set vacío usa siempre `set()`.
+</Callout>
+
+</Section>
+
+<Section id="operaciones-conjuntos" title="Operaciones de conjuntos: |, &, -, ^">
+
+Los sets implementan todas las operaciones matemáticas de conjuntos con operadores simbólicos. Esto los hace perfectos para comparar colecciones y encontrar relaciones entre ellas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `python_devs = {"Ana", "Carlos", "Diana", "Eva"}
+js_devs = {"Carlos", "Eva", "Felipe", "Gema"}
+
+# Unión (|): todos los elementos de ambos sets
+todos = python_devs | js_devs
+print(todos)  # {'Ana', 'Carlos', 'Diana', 'Eva', 'Felipe', 'Gema'}
+
+# Intersección (&): solo los que están en ambos
+ambos = python_devs & js_devs
+print(ambos)  # {'Carlos', 'Eva'}
+
+# Diferencia (-): los de A que no están en B
+solo_python = python_devs - js_devs
+print(solo_python)  # {'Ana', 'Diana'}
+
+# Diferencia simétrica (^): los que están en uno u otro, pero no en ambos
+solo_uno = python_devs ^ js_devs
+print(solo_uno)  # {'Ana', 'Diana', 'Felipe', 'Gema'}
+
+# Versiones con métodos (equivalentes a los operadores)
+print(python_devs.union(js_devs))         # igual que |
+print(python_devs.intersection(js_devs))  # igual que &
+print(python_devs.difference(js_devs))    # igual que -
+
+# Subconjunto e superconjunto
+a = {1, 2}
+b = {1, 2, 3, 4}
+print(a.issubset(b))    # True — a ⊆ b
+print(b.issuperset(a))  # True — b ⊇ a
+print(a.isdisjoint({5, 6}))  # True — sin elementos comunes`
+    }
+  ]}
+  output={"{'Ana', 'Carlos', 'Diana', 'Eva', 'Felipe', 'Gema'}\n{'Carlos', 'Eva'}\n{'Ana', 'Diana'}\n{'Ana', 'Diana', 'Felipe', 'Gema'}\nTrue\nTrue\nTrue"}
+/>
+
+</Section>
+
+<Section id="frozenset-como-clave" title="frozenset como clave de dict">
+
+`frozenset` es la versión inmutable de `set`. No se puede modificar después de crearse, lo que lo hace hashable — puede usarse como clave de dict o como elemento de otro set.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# frozenset: inmutable y hashable
+fs = frozenset([1, 2, 3])
+print(fs)          # frozenset({1, 2, 3})
+print(type(fs))    # <class 'frozenset'>
+
+# hash(frozenset) funciona — no así con set normal
+print(hash(fs))    # algún entero
+
+# Usar frozenset como clave de diccionario
+# Caso real: agrupar combinaciones sin orden (A-B == B-A)
+partidos = {
+    frozenset({"España", "Francia"}): 2,
+    frozenset({"Alemania", "Italia"}): 1,
+    frozenset({"España", "Alemania"}): 0,
+}
+
+# Buscar por cualquier orden de los dos equipos
+clave = frozenset({"Francia", "España"})
+print(partidos[clave])  # 2
+
+# frozenset dentro de un set
+grupos = {frozenset({"A", "B"}), frozenset({"C", "D"})}
+print(grupos)  # {frozenset({'A', 'B'}), frozenset({'C', 'D'})}
+
+# Las operaciones de conjuntos funcionan igual
+a = frozenset({1, 2, 3})
+b = frozenset({2, 3, 4})
+print(a & b)  # frozenset({2, 3})`
+    }
+  ]}
+  output={"frozenset({1, 2, 3})\n<class 'frozenset'>\n2\n{frozenset({'A', 'B'}), frozenset({'C', 'D'})}\nfrozenset({2, 3})"}
+/>
+
+<CompareTable
+  headers={["set", "frozenset"]}
+  rows={[
+    [{ kind: "good", value: "Mutable: add(), discard(), pop()" }, { kind: "good", value: "Inmutable: no cambia tras crearse" }],
+    [{ kind: "bad", value: "No hashable → no puede ser clave de dict" }, { kind: "good", value: "Hashable → puede ser clave de dict o elemento de set" }],
+    [{ kind: "good", value: "Ideal para colecciones que cambian" }, { kind: "good", value: "Ideal para colecciones constantes y como clave" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="cuando-usar-set" title="Cuándo usar set vs lista">
+
+La elección entre set y lista afecta tanto la semántica como el rendimiento. Los sets tienen búsqueda O(1); las listas tienen búsqueda O(n).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import time
+
+# Búsqueda en lista: O(n)
+lista_grande = list(range(1_000_000))
+start = time.perf_counter()
+resultado = 999_999 in lista_grande
+print(f"Lista: {time.perf_counter() - start:.4f}s")  # ~0.01s
+
+# Búsqueda en set: O(1)
+set_grande = set(range(1_000_000))
+start = time.perf_counter()
+resultado = 999_999 in set_grande
+print(f"Set: {time.perf_counter() - start:.6f}s")  # ~0.000001s
+
+# Caso 1: eliminar duplicados de una lista
+emails_con_duplicados = ["ana@x.com", "carlos@x.com", "ana@x.com", "diana@x.com"]
+emails_unicos = list(set(emails_con_duplicados))
+
+# Caso 2: verificar membresía frecuente
+palabras_permitidas = {"admin", "user", "guest", "moderator"}
+rol = "admin"
+if rol in palabras_permitidas:  # O(1) — perfecto para esto
+    print("Acceso permitido")
+
+# Cuando NO usar set: cuando el orden importa o necesitas duplicados
+ranking = ["primer", "segundo", "segundo", "tercero"]  # los duplicados son intencionales
+# ranking como set perdería la posición y los empates`
+    }
+  ]}
+  output={"Lista: 0.0089s\nSet: 0.000001s\nAcceso permitido"}
+/>
+
+<Callout variant="tip" title="Regla práctica">
+Usa set cuando necesites unicidad, operaciones de conjuntos o búsquedas rápidas de membresía. Usa lista cuando el orden importa, los duplicados son significativos, o necesitas acceso por índice.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Elimina duplicados de una lista con set", diff: "easy", minutes: 2 },
+    { num: "02", name: "Encuentra elementos comunes a dos listas", diff: "easy", minutes: 3 },
+    { num: "03", name: "Diferencia simétrica de dos conjuntos", diff: "med", minutes: 4 },
+    { num: "04", name: "Usa frozenset como clave de diccionario", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

@@ -1,0 +1,226 @@
+---
+title: "@property: getters, setters y deleters sin boilerplate"
+short: "@property"
+chapter: "09"
+num: "05"
+chapterTitle: "Programación orientada a objetos"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "@property convierte un método en un atributo calculado. Permite validar o transformar valores en la asignación sin cambiar la API pública de la clase."
+pro: false
+---
+
+<Section id="property-basico-getter" title="@property básico (getter)">
+
+Decorar un método con `@property` lo convierte en un atributo de solo lectura. Se accede sin paréntesis, como un atributo normal, pero el valor se calcula cada vez que se accede.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Circle:
+    def __init__(self, radius: float) -> None:
+        self.radius = radius
+
+    @property
+    def area(self) -> float:
+        """Área calculada — no se almacena, se recalcula en cada acceso."""
+        import math
+        return math.pi * self.radius ** 2
+
+    @property
+    def circumference(self) -> float:
+        import math
+        return 2 * math.pi * self.radius
+
+    @property
+    def diameter(self) -> float:
+        return self.radius * 2
+
+
+c = Circle(5.0)
+
+# Se accede como atributo, sin paréntesis
+print(c.area)          # 78.53981633974483
+print(c.circumference) # 31.41592653589793
+print(c.diameter)      # 10.0
+
+# Si cambia el radio, los valores calculados se actualizan automáticamente
+c.radius = 10.0
+print(c.area)          # 314.1592653589793
+
+# Intentar asignar lanza AttributeError (solo getter)
+# c.area = 100  # AttributeError: can't set attribute`
+    }
+  ]}
+  output={"78.53981633974483\n31.41592653589793\n10.0\n314.1592653589793"}
+/>
+
+<Callout variant="info" title="@property no cambia la API pública">
+Este es el gran beneficio: puedes empezar con un atributo directo (`self.area = ...`) y luego convertirlo a `@property` sin que ningún código que use la clase tenga que cambiar. La transición es transparente.
+</Callout>
+
+</Section>
+
+<Section id="setter-con-validacion" title="@setter con validación">
+
+El setter permite controlar qué valores se asignan. Se define con `@nombre_property.setter`. Si alguien intenta asignar un valor inválido, puedes lanzar una excepción.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class Product:
+    def __init__(self, name: str, price: float) -> None:
+        self.name = name
+        self.price = price  # llama al setter, incluso en __init__
+
+    @property
+    def price(self) -> float:
+        return self._price  # atributo interno con prefijo _
+
+    @price.setter
+    def price(self, value: float) -> None:
+        if value < 0:
+            raise ValueError(f"El precio no puede ser negativo: {value}")
+        self._price = value
+
+    @property
+    def price_with_tax(self) -> float:
+        return round(self._price * 1.21, 2)  # IVA 21%
+
+
+p = Product("Laptop", 999.99)
+print(p.price)            # 999.99
+print(p.price_with_tax)   # 1209.99
+
+p.price = 1200.0  # funciona
+print(p.price)    # 1200.0
+
+try:
+    p.price = -50  # lanza ValueError
+except ValueError as e:
+    print(f"Error: {e}")  # Error: El precio no puede ser negativo: -50`
+    }
+  ]}
+  output={"999.99\n1209.99\n1200.0\nError: El precio no puede ser negativo: -50"}
+/>
+
+<CompareTable
+  headers={["Sin @property", "Con @property"]}
+  rows={[
+    [{ kind: "bad", value: "obj.set_price(-10)  # API rara\nobj.get_price()  # verboso" }, { kind: "good", value: "obj.price = -10  # natural\nobj.price  # limpio" }],
+    [{ kind: "bad", value: "La validación está en métodos separados" }, { kind: "good", value: "La validación está en el setter" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="deleter" title="@deleter">
+
+El deleter se llama cuando se usa `del obj.atributo`. Se define con `@nombre_property.deleter`. Útil para limpiar recursos o resetear estado al eliminar una propiedad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class DatabaseConnection:
+    def __init__(self, url: str) -> None:
+        self._url = url
+        self._connection = None
+
+    @property
+    def connection(self):
+        if self._connection is None:
+            print(f"Conectando a {self._url}...")
+            self._connection = f"conexion_activa_{self._url}"
+        return self._connection
+
+    @connection.setter
+    def connection(self, value) -> None:
+        self._connection = value
+
+    @connection.deleter
+    def connection(self) -> None:
+        """Cierra y limpia la conexión."""
+        if self._connection is not None:
+            print(f"Cerrando conexión: {self._connection}")
+            self._connection = None
+
+
+db = DatabaseConnection("postgres://localhost/mydb")
+print(db.connection)  # Conectando a... (lazy connection)
+print(db.connection)  # ya conectado, no reconecta
+
+del db.connection     # llama al deleter
+print(db._connection) # None — conexión cerrada`
+    }
+  ]}
+  output={"Conectando a postgres://localhost/mydb...\nconexion_activa_postgres://localhost/mydb\nconexion_activa_postgres://localhost/mydb\nCerrando conexión: conexion_activa_postgres://localhost/mydb\nNone"}
+/>
+
+</Section>
+
+<Section id="cuando-usar-property" title="Cuándo usar property vs atributo directo">
+
+No todo necesita una property. El criterio es si necesitas lógica adicional al leer o escribir el valor.
+
+<Callout variant="tip" title="cached_property para valores costosos">
+`functools.cached_property` es como `@property` pero guarda el resultado en caché al primer acceso. Perfecto para cálculos costosos que no cambian durante la vida del objeto.
+</Callout>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from functools import cached_property
+import math
+
+class Triangle:
+    def __init__(self, a: float, b: float, c: float) -> None:
+        if a + b <= c or a + c <= b or b + c <= a:
+            raise ValueError("Lados inválidos para un triángulo")
+        self.a = a
+        self.b = b
+        self.c = c
+
+    @cached_property
+    def area(self) -> float:
+        """Fórmula de Herón — se calcula una sola vez y se cachea."""
+        s = (self.a + self.b + self.c) / 2
+        return math.sqrt(s * (s - self.a) * (s - self.b) * (s - self.c))
+
+    @cached_property
+    def perimeter(self) -> float:
+        return self.a + self.b + self.c
+
+
+t = Triangle(3, 4, 5)
+print(t.area)       # 6.0  (calculado)
+print(t.area)       # 6.0  (desde caché, sin recalcular)
+print(t.perimeter)  # 12.0`
+    }
+  ]}
+  output={"6.0\n6.0\n12.0"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Clase Circle con area calculada como @property", diff: "easy", minutes: 4 },
+    { num: "02", name: "Clase Temperature con @property celsius/fahrenheit", diff: "med", minutes: 6 },
+    { num: "03", name: "Valida que el precio sea positivo con @setter", diff: "easy", minutes: 4 },
+    { num: "04", name: "Implementa una propiedad lazy (cached_property)", diff: "med", minutes: 7 },
+  ]}
+/>
+</Section>

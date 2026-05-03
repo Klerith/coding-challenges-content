@@ -1,0 +1,271 @@
+---
+title: "Context managers: with, __enter__ y __exit__"
+short: "Context managers"
+chapter: "12"
+num: "03"
+chapterTitle: "Python avanzado"
+difficulty: "advanced"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "with garantiza que __exit__ se ejecute aunque haya excepciones — perfecto para recursos que hay que liberar: archivos, conexiones DB, locks. contextlib.contextmanager lo simplifica con yield."
+pro: true
+---
+
+<Section id="protocolo-enter-exit" title="El protocolo __enter__ / __exit__">
+
+Un context manager implementa dos métodos especiales: `__enter__` que se ejecuta al entrar en el bloque `with`, y `__exit__` que se ejecuta al salir — incluso si ocurre una excepción.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `class ManagedFile:
+    """Context manager manual para apertura segura de archivos."""
+
+    def __init__(self, path: str, mode: str = "r"):
+        self.path = path
+        self.mode = mode
+        self.file = None
+
+    def __enter__(self):
+        print(f"[open] {self.path}")
+        self.file = open(self.path, self.mode)
+        return self.file  # esto es lo que recibe el 'as'
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # exc_type/val/tb son None si no hubo excepción
+        print(f"[close] {self.path}")
+        if self.file:
+            self.file.close()
+        # Retornar True suprime la excepción; False la propaga
+        return False  # propagamos cualquier excepción
+
+# Uso con 'with ... as'
+import tempfile, os
+with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
+    tmp.write("hola mundo")
+    tmp_path = tmp.name
+
+with ManagedFile(tmp_path, "r") as f:
+    content = f.read()
+    print(content)  # hola mundo
+# __exit__ se llamó aquí automáticamente
+
+os.unlink(tmp_path)
+
+# __exit__ recibe la info de excepción
+class SuppressZeroDivision:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is ZeroDivisionError:
+            print(f"División por cero suprimida: {exc_val}")
+            return True  # suprime la excepción
+        return False
+
+with SuppressZeroDivision():
+    x = 1 / 0
+print("Continuamos aquí...")  # llega aquí porque suprimimos el error`
+    }
+  ]}
+  output={"[open] /tmp/xxx.txt\nhola mundo\n[close] /tmp/xxx.txt\nDivisión por cero suprimida: division by zero\nContinuamos aquí..."}
+/>
+
+</Section>
+
+<Section id="contextmanager-yield" title="contextlib.contextmanager con yield">
+
+`@contextmanager` convierte un generador en un context manager. Todo lo antes del `yield` es `__enter__`, el valor del `yield` es lo que recibe `as`, y todo lo después del `yield` (en el `finally`) es `__exit__`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from contextlib import contextmanager
+import time
+
+# Context manager de timing con @contextmanager
+@contextmanager
+def timer(label: str = ""):
+    start = time.perf_counter()
+    try:
+        yield  # aquí se ejecuta el bloque with
+    finally:
+        elapsed = time.perf_counter() - start
+        print(f"{label}: {elapsed:.4f}s")
+
+with timer("proceso pesado"):
+    total = sum(range(1_000_000))
+    print(f"Suma: {total}")
+# proceso pesado: 0.0XXs
+
+# Context manager para transacción de base de datos simulada
+@contextmanager
+def db_transaction(connection):
+    """Commit si no hay excepción, rollback si la hay."""
+    try:
+        yield connection
+        connection["committed"] = True
+        print("COMMIT")
+    except Exception as e:
+        connection["rolled_back"] = True
+        print(f"ROLLBACK: {e}")
+        raise  # re-lanza la excepción
+
+# Simulación
+conn = {"committed": False, "rolled_back": False}
+
+with db_transaction(conn) as c:
+    c["query"] = "INSERT INTO users VALUES (?)"
+    print("Ejecutando query...")
+
+print(conn)  # {'committed': True, 'rolled_back': False, 'query': ...}
+
+# Con excepción: rollback automático
+conn2 = {"committed": False, "rolled_back": False}
+try:
+    with db_transaction(conn2):
+        raise ValueError("Error en la query")
+except ValueError:
+    pass
+print(conn2["rolled_back"])  # True`
+    }
+  ]}
+  output={"Suma: 499999500000\nproceso pesado: 0.0450s\nEjecutando query...\nCOMMIT\n{'committed': True, ...}\nROLLBACK: Error en la query\nTrue"}
+/>
+
+<Callout variant="warn" title="El yield debe estar en un try/finally">
+Si el bloque `with` lanza una excepción, el generador recibe esa excepción en el punto del `yield`. Si no capturas con `try/except` o al menos con `finally`, el `__exit__` no puede hacer limpieza. Siempre envuelve el `yield` en `try/finally`.
+</Callout>
+
+</Section>
+
+<Section id="suppress-ignorar-excepciones" title="suppress() para ignorar excepciones">
+
+`contextlib.suppress(*excepciones)` crea un context manager que ignora silenciosamente las excepciones especificadas, reemplazando el patrón `try/except: pass`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from contextlib import suppress
+import os
+
+# Patrón tradicional (verboso)
+try:
+    os.remove("/tmp/archivo_que_quizas_existe.txt")
+except FileNotFoundError:
+    pass
+
+# Con suppress (limpio y expresivo)
+with suppress(FileNotFoundError):
+    os.remove("/tmp/archivo_que_quizas_existe.txt")
+# No pasa nada si el archivo no existe
+
+# Múltiples excepciones
+with suppress(FileNotFoundError, PermissionError):
+    os.remove("/etc/hosts")  # PermissionError en Linux
+
+# Ejemplo real: leer config opcional
+import json
+
+config = {}
+with suppress(FileNotFoundError, json.JSONDecodeError):
+    with open("config.json") as f:
+        config = json.load(f)
+
+print(config)  # {} si no existe el archivo
+
+# suppress como herramienta de "intento optimista"
+cache = {}
+with suppress(KeyError):
+    # Si la clave no existe, simplemente no hace nada
+    valor = cache["resultado_costoso"]
+    print(f"Cache hit: {valor}")
+
+# Si no hubo cache hit, calculamos
+if "resultado_costoso" not in cache:
+    cache["resultado_costoso"] = sum(range(1000))
+    print(f"Calculado: {cache['resultado_costoso']}")`
+    }
+  ]}
+  output={"config.json no existe — config queda vacío\n{}\nCalculado: 499500"}
+/>
+
+</Section>
+
+<Section id="exitstack" title="ExitStack para múltiples contextos">
+
+`contextlib.ExitStack` gestiona un número variable de context managers de forma dinámica. Es la solución cuando no sabes en tiempo de compilación cuántos recursos necesitas abrir.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from contextlib import ExitStack, contextmanager
+import tempfile, os
+
+# Abrir un número variable de archivos
+file_paths = [
+    tempfile.mktemp(suffix=".txt"),
+    tempfile.mktemp(suffix=".txt"),
+    tempfile.mktemp(suffix=".txt"),
+]
+
+# Crear los archivos primero
+for path in file_paths:
+    with open(path, "w") as f:
+        f.write(f"contenido de {os.path.basename(path)}\n")
+
+# ExitStack abre todos y garantiza que se cierren todos
+with ExitStack() as stack:
+    handles = [stack.enter_context(open(p, "r")) for p in file_paths]
+    for fh in handles:
+        print(fh.readline().strip())
+# Todos los archivos se cierran al salir del with
+
+# Limpiar
+for path in file_paths:
+    os.unlink(path)
+
+# Caso avanzado: añadir callbacks de limpieza
+@contextmanager
+def managed_resource(name: str):
+    print(f"Abriendo {name}")
+    yield name
+    print(f"Cerrando {name}")
+
+resources = ["base_de_datos", "cache", "cola_de_mensajes"]
+
+with ExitStack() as stack:
+    active = []
+    for res in resources:
+        handle = stack.enter_context(managed_resource(res))
+        active.append(handle)
+    print(f"Recursos activos: {active}")
+# Se cierran en orden inverso: cola → cache → base_de_datos`
+    }
+  ]}
+  output={"contenido de tmp1.txt\ncontenido de tmp2.txt\ncontenido de tmp3.txt\nAbriendo base_de_datos\nAbriendo cache\nAbriendo cola_de_mensajes\nRecursos activos: ['base_de_datos', 'cache', 'cola_de_mensajes']\nCerrando cola_de_mensajes\nCerrando cache\nCerrando base_de_datos"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa un context manager para medir tiempo con with", diff: "med", minutes: 6 },
+    { num: "02", name: "Context manager con @contextmanager para DB transaction", diff: "med", minutes: 7 },
+    { num: "03", name: "Usa contextlib.suppress para ignorar FileNotFoundError", diff: "easy", minutes: 4 },
+    { num: "04", name: "ExitStack para gestionar número variable de recursos", diff: "hard", minutes: 9 },
+  ]}
+/>
+</Section>

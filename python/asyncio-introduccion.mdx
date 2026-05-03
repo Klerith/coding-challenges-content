@@ -1,0 +1,247 @@
+---
+title: "Introducción a asyncio: corrutinas y código no bloqueante"
+short: "asyncio: introducción"
+chapter: "06"
+num: "01"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "asyncio es la biblioteca estándar de Python para I/O asíncrono. Cuando una tarea espera (red, disco), Python puede hacer otra cosa en lugar de quedarse bloqueado."
+pro: false
+---
+
+<Section id="sincrono-vs-asincrono" title="Síncrono vs asíncrono">
+
+En código síncrono, cada operación espera a que la anterior termine. Si una tarea tarda 2 segundos conectando a una base de datos, el programa entero espera esos 2 segundos sin hacer nada.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import time
+
+# Código síncrono: cada tarea bloquea a la siguiente
+def descargar(url: str) -> str:
+    print(f"Descargando {url}...")
+    time.sleep(2)  # simula espera de red
+    return f"datos de {url}"
+
+inicio = time.time()
+
+# Estas tres llamadas se ejecutan en secuencia: 6 segundos totales
+r1 = descargar("https://api.ejemplo.com/usuarios")
+r2 = descargar("https://api.ejemplo.com/productos")
+r3 = descargar("https://api.ejemplo.com/pedidos")
+
+print(f"Tiempo total: {time.time() - inicio:.1f}s")
+# Tiempo total: 6.0s`
+    }
+  ]}
+  output={"Descargando https://api.ejemplo.com/usuarios...\nDescargando https://api.ejemplo.com/productos...\nDescargando https://api.ejemplo.com/pedidos...\nTiempo total: 6.0s"}
+/>
+
+Con asyncio, las tres descargas pueden ocurrir de forma concurrente: mientras una espera la respuesta de red, las otras progresan. El tiempo total se reduce al de la operación más lenta.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+import time
+
+# Código asíncrono: las tareas ceden el control mientras esperan
+async def descargar(url: str) -> str:
+    print(f"Descargando {url}...")
+    await asyncio.sleep(2)  # cede el control al event loop
+    return f"datos de {url}"
+
+async def main() -> None:
+    inicio = time.time()
+
+    # Las tres se ejecutan concurrentemente: ~2 segundos totales
+    r1, r2, r3 = await asyncio.gather(
+        descargar("https://api.ejemplo.com/usuarios"),
+        descargar("https://api.ejemplo.com/productos"),
+        descargar("https://api.ejemplo.com/pedidos"),
+    )
+
+    print(f"Tiempo total: {time.time() - inicio:.1f}s")
+
+asyncio.run(main())
+# Tiempo total: 2.0s`
+    }
+  ]}
+  output={"Descargando https://api.ejemplo.com/usuarios...\nDescargando https://api.ejemplo.com/productos...\nDescargando https://api.ejemplo.com/pedidos...\nTiempo total: 2.0s"}
+/>
+
+</Section>
+
+<Section id="corrutinas-async-def" title="Corrutinas con async def">
+
+Una corrutina es una función definida con `async def`. No se ejecuta al llamarla — devuelve un objeto corrutina. Solo empieza a ejecutarse cuando el event loop la pone en marcha.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+# Una corrutina: función con async def
+async def saludar(nombre: str) -> str:
+    await asyncio.sleep(1)   # punto de suspensión
+    return f"Hola, {nombre}!"
+
+# Llamar a saludar() NO la ejecuta todavía
+coro = saludar("Ana")
+print(type(coro))    # <class 'coroutine'>
+print(coro)          # <coroutine object saludar at 0x...>
+
+# Para ejecutarla necesitas awaitar o usar asyncio.run()
+async def main() -> None:
+    resultado = await saludar("Ana")
+    print(resultado)
+
+asyncio.run(main())  # Hola, Ana!`
+    }
+  ]}
+  output={"<class 'coroutine'>\n<coroutine object saludar at 0x...>\nHola, Ana!"}
+/>
+
+<Callout variant="warn" title="Corrutina ≠ llamada a función">
+`saludar("Ana")` crea un objeto corrutina pero no ejecuta ni una sola línea de código. Si olvidas `await`, el código no se ejecuta y mypy/Python te advierte del objeto corrutina sin usar.
+</Callout>
+
+El `await` solo puede usarse dentro de funciones `async def`. Si lo usas fuera, Python lanza un `SyntaxError`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def obtener_datos() -> list[int]:
+    await asyncio.sleep(0.1)   # ✅ dentro de async def
+    return [1, 2, 3]
+
+async def procesar() -> None:
+    datos = await obtener_datos()  # ✅ awaita otra corrutina
+    print(f"Recibidos: {datos}")
+
+# await obtener_datos()  # ❌ SyntaxError fuera de async def
+
+asyncio.run(procesar())  # Recibidos: [1, 2, 3]`
+    }
+  ]}
+  output={"Recibidos: [1, 2, 3]"}
+/>
+
+</Section>
+
+<Section id="asyncio-run" title="asyncio.run() — el punto de entrada">
+
+`asyncio.run()` es el punto de entrada estándar desde Python 3.7. Crea el event loop, ejecuta la corrutina principal, y lo cierra al terminar. Es la única llamada que debe estar en código síncrono.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def tarea_a() -> None:
+    print("Tarea A: iniciando")
+    await asyncio.sleep(1)
+    print("Tarea A: completada")
+
+async def tarea_b() -> None:
+    print("Tarea B: iniciando")
+    await asyncio.sleep(0.5)
+    print("Tarea B: completada")
+
+async def main() -> None:
+    # En secuencia: 1.5 segundos totales
+    await tarea_a()
+    await tarea_b()
+    print("Todo listo")
+
+# Punto de entrada del programa asíncrono
+asyncio.run(main())`
+    }
+  ]}
+  output={"Tarea A: iniciando\nTarea A: completada\nTarea B: iniciando\nTarea B: completada\nTodo listo"}
+/>
+
+<Callout variant="info" title="asyncio.run() vs loop.run_until_complete()">
+En código moderno (Python 3.7+) usa siempre `asyncio.run()`. La versión antigua con `loop = asyncio.get_event_loop(); loop.run_until_complete(main())` es verbosa y tiene problemas en algunos entornos. `asyncio.run()` maneja el ciclo de vida completo automáticamente.
+</Callout>
+
+</Section>
+
+<Section id="cuando-usar-asyncio" title="Cuándo usar asyncio (y cuándo no)">
+
+asyncio es la herramienta correcta para un tipo específico de problema. Usarlo mal puede hacer el código más lento y más difícil de entender.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+# ✅ USA asyncio para operaciones I/O bound:
+# - Llamadas HTTP a APIs externas
+# - Consultas a bases de datos
+# - Lectura/escritura de archivos grandes
+# - WebSockets y conexiones persistentes
+
+async def llamar_api(endpoint: str) -> dict:
+    # Aquí usarías aiohttp, httpx, etc.
+    await asyncio.sleep(0.1)  # simula latencia de red
+    return {"status": "ok", "endpoint": endpoint}
+
+# ❌ NO uses asyncio para operaciones CPU bound:
+# - Cálculos matemáticos intensivos
+# - Procesamiento de imágenes
+# - Compresión de datos
+# - Algoritmos complejos
+
+def calcular_fibonacci(n: int) -> int:
+    # Esta función bloquea el event loop completo
+    # Para CPU-bound usa multiprocessing o ThreadPoolExecutor
+    if n <= 1:
+        return n
+    return calcular_fibonacci(n - 1) + calcular_fibonacci(n - 2)
+
+async def main() -> None:
+    resultado = await llamar_api("/usuarios")
+    print(resultado)
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"{'status': 'ok', 'endpoint': '/usuarios'}"}
+/>
+
+<Callout variant="tip" title="La regla de oro">
+asyncio brilla cuando tienes muchas tareas que pasan la mayor parte del tiempo esperando. Si tus tareas hacen cálculos intensivos en CPU, usa `multiprocessing` o `concurrent.futures.ProcessPoolExecutor`. asyncio no paraleliza CPU — solo evita el tiempo desperdiciado esperando I/O.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Crea tu primera corrutina y ejecútala con asyncio.run", diff: "easy", minutes: 4 },
+    { num: "02", name: "Simula operaciones I/O con asyncio.sleep", diff: "easy", minutes: 5 },
+    { num: "03", name: "Identifica si este problema merece asyncio", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

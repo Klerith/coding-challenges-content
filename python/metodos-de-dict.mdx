@@ -1,0 +1,203 @@
+---
+title: "Métodos de dict: keys, values, items, get, setdefault y más"
+short: "Métodos de dict"
+chapter: "08"
+num: "06"
+chapterTitle: "Colecciones avanzadas"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Los diccionarios de Python son estructuras de datos de primera clase. Más allá de acceder por clave, tienen métodos que hacen que el código sea expresivo y seguro."
+pro: false
+---
+
+<Section id="keys-values-items" title="keys(), values(), items()">
+
+Estos tres métodos devuelven vistas del diccionario. Una vista es un objeto dinámico — si el dict cambia, la vista refleja el cambio sin necesidad de recalcular.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `persona = {
+    "nombre": "Ana",
+    "edad": 30,
+    "ciudad": "Madrid",
+    "profesion": "desarrolladora",
+}
+
+# keys() — todas las claves
+print(list(persona.keys()))
+# ['nombre', 'edad', 'ciudad', 'profesion']
+
+# values() — todos los valores
+print(list(persona.values()))
+# ['Ana', 30, 'Madrid', 'desarrolladora']
+
+# items() — pares (clave, valor) como tuplas
+for clave, valor in persona.items():
+    print(f"{clave}: {valor}")
+
+# Las vistas se comportan como sets para operaciones de conjuntos
+config_a = {"host": "localhost", "port": 5432, "debug": True}
+config_b = {"host": "prod.server", "port": 5432, "timeout": 30}
+
+claves_comunes = config_a.keys() & config_b.keys()
+print(claves_comunes)  # {'host', 'port'}`
+    }
+  ]}
+  output={"['nombre', 'edad', 'ciudad', 'profesion']\n['Ana', 30, 'Madrid', 'desarrolladora']\nnombre: Ana\nedad: 30\nciudad: Madrid\nprofesion: desarrolladora\n{'host', 'port'}"}
+/>
+
+</Section>
+
+<Section id="get-con-valor-por-defecto" title="get() con valor por defecto">
+
+`dict[clave]` lanza `KeyError` si la clave no existe. `dict.get(clave, defecto)` retorna el valor por defecto en su lugar — sin excepción. Es la forma segura de acceder a valores opcionales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `config = {"host": "localhost", "port": 5432}
+
+# Acceso directo — lanza KeyError si la clave no existe
+# print(config["debug"])  # KeyError: 'debug'
+
+# get() con valor por defecto — seguro
+host = config.get("host", "127.0.0.1")
+debug = config.get("debug", False)
+timeout = config.get("timeout", 30)
+
+print(host)    # localhost
+print(debug)   # False
+print(timeout) # 30
+
+# get() retorna None por defecto si no se especifica valor
+usuario = config.get("usuario")
+print(usuario)  # None
+
+# Caso práctico: contar frecuencias manualmente
+texto = "python es genial"
+frecuencia: dict[str, int] = {}
+for letra in texto:
+    frecuencia[letra] = frecuencia.get(letra, 0) + 1
+print(dict(sorted(frecuencia.items())))`
+    }
+  ]}
+  output={"localhost\nFalse\n30\nNone\n{' ': 2, 'a': 1, 'e': 2, 'g': 1, 'h': 1, 'i': 1, 'l': 1, 'n': 3, 'o': 1, 'p': 1, 's': 1, 't': 1, 'y': 1}"}
+/>
+
+<CompareTable
+  headers={["Acceso directo", "get() seguro"]}
+  rows={[
+    [{ kind: "bad", value: "d['key']  # KeyError si no existe" }, { kind: "good", value: "d.get('key', default)  # seguro" }],
+    [{ kind: "bad", value: "try/except KeyError en cada acceso" }, { kind: "good", value: "Un solo get() sin bloques de excepción" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="setdefault-y-update" title="setdefault() y update()">
+
+`setdefault(clave, defecto)` retorna el valor si la clave existe; si no, la inserta con el valor por defecto y lo retorna. `update()` fusiona otro dict o iterable de pares en el existente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# setdefault: insertar solo si la clave no existe
+inventario: dict[str, list] = {}
+
+# Sin setdefault — más verboso
+if "frutas" not in inventario:
+    inventario["frutas"] = []
+inventario["frutas"].append("manzana")
+
+# Con setdefault — más conciso
+inventario.setdefault("verduras", []).append("zanahoria")
+inventario.setdefault("verduras", []).append("lechuga")
+# La segunda llamada no sobreescribe — ya existe "verduras"
+print(inventario)
+# {'frutas': ['manzana'], 'verduras': ['zanahoria', 'lechuga']}
+
+# update: fusionar dicts
+config = {"host": "localhost", "port": 5432}
+overrides = {"port": 3000, "debug": True}
+
+config.update(overrides)  # modifica config en el lugar
+print(config)
+# {'host': 'localhost', 'port': 3000, 'debug': True}
+
+# update también acepta keyword arguments
+config.update(timeout=30, pool_size=5)
+print(config)`
+    }
+  ]}
+  output={"{'frutas': ['manzana'], 'verduras': ['zanahoria', 'lechuga']}\n{'host': 'localhost', 'port': 3000, 'debug': True}\n{'host': 'localhost', 'port': 3000, 'debug': True, 'timeout': 30, 'pool_size': 5}"}
+/>
+
+</Section>
+
+<Section id="pop-popitem-fromkeys" title="pop(), popitem() y dict.fromkeys()">
+
+`pop()` elimina y retorna un valor. `popitem()` elimina y retorna el último par insertado (LIFO). `dict.fromkeys()` crea un dict con un conjunto de claves y un valor uniforme.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `datos = {"a": 1, "b": 2, "c": 3, "d": 4}
+
+# pop(clave): elimina y retorna el valor
+valor = datos.pop("b")
+print(valor)  # 2
+print(datos)  # {'a': 1, 'c': 3, 'd': 4}
+
+# pop con valor por defecto — evita KeyError
+faltante = datos.pop("z", None)
+print(faltante)  # None
+
+# popitem(): elimina y retorna el último par (útil para procesar LIFO)
+ultimo = datos.popitem()
+print(ultimo)  # ('d', 4)
+print(datos)   # {'a': 1, 'c': 3}
+
+# dict.fromkeys(): crear un dict con claves predefinidas y valor uniforme
+claves = ["nombre", "email", "telefono"]
+perfil_vacio = dict.fromkeys(claves, "")
+print(perfil_vacio)
+# {'nombre': '', 'email': '', 'telefono': ''}
+
+# Útil también para inicializar contadores
+palabras = ["python", "es", "genial"]
+contadores = dict.fromkeys(palabras, 0)
+print(contadores)  # {'python': 0, 'es': 0, 'genial': 0}`
+    }
+  ]}
+  output={"2\n{'a': 1, 'c': 3, 'd': 4}\nNone\n('d', 4)\n{'a': 1, 'c': 3}\n{'nombre': '', 'email': '', 'telefono': ''}\n{'python': 0, 'es': 0, 'genial': 0}"}
+/>
+
+<Callout variant="warn" title="dict.fromkeys() comparte el mismo objeto como valor">
+`dict.fromkeys(claves, [])` hace que todas las claves apunten a la misma lista. Mutar esa lista afecta a todas las entradas. Para valores mutables independientes, usa una dict comprehension: `{k: [] for k in claves}`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Cuenta frecuencia de letras con setdefault", diff: "easy", minutes: 4 },
+    { num: "02", name: "Merge de dos configs con update()", diff: "easy", minutes: 3 },
+    { num: "03", name: "Elimina claves con pop() y maneja ausencias", diff: "med", minutes: 4 },
+    { num: "04", name: "Construye un índice invertido con dict comprehension + setdefault", diff: "hard", minutes: 8 },
+  ]}
+/>
+</Section>

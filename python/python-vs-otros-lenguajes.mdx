@@ -1,0 +1,174 @@
+---
+title: "Python vs JavaScript, Java y Go: ¿cuál elegir?"
+short: "Python vs otros lenguajes"
+chapter: "01"
+num: "02"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 0
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Todos los lenguajes son herramientas. Python brilla en scripting, datos y APIs; JavaScript en el navegador; Java en sistemas empresariales; Go en servicios de alta concurrencia."
+pro: false
+---
+
+<Section id="tabla-comparativa" title="Tabla comparativa">
+
+Antes de ver cuándo elegir cada uno, conviene tener una visión de alto nivel de las diferencias fundamentales:
+
+<CompareTable
+  headers={["Característica", "Python", "JavaScript", "Java", "Go"]}
+  rows={[
+    ["Tipado", "Dinámico (opcional estático con mypy)", "Dinámico (TypeScript = estático)", "Estático fuerte", "Estático fuerte"],
+    ["Paradigma principal", "Multi-paradigma (OO + funcional)", "Multi-paradigma (OO + funcional)", "Orientado a objetos", "Procedural + interfaces"],
+    ["Velocidad de ejecución", "Moderada (CPython)", "Moderada (V8 JIT)", "Alta (JVM JIT)", "Muy alta (compilado)"],
+    ["Velocidad de desarrollo", "Muy alta", "Alta", "Moderada", "Alta"],
+    ["Curva de aprendizaje", "Muy suave", "Suave", "Empinada", "Moderada"],
+    ["Caso de uso principal", "Data, IA, scripting, APIs", "Frontend, Node.js", "Empresarial, Android", "Servicios en la nube"],
+    ["Concurrencia", "asyncio / threads (GIL)", "Event loop / async/await", "Threads / CompletableFuture", "Goroutines (nativo)"],
+    ["Gestión de memoria", "Garbage collector", "Garbage collector", "Garbage collector (JVM)", "Garbage collector"],
+  ]}
+/>
+
+<Callout variant="info" title="El GIL de Python">
+El GIL (Global Interpreter Lock) de CPython impide que múltiples hilos ejecuten código Python en paralelo real. Para tareas CPU-intensivas en paralelo, Go o Java son mejores opciones. Python 3.13 está experimentando con un modo sin GIL.
+</Callout>
+
+</Section>
+
+<Section id="python-vs-javascript" title="Python vs JavaScript">
+
+Son los dos lenguajes más populares del mundo y tienen muchas similitudes superficiales, pero filosóficas muy distintas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Python: sintaxis limpia, indentación significativa
+def saludar(nombre: str) -> str:
+    if nombre:
+        return f"Hola, {nombre}!"
+    return "Hola, desconocido!"
+
+resultado = saludar("Ana")
+print(resultado)
+`
+    }
+  ]}
+  output={"Hola, Ana!"}
+/>
+
+**Python gana sobre JavaScript cuando:**
+- Trabajas en data science, ML o IA (el ecosistema es incomparablemente superior)
+- Necesitas scripting de sistema o automatización
+- Quieres código limpio sin el histórico de decisiones raras de JS (`typeof null === "object"`)
+- Tu equipo trabaja en backend y no necesita isomorfismo frontend/backend
+
+**JavaScript gana sobre Python cuando:**
+- Desarrollas para el navegador (Python no corre en el navegador nativamente)
+- Quieres un solo lenguaje para frontend y backend (Node.js)
+- Necesitas el ecosistema de npm para UI components y bundlers
+
+</Section>
+
+<Section id="python-vs-java" title="Python vs Java">
+
+Java domina el mundo empresarial y Android; Python domina la ciencia de datos y el scripting. Son más complementarios que competidores directos.
+
+<CompareTable
+  headers={["Python", "Java"]}
+  rows={[
+    [{ kind: "good", value: "5 líneas para una API simple" }, { kind: "bad", value: "50 líneas para el mismo resultado" }],
+    [{ kind: "good", value: "Prototipos en horas" }, { kind: "bad", value: "Prototipos en días" }],
+    [{ kind: "bad", value: "Más lento en CPU-bound" }, { kind: "good", value: "JVM muy optimizada para larga ejecución" }],
+    [{ kind: "bad", value: "Gestión de dependencias más fragmentada" }, { kind: "good", value: "Maven/Gradle maduros y estandarizados" }],
+    [{ kind: "good", value: "Mejor ecosistema para ML/IA" }, { kind: "bad", value: "ML posible pero no es su fortaleza" }],
+  ]}
+/>
+
+**Elige Java cuando:** construyes sistemas empresariales de larga vida, servicios Android, o necesitas tipado fuerte sin opciones.
+
+</Section>
+
+<Section id="python-vs-go" title="Python vs Go">
+
+Go es la alternativa moderna para servicios de alta concurrencia. Python y Go resuelven problemas diferentes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python — scripting rápido",
+      code: `# Python: perfecto para scripts y lógica de negocio compleja
+import json
+from pathlib import Path
+
+# Procesa un archivo JSON en pocas líneas
+data = json.loads(Path("datos.json").read_text())
+usuarios_activos = [u for u in data["usuarios"] if u["activo"]]
+print(f"Usuarios activos: {len(usuarios_activos)}")
+`
+    }
+  ]}
+/>
+
+**Go gana cuando:**
+- Necesitas manejar miles de conexiones simultáneas (goroutines son más eficientes que asyncio)
+- Construyes herramientas de línea de comandos que se distribuyen como binarios estáticos
+- El rendimiento de CPU es crítico
+
+**Python gana cuando:**
+- La velocidad de desarrollo importa más que la velocidad de ejecución
+- Tu equipo de ciencia de datos y tu equipo backend comparten código
+- Prototipar y experimentar es más valioso que optimizar
+
+</Section>
+
+<Section id="cuando-elegir-python" title="¿Cuándo elegir Python?">
+
+Python es la elección correcta en estos escenarios:
+
+**1. Ciencia de datos, ML e IA**
+No hay alternativa real. pandas, NumPy, scikit-learn, PyTorch y TensorFlow hacen de Python el estándar de facto.
+
+**2. Scripting y automatización**
+Automatizar tareas del sistema operativo, procesar archivos, interactuar con APIs externas — Python es imbatible en velocidad de desarrollo.
+
+**3. APIs web (backend)**
+FastAPI y Django son frameworks maduros y productivos. FastAPI en particular tiene rendimiento comparable a Node.js.
+
+**4. Educación y prototipado**
+Cuando la claridad del código es más importante que el rendimiento, Python siempre gana.
+
+**5. DevOps y nube**
+AWS, GCP y Azure tienen SDKs de primera clase para Python. Terraform, Ansible y muchas herramientas DevOps están escritas en Python.
+
+</Section>
+
+<Section id="cuando-no-python" title="Cuándo NO elegir Python">
+
+Ser honesto sobre las limitaciones es tan importante como conocer las fortalezas:
+
+<Callout variant="warn" title="Python no es la mejor opción para todo">
+Elegir Python por default sin considerar el contexto puede ser un error costoso en producción.
+</Callout>
+
+**Desarrollo móvil nativo**
+No existe un framework Python maduro para iOS o Android. Usa Swift/Kotlin o frameworks como React Native/Flutter.
+
+**Frontend web**
+Python no corre en el navegador. WebAssembly tiene experimentos (Pyodide), pero no están listos para producción general.
+
+**Sistemas de tiempo real o embedded**
+Para microcontroladores o sistemas con restricciones de memoria severas, C o Rust son más apropiados (MicroPython existe, pero tiene limitaciones).
+
+**Alta concurrencia CPU-bound**
+El GIL de CPython limita el paralelismo real. Para procesar video, compilar código, o hacer criptografía intensa en paralelo, considera Go, Java o Rust.
+
+**Aplicaciones de escritorio distribuidas**
+Empaquetar aplicaciones Python para usuarios finales sigue siendo doloroso. Electron (JS) o aplicaciones nativas son más prácticas.
+
+</Section>

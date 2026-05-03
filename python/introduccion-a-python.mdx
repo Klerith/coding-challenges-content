@@ -1,0 +1,177 @@
+---
+title: "Introducción a Python: el lenguaje que lo hace fácil"
+short: "Introducción a Python"
+chapter: "01"
+num: "01"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["py"]
+exercises: 2
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python nació con una filosofía simple: el código debe ser fácil de leer. Hoy es el lenguaje más popular del mundo, y hay buenas razones para ello."
+pro: false
+---
+
+<Section id="que-es-python" title="¿Qué es Python?">
+
+Python es un lenguaje de programación de propósito general, interpretado y de tipado dinámico. Fue creado por Guido van Rossum en 1991 con una misión clara: que el código fuera tan legible como el pseudocódigo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Esto es Python: limpio, directo, sin ruido
+nombres = ["Ana", "Carlos", "Beatriz"]
+
+for nombre in nombres:
+    print(f"Hola, {nombre}!")
+`
+    }
+  ]}
+  output={"Hola, Ana!\nHola, Carlos!\nHola, Beatriz!"}
+/>
+
+Compara eso con el equivalente en Java y notarás la diferencia: Python omite los tipos explícitos, los puntos y coma, las llaves, y el método `main`. El mismo resultado con mucho menos ruido visual.
+
+<Callout variant="info" title="La filosofía del Zen de Python">
+Ejecuta `import this` en cualquier consola Python para ver los 19 principios del lenguaje. El más famoso: *«Explícito es mejor que implícito»* y *«La legibilidad cuenta»*.
+</Callout>
+
+</Section>
+
+<Section id="por-que-python" title="¿Por qué Python?">
+
+Hay razones concretas por las que Python domina los rankings de popularidad (TIOBE, Stack Overflow, GitHub):
+
+**1. Curva de aprendizaje muy suave**
+
+La sintaxis está diseñada para parecerse al inglés cotidiano. Si puedes leer una oración en inglés, puedes leer código Python básico.
+
+**2. Ecosistema enorme**
+
+Más de 500.000 paquetes en PyPI (el repositorio oficial). Hay una librería para casi todo: ciencia de datos, APIs web, automatización, IA, scraping, juegos...
+
+**3. Versatilidad**
+
+Con un mismo lenguaje puedes escribir un script de 10 líneas para renombrar archivos, o un sistema de machine learning que procesa millones de datos.
+
+**4. Comunidad activa**
+
+Python tiene una de las comunidades más grandes y amigables del mundo de la programación. La documentación oficial es excelente y los recursos gratuitos son abundantes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Python es expresivo: el código se lee casi como prosa
+edades = [25, 17, 30, 15, 22]
+
+# Filtra los mayores de edad
+mayores = [edad for edad in edades if edad >= 18]
+
+print(mayores)  # [25, 30, 22]
+`
+    }
+  ]}
+  output={"[25, 30, 22]"}
+/>
+
+</Section>
+
+<Section id="donde-se-usa" title="¿Dónde se usa Python?">
+
+Python es uno de los pocos lenguajes que domina múltiples industrias al mismo tiempo:
+
+**Ciencia de datos e inteligencia artificial**
+NumPy, pandas, scikit-learn, TensorFlow, PyTorch. El 80% de los proyectos de ML del mundo usan Python.
+
+**Desarrollo web backend**
+Django y FastAPI son los frameworks más populares. Instagram, Pinterest y Spotify construyeron sus backends con Python.
+
+**Automatización y scripting**
+Desde renombrar miles de archivos hasta automatizar tareas en la nube. DevOps y SRE usan Python a diario.
+
+**APIs y microservicios**
+FastAPI es uno de los frameworks más rápidos para construir APIs REST, con validación automática de datos.
+
+**Educación**
+Python es el lenguaje introductorio en la mayoría de universidades del mundo por su claridad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Un servidor web mínimo con FastAPI (solo como ejemplo)
+# from fastapi import FastAPI
+# app = FastAPI()
+
+# @app.get("/")
+# def root():
+#     return {"mensaje": "Hola desde Python"}
+
+# Un script de automatización sencillo
+import os
+
+# Renombra todos los .txt a .md en el directorio actual
+for filename in os.listdir("."):
+    if filename.endswith(".txt"):
+        nuevo_nombre = filename.replace(".txt", ".md")
+        print(f"Renombrando: {filename} → {nuevo_nombre}")
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Python no es solo para datos">
+Es un error común creer que Python es solo para data science. Es un lenguaje completo para sistemas, web, automatización y más. La ciencia de datos lo popularizó, pero no lo define.
+</Callout>
+
+</Section>
+
+<Section id="python-hoy" title="Python hoy: versiones y estado actual">
+
+Python 3 es la versión activa. Python 2 llegó a su fin de vida en enero de 2020 y ya no recibe actualizaciones de seguridad.
+
+**Versiones relevantes:**
+- **Python 3.10** — Introdujo `match/case` (pattern matching)
+- **Python 3.12** — Mejoras masivas de rendimiento (25% más rápido)
+- **Python 3.13** — La versión más reciente al escribir esto (GIL experimental opcional)
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Verifica tu versión de Python
+import sys
+
+print(sys.version)
+# Ejemplo: 3.13.0 (main, Oct  7 2024, 05:02:14)
+
+# También desde la terminal:
+# python --version  →  Python 3.13.0
+`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Siempre usa Python 3">
+Si encuentras código con `print "hola"` (sin paréntesis) o `xrange()`, estás leyendo Python 2. No lo uses para proyectos nuevos.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Dos ejercicios para comenzar a familiarizarte con Python."
+  items={[
+    { num: "01", name: "¿Qué es Python? — responde en código", diff: "easy", minutes: 2 },
+    { num: "02", name: "Investiga: 3 empresas que usan Python", diff: "easy", minutes: 3 },
+  ]}
+/>
+</Section>

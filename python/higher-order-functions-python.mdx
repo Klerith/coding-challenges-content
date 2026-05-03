@@ -1,0 +1,256 @@
+---
+title: "Higher-order functions y functools: funciones como valores"
+short: "Higher-order functions"
+chapter: "13"
+num: "07"
+chapterTitle: "Conceptos profundos de Python"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Una higher-order function acepta funciones como argumentos o retorna funciones. map, filter, sorted y reduce son los ejemplos clásicos, pero puedes crear las tuyas con la misma facilidad."
+pro: false
+---
+
+<Section id="funciones-como-argumentos-retorno" title="Funciones como argumentos y retorno">
+
+Las higher-order functions son funciones que reciben otras funciones como argumentos o las retornan. Esta capacidad es lo que hace posible los decoradores, callbacks, y el estilo funcional en Python.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from typing import Callable, TypeVar
+
+T = TypeVar("T")
+
+# HOF que acepta una función como argumento
+def apply_twice(f: Callable[[T], T], x: T) -> T:
+    """Aplica f dos veces: f(f(x))."""
+    return f(f(x))
+
+print(apply_twice(lambda x: x + 3, 10))  # 16  (10+3+3)
+print(apply_twice(str.upper, "hola"))    # HOLA (ya está en upper, sin cambio)
+print(apply_twice(lambda s: s + "!", "Python"))  # Python!!
+
+# HOF que retorna funciones
+def make_validator(min_val: float, max_val: float) -> Callable[[float], bool]:
+    def validate(x: float) -> bool:
+        return min_val <= x <= max_val
+    return validate
+
+is_percentage = make_validator(0, 100)
+is_temperature_celsius = make_validator(-273.15, 1e6)
+
+print(is_percentage(75))       # True
+print(is_percentage(150))      # False
+print(is_temperature_celsius(-300))  # False
+
+# HOF built-in: map, filter, sorted
+nums = [3, 1, 4, 1, 5, 9, 2, 6]
+
+squared = list(map(lambda x: x ** 2, nums))
+print(squared)  # [9, 1, 16, 1, 25, 81, 4, 36]
+
+evens = list(filter(lambda x: x % 2 == 0, nums))
+print(evens)    # [4, 2, 6]`
+    }
+  ]}
+  output={"16\nHOLA\nPython!!\nTrue\nFalse\nFalse\n[9, 1, 16, 1, 25, 81, 4, 36]\n[4, 2, 6]"}
+/>
+
+</Section>
+
+<Section id="sorted-key" title="sorted con key — el HOF más subestimado">
+
+`sorted(iterable, key=func)` es quizás la higher-order function más usada en Python. La función `key` se aplica a cada elemento para obtener el valor de comparación — nunca modifica los elementos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from dataclasses import dataclass
+from typing import NamedTuple
+
+# Ordenar strings por longitud
+palabras = ["python", "es", "un", "lenguaje", "increíble"]
+print(sorted(palabras, key=len))
+# ['es', 'un', 'python', 'lenguaje', 'increíble']
+
+# Ordenar por múltiples criterios con tuple
+productos = [
+    {"name": "laptop", "price": 999, "stock": 5},
+    {"name": "mouse", "price": 25, "stock": 50},
+    {"name": "teclado", "price": 75, "stock": 5},
+    {"name": "monitor", "price": 350, "stock": 0},
+]
+
+# Primero por stock (los agotados al final), luego por precio
+ordenados = sorted(
+    productos,
+    key=lambda p: (p["stock"] == 0, p["price"])
+)
+for p in ordenados:
+    print(f"{p['name']:10} ${p['price']:4} stock:{p['stock']}")
+
+# Con dataclasses: usar attrgetter para mayor eficiencia
+from operator import attrgetter, itemgetter
+
+@dataclass
+class Employee:
+    name: str
+    department: str
+    salary: float
+
+employees = [
+    Employee("Ana", "Ing", 80_000),
+    Employee("Carlos", "Design", 65_000),
+    Employee("Diana", "Ing", 95_000),
+    Employee("Eva", "Design", 70_000),
+]
+
+# Ordenar por departamento y luego por salario descendente
+sorted_emps = sorted(
+    employees,
+    key=lambda e: (e.department, -e.salary)
+)
+for e in sorted_emps:
+    print(f"{e.name:10} {e.department:8} ${e.salary:,.0f}")`
+    }
+  ]}
+  output={"['es', 'un', 'python', 'lenguaje', 'increíble']\nlaptor     $  25 stock:50\nteclado    $  75 stock:5\nlaptop     $ 999 stock:5\nmonitor    $ 350 stock:0\nCarlos     Design   $65,000\nEva        Design   $70,000\nDiana      Ing      $95,000\nAna        Ing      $80,000"}
+/>
+
+</Section>
+
+<Section id="compose-y-reduce" title="Composición funcional con functools.reduce">
+
+`functools.reduce(f, iterable)` aplica acumulativamente una función de dos argumentos a los elementos del iterable. Es la HOF más genérica: suma, producto, max, min y la composición pueden expresarse con reduce.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from functools import reduce
+from typing import Callable, TypeVar
+
+T = TypeVar("T")
+
+# reduce básico: suma acumulativa
+nums = [1, 2, 3, 4, 5]
+total = reduce(lambda acc, x: acc + x, nums)
+print(total)   # 15
+
+# reduce para máximo (reimplementar max)
+mi_max = reduce(lambda a, b: a if a > b else b, nums)
+print(mi_max)  # 5
+
+# reduce para aplanar listas
+nested = [[1, 2], [3, 4], [5, 6]]
+flat = reduce(lambda acc, lst: acc + lst, nested, [])
+print(flat)  # [1, 2, 3, 4, 5, 6]
+
+# Composición de funciones con reduce
+def compose(*functions: Callable) -> Callable:
+    """Compone N funciones: compose(f, g, h)(x) = f(g(h(x)))."""
+    return reduce(lambda f, g: lambda x: f(g(x)), functions)
+
+strip = str.strip
+lower = str.lower
+normalize_spaces = lambda s: " ".join(s.split())
+
+normalize = compose(lower, strip, normalize_spaces)
+print(normalize("  Hola   MUNDO  "))  # hola mundo
+
+# Pipeline funcional con reduce
+def pipe(*functions: Callable) -> Callable:
+    """Aplica funciones de izquierda a derecha."""
+    return reduce(lambda f, g: lambda x: g(f(x)), functions)
+
+process = pipe(
+    lambda s: s.strip(),
+    str.lower,
+    lambda s: s.replace(" ", "-"),
+    lambda s: f"slug:{s}",
+)
+print(process("  Hello World  "))  # slug:hello-world`
+    }
+  ]}
+  output={"15\n5\n[1, 2, 3, 4, 5, 6]\nhola mundo\nslug:hello-world"}
+/>
+
+</Section>
+
+<Section id="functools-partial" title="functools.partial — pre-configurar funciones">
+
+`partial(func, *args, **kwargs)` retorna una nueva función con algunos argumentos ya fijados. Es una forma de especializar funciones genéricas sin escribir lambdas adicionales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `from functools import partial
+
+# Especializar funciones genéricas
+def power(base: float, exponent: float) -> float:
+    return base ** exponent
+
+square = partial(power, exponent=2)
+cube = partial(power, exponent=3)
+
+print(square(4))    # 16.0
+print(cube(3))      # 27.0
+
+# Caso real: configurar funciones de logging
+import logging
+
+def log_event(level: int, logger_name: str, message: str) -> None:
+    logging.getLogger(logger_name).log(level, message)
+
+log_info = partial(log_event, logging.INFO, "app")
+log_error = partial(log_event, logging.ERROR, "app")
+
+# Ahora se usan con un solo argumento
+log_info("Servidor iniciado")
+log_error("Conexión fallida")
+
+# partial con sorted para crear ordenadores especializados
+from operator import itemgetter
+
+sort_by_price = partial(sorted, key=itemgetter("price"))
+sort_by_name = partial(sorted, key=itemgetter("name"))
+
+items = [
+    {"name": "Cámara", "price": 599},
+    {"name": "Auriculares", "price": 199},
+    {"name": "Trípode", "price": 79},
+]
+
+print([p["name"] for p in sort_by_price(items)])
+# ['Trípode', 'Auriculares', 'Cámara']
+
+print([p["name"] for p in sort_by_name(items)])
+# ['Auriculares', 'Cámara', 'Trípode']`
+    }
+  ]}
+  output={"16.0\n27.0\n['Trípode', 'Auriculares', 'Cámara']\n['Auriculares', 'Cámara', 'Trípode']"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Implementa apply_twice(f, x)", diff: "easy", minutes: 3 },
+    { num: "02", name: "Ordena una lista de objetos con sorted(key=...)", diff: "easy", minutes: 4 },
+    { num: "03", name: "Implementa compose(f, g) que devuelve f(g(x))", diff: "med", minutes: 6 },
+    { num: "04", name: "Usa functools.partial para pre-configurar funciones", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

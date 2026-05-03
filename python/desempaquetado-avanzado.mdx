@@ -1,0 +1,186 @@
+---
+title: "Desempaquetado avanzado: *, **, _ y asignaciones múltiples"
+short: "Desempaquetado avanzado"
+chapter: "08"
+num: "04"
+chapterTitle: "Colecciones avanzadas"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "El operador * en el lado izquierdo de una asignación captura lo que sobra. Combinado con _ para ignorar valores, permite expresar intenciones con claridad sin variables temporales."
+pro: false
+---
+
+<Section id="star-para-capturar-el-resto" title="* para capturar el resto">
+
+El operador `*` en una asignación por desempaquetado captura todos los elementos que no fueron asignados a otras variables. Solo puede aparecer una vez en el lado izquierdo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Desempaquetado básico (ya conocido)
+primero, segundo, tercero = [1, 2, 3]
+
+# Desempaquetado con * — captura el "resto"
+primero, *resto = [1, 2, 3, 4, 5]
+print(primero)  # 1
+print(resto)    # [2, 3, 4, 5]
+
+# * al principio — captura lo de antes del último
+*inicio, ultimo = [1, 2, 3, 4, 5]
+print(inicio)  # [1, 2, 3, 4]
+print(ultimo)  # 5
+
+# * en el medio — captura lo que queda entre extremos
+primero, *medio, ultimo = [1, 2, 3, 4, 5]
+print(primero)  # 1
+print(medio)    # [2, 3, 4]
+print(ultimo)   # 5
+
+# Funciona con cualquier iterable: strings, tuplas, rangos
+a, b, *resto = "python"
+print(a, b, resto)  # p y ['t', 'h', 'o', 'n']`
+    }
+  ]}
+  output={"1\n[2, 3, 4, 5]\n[1, 2, 3, 4]\n5\n1\n[2, 3, 4]\n5\np y ['t', 'h', 'o', 'n']"}
+/>
+
+<Callout variant="info" title="* siempre produce una lista">
+La variable con `*` siempre recibe una lista, incluso si el resultado es vacío. Si desempaquetas `a, *b, c = [1, 2]`, entonces `b == []`. Esto garantiza un tipo consistente.
+</Callout>
+
+</Section>
+
+<Section id="underscore-para-ignorar" title="_ para ignorar valores">
+
+El guion bajo `_` es una convención para indicar "no me importa este valor". No es magia del lenguaje — es simplemente una variable llamada `_`, pero toda la comunidad Python entiende que su valor no se usará.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Ignorar valores individuales
+x, _, z = (10, 99, 30)
+print(x, z)  # 10 30  — el 99 fue ignorado
+
+# Ignorar múltiples valores con _
+primero, *_, ultimo = range(100)
+print(primero, ultimo)  # 0 99
+
+# En un loop donde el índice no importa
+for _ in range(5):
+    print("hola", end=" ")
+print()  # hola hola hola hola hola
+
+# Ignorar el segundo elemento de una tupla
+def obtener_version() -> tuple[int, int, int]:
+    return (3, 11, 4)
+
+major, _, patch = obtener_version()
+print(f"v{major}.x.{patch}")  # v3.x.4
+
+# _ doble para ignorar varios campos de un named tuple
+from collections import namedtuple
+Punto3D = namedtuple("Punto3D", ["x", "y", "z"])
+p = Punto3D(1, 2, 3)
+x, _, z = p
+print(f"x={x}, z={z}")  # x=1, z=3`
+    }
+  ]}
+  output={"10 30\n0 99\nhola hola hola hola hola\nv3.x.4\nx=1, z=3"}
+/>
+
+</Section>
+
+<Section id="desempaquetado-en-for-loops" title="Desempaquetado en for loops">
+
+Los for loops desempaquetan en cada iteración. Esto es especialmente útil con `enumerate()`, `zip()` y listas de tuplas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Desempaquetar pares clave-valor
+inventario = [("manzana", 50), ("banana", 20), ("cereza", 80)]
+for fruta, cantidad in inventario:
+    print(f"{fruta}: {cantidad} unidades")
+
+# enumerate() devuelve (índice, valor) — desempaquetamos ambos
+colores = ["rojo", "verde", "azul"]
+for i, color in enumerate(colores, start=1):
+    print(f"{i}. {color}")
+
+# zip() combina dos listas — desempaquetamos en el for
+nombres = ["Ana", "Bob", "Carlos"]
+edades = [25, 30, 22]
+for nombre, edad in zip(nombres, edades):
+    print(f"{nombre} tiene {edad} años")
+
+# Coordenadas 3D: ignorar la coordenada z
+puntos_3d = [(1, 2, 10), (3, 4, 20), (5, 6, 30)]
+for x, y, _ in puntos_3d:
+    print(f"Punto 2D: ({x}, {y})")`
+    }
+  ]}
+  output={"manzana: 50 unidades\nbanana: 20 unidades\ncereza: 80 unidades\n1. rojo\n2. verde\n3. azul\nAna tiene 25 años\nBob tiene 30 años\nCarlos tiene 22 años\nPunto 2D: (1, 2)\nPunto 2D: (3, 4)\nPunto 2D: (5, 6)"}
+/>
+
+</Section>
+
+<Section id="desempaquetado-con-dicts" title="Desempaquetado con ** en dicts">
+
+El operador `**` desempaqueta un diccionario en pares clave-valor. Se usa principalmente para pasar argumentos keyword a funciones o para fusionar diccionarios.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Fusionar dos diccionarios (Python 3.9+ tiene el operador |)
+config_base = {"host": "localhost", "port": 5432, "timeout": 30}
+config_prod = {"host": "prod.server.com", "port": 5432}
+
+# ** en una expresión de dict — el segundo sobreescribe al primero
+config_final = {**config_base, **config_prod}
+print(config_final)
+# {'host': 'prod.server.com', 'port': 5432, 'timeout': 30}
+
+# Añadir campos extra al fusionar
+config_extendida = {**config_base, "debug": False, "pool_size": 10}
+print(config_extendida)
+
+# Pasar un dict como keyword arguments a una función
+def crear_usuario(nombre: str, email: str, rol: str = "user") -> dict:
+    return {"nombre": nombre, "email": email, "rol": rol}
+
+datos = {"nombre": "Ana", "email": "ana@ejemplo.com", "rol": "admin"}
+usuario = crear_usuario(**datos)  # equivale a crear_usuario(nombre="Ana", ...)
+print(usuario)`
+    }
+  ]}
+  output={"{'host': 'prod.server.com', 'port': 5432, 'timeout': 30}\n{'host': 'localhost', 'port': 5432, 'timeout': 30, 'debug': False, 'pool_size': 10}\n{'nombre': 'Ana', 'email': 'ana@ejemplo.com', 'rol': 'admin'}"}
+/>
+
+<Callout variant="tip" title="Python 3.9+: el operador | para dicts">
+Desde Python 3.9, puedes fusionar dicts con `d1 | d2` en vez de `{**d1, **d2}`. El resultado es el mismo, pero la sintaxis es más clara. `d1 |= d2` fusiona en el lugar, como `d1.update(d2)`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Captura primero, último y resto de una lista", diff: "easy", minutes: 3 },
+    { num: "02", name: "Ignora el segundo elemento con _", diff: "easy", minutes: 2 },
+    { num: "03", name: "Desempaqueta coordenadas 3D en un for loop", diff: "med", minutes: 4 },
+    { num: "04", name: "Fusiona dos dicts con ** desempaquetado", diff: "med", minutes: 4 },
+  ]}
+/>
+</Section>

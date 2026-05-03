@@ -1,0 +1,239 @@
+---
+title: "Operadores: aritméticos, comparación, lógicos y especiales"
+short: "Operadores"
+chapter: "02"
+num: "03"
+chapterTitle: "Sintaxis"
+difficulty: "beginner"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python tiene más operadores que la mayoría de lenguajes. Además de los aritméticos clásicos, incluye // para división entera, ** para potencias e `in` para pertenencia."
+pro: false
+---
+
+<Section id="aritmeticos" title="Operadores aritméticos">
+
+Python tiene siete operadores aritméticos. Los tres últimos son los que distinguen a Python:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Los clásicos
+print(10 + 3)   # Suma        → 13
+print(10 - 3)   # Resta       → 7
+print(10 * 3)   # Multiplicación → 30
+print(10 / 3)   # División real → 3.3333... (siempre float)
+
+# Los especiales de Python
+print(10 // 3)  # División entera → 3 (trunca hacia el mínimo)
+print(10 % 3)   # Módulo (resto)  → 1
+print(10 ** 3)  # Potencia        → 1000
+print(2 ** 10)  # → 1024
+
+# División entera con negativos: trunca hacia el mínimo (floor)
+print(-7 // 2)   # → -4  (no -3 como cabría esperar)
+print(7 // -2)   # → -4
+
+# Módulo siempre tiene el mismo signo que el divisor
+print(-7 % 3)    # → 2
+print(7 % -3)    # → -2
+`
+    }
+  ]}
+  output={"13\n7\n30\n3.3333333333333335\n3\n1\n1000\n1024\n-4\n-4\n2\n-2"}
+/>
+
+<Callout variant="tip" title="Truco para comprobar si es par">
+`numero % 2 == 0` es la forma idiomática de saber si un número es par. Si el resto al dividir por 2 es 0, es par.
+</Callout>
+
+</Section>
+
+<Section id="comparacion" title="Operadores de comparación">
+
+Los operadores de comparación devuelven siempre `True` o `False`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Comparaciones básicas
+print(10 == 10)    # Igual que          → True
+print(10 != 5)     # Distinto de        → True
+print(10 > 5)      # Mayor que          → True
+print(10 < 5)      # Menor que          → False
+print(10 >= 10)    # Mayor o igual que  → True
+print(10 <= 9)     # Menor o igual que  → False
+
+# Python permite encadenar comparaciones (muy elegante)
+edad = 25
+print(18 <= edad < 65)     # True — adulto en edad laboral
+print(0 < 5 < 10 < 20)     # True — comparación encadenada
+
+# is vs == — diferencia crítica
+a = [1, 2, 3]
+b = [1, 2, 3]
+
+print(a == b)   # True  — mismo contenido
+print(a is b)   # False — objetos distintos en memoria
+
+c = a           # c apunta al mismo objeto
+print(a is c)   # True  — misma referencia
+`
+    }
+  ]}
+  output={"True\nTrue\nTrue\nFalse\nTrue\nFalse\nTrue\nTrue\nTrue\nFalse\nTrue"}
+/>
+
+<Callout variant="warn" title="is no es igual que ==">
+`is` compara identidad (¿son el mismo objeto en memoria?). `==` compara valor (¿tienen el mismo contenido?). Usa `is` solo para `None`, `True` y `False`. Para todo lo demás, usa `==`.
+</Callout>
+
+</Section>
+
+<Section id="logicos" title="Operadores lógicos">
+
+Python usa palabras en lugar de símbolos para los operadores lógicos: `and`, `or`, `not`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# and — verdadero solo si ambos son verdaderos
+print(True and True)    # True
+print(True and False)   # False
+print(False and True)   # False
+
+# or — verdadero si al menos uno es verdadero
+print(True or False)    # True
+print(False or False)   # False
+
+# not — niega el valor
+print(not True)         # False
+print(not False)        # True
+
+# Evaluación de cortocircuito (short-circuit)
+# and: si el primero es falso, no evalúa el segundo
+# or:  si el primero es verdadero, no evalúa el segundo
+
+def efecto():
+    print("función ejecutada")
+    return True
+
+# and con cortocircuito — False and ... nunca evalúa el segundo
+False and efecto()      # efecto() no se llama
+
+# or con cortocircuito — True or ... nunca evalúa el segundo
+True or efecto()        # efecto() no se llama
+
+# Valores por defecto con or
+nombre = "" or "Anónimo"    # "Anónimo" (porque "" es falsy)
+print(nombre)               # Anónimo
+
+# Más idiomático en Python moderno: operador walrus o condicional
+nombre = "Fernando" or "Anónimo"
+print(nombre)               # Fernando
+`
+    }
+  ]}
+  output={"True\nFalse\nFalse\nTrue\nFalse\nFalse\nTrue\nAnónimo\nFernando"}
+/>
+
+</Section>
+
+<Section id="especiales" title="Operadores especiales: in, is, not in, is not">
+
+Python tiene operadores que no existen en la mayoría de lenguajes y que hacen el código muy expresivo:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# in — comprueba pertenencia en una colección
+frutas = ["manzana", "pera", "uva"]
+
+print("pera" in frutas)      # True
+print("mango" in frutas)     # False
+print("mango" not in frutas) # True
+
+# in también funciona con strings, dicts, sets, etc.
+texto = "Hola, mundo"
+print("mundo" in texto)      # True
+print("Python" in texto)     # False
+
+config = {"debug": True, "port": 8000}
+print("debug" in config)     # True — busca en las claves del dict
+
+# is / is not — identidad de objeto (usar solo con None)
+valor = None
+print(valor is None)         # True  ✅ idiomático
+print(valor is not None)     # False ✅ idiomático
+print(valor == None)         # True  ← funciona pero no es idiomático
+`
+    }
+  ]}
+  output={"True\nFalse\nTrue\nTrue\nFalse\nTrue\nTrue\nFalse\nTrue"}
+/>
+
+</Section>
+
+<Section id="asignacion-aumentada" title="Operadores de asignación aumentada">
+
+Combinan una operación con la asignación, modificando la variable en el lugar:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `n = 10
+
+n += 5     # n = n + 5  →  15
+n -= 3     # n = n - 3  →  12
+n *= 2     # n = n * 2  →  24
+n /= 4     # n = n / 4  →  6.0  (nota: convierte a float)
+n //= 2    # n = n // 2 →  3.0
+n **= 3    # n = n ** 3 →  27.0
+n %= 5     # n = n % 5  →  2.0
+
+print(n)   # 2.0
+
+# También funcionan con strings y listas
+mensaje = "Hola"
+mensaje += ", mundo"
+print(mensaje)     # Hola, mundo
+
+lista = [1, 2]
+lista += [3, 4]    # equivale a lista.extend([3, 4])
+print(lista)       # [1, 2, 3, 4]
+`
+    }
+  ]}
+  output={"2.0\nHola, mundo\n[1, 2, 3, 4]"}
+/>
+
+<Callout variant="tip" title="El operador walrus :=  (Python 3.8+)">
+El operador walrus `:=` asigna y devuelve el valor en una sola expresión. Es útil en condiciones y comprensiones de listas: `if (n := len(datos)) > 10: print(f"Hay {n} elementos")`. Úsalo con moderación — solo cuando mejora la legibilidad.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cuatro ejercicios para dominar los operadores de Python."
+  items={[
+    { num: "01", name: "Calcula divisor y resto con // y %", diff: "easy", minutes: 3 },
+    { num: "02", name: "Usa `in` para comprobar si un elemento está en una lista", diff: "easy", minutes: 3 },
+    { num: "03", name: "Cadena de comparaciones: ¿qué devuelve?", diff: "med", minutes: 4 },
+    { num: "04", name: "Tabla de verdad con and y or", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

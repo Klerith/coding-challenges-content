@@ -1,0 +1,260 @@
+---
+title: "Comprehensions: listas, dicts y sets de forma expresiva"
+short: "Comprehensions"
+chapter: "08"
+num: "01"
+chapterTitle: "Colecciones avanzadas"
+difficulty: "intermediate"
+readingMinutes: 10
+appliesTo: ["py"]
+exercises: 6
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Las comprehensions son la forma Pythonica de construir colecciones. Una línea reemplaza 4 líneas de for+append — y con filtros incluidos. Son probablemente la feature más querida del lenguaje."
+pro: false
+---
+
+<Section id="list-comprehension-basica" title="List comprehension básica">
+
+La list comprehension más simple transforma cada elemento de un iterable en un nuevo valor. La sintaxis es `[expresión for variable in iterable]`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Forma tradicional: for + append
+cuadrados = []
+for n in range(1, 6):
+    cuadrados.append(n ** 2)
+
+# Forma Pythonica: list comprehension
+cuadrados = [n ** 2 for n in range(1, 6)]
+print(cuadrados)  # [1, 4, 9, 16, 25]
+
+# Transformar strings
+nombres = ["ana", "carlos", "beatriz"]
+mayusculas = [nombre.upper() for nombre in nombres]
+print(mayusculas)  # ['ANA', 'CARLOS', 'BEATRIZ']
+
+# Aplicar una función a cada elemento
+import math
+raices = [math.sqrt(x) for x in [4, 9, 16, 25]]
+print(raices)  # [2.0, 3.0, 4.0, 5.0]`
+    }
+  ]}
+  output={"[1, 4, 9, 16, 25]\n['ANA', 'CARLOS', 'BEATRIZ']\n[2.0, 3.0, 4.0, 5.0]"}
+/>
+
+<CompareTable
+  headers={["Tradicional", "Comprehension"]}
+  rows={[
+    [{ kind: "bad", value: "result = []\nfor x in items:\n    result.append(x * 2)" }, { kind: "good", value: "result = [x * 2 for x in items]" }],
+    [{ kind: "bad", value: "# 4 líneas, variable temporal result" }, { kind: "good", value: "# 1 línea, sin estado mutable" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="comprehension-con-filtro" title="Comprehension con filtro (if)">
+
+Añadir una cláusula `if` al final filtra los elementos que no cumplen la condición. Solo los que pasan el filtro se incluyen en la lista resultante.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Solo los números pares del 1 al 20
+pares = [n for n in range(1, 21) if n % 2 == 0]
+print(pares)  # [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+
+# Filtrar strings que cumplen una condición
+palabras = ["python", "es", "increíble", "y", "rápido"]
+largas = [p for p in palabras if len(p) > 4]
+print(largas)  # ['python', 'increíble', 'rápido']
+
+# Combinar transformación y filtro
+numeros = [-3, -1, 0, 2, 4, 7, 9]
+positivos_al_cuadrado = [n ** 2 for n in numeros if n > 0]
+print(positivos_al_cuadrado)  # [4, 16, 49, 81]`
+    }
+  ]}
+  output={"[2, 4, 6, 8, 10, 12, 14, 16, 18, 20]\n['python', 'increíble', 'rápido']\n[4, 16, 49, 81]"}
+/>
+
+<Callout variant="tip" title="if al final vs if...else en la expresión">
+El `if` al final filtra; el `if...else` dentro de la expresión transforma. Son dos construcciones distintas: `[x if cond else y for x in items]` siempre produce el mismo número de elementos que el iterable original.
+</Callout>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `numeros = [1, -2, 3, -4, 5]
+
+# if al final: filtra (puede producir menos elementos)
+solo_positivos = [n for n in numeros if n > 0]
+print(solo_positivos)  # [1, 3, 5]
+
+# if...else en la expresión: transforma (misma cantidad)
+absolutos = [n if n > 0 else -n for n in numeros]
+print(absolutos)  # [1, 2, 3, 4, 5]`
+    }
+  ]}
+  output={"[1, 3, 5]\n[1, 2, 3, 4, 5]"}
+/>
+
+</Section>
+
+<Section id="dict-comprehension" title="Dict comprehension">
+
+La sintaxis `{clave: valor for ... in ...}` crea un diccionario en una expresión. Útil para invertir dicts, transformar claves o valores, o construir índices.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Crear un dict de cuadrados {n: n**2}
+cuadrados = {n: n ** 2 for n in range(1, 6)}
+print(cuadrados)  # {1: 1, 2: 4, 3: 9, 4: 16, 5: 25}
+
+# Invertir un diccionario (swap clave-valor)
+original = {"a": 1, "b": 2, "c": 3}
+invertido = {v: k for k, v in original.items()}
+print(invertido)  # {1: 'a', 2: 'b', 3: 'c'}
+
+# Normalizar claves a minúsculas
+datos = {"Nombre": "Ana", "EDAD": 30, "Ciudad": "Madrid"}
+normalizado = {k.lower(): v for k, v in datos.items()}
+print(normalizado)  # {'nombre': 'Ana', 'edad': 30, 'ciudad': 'Madrid'}
+
+# Filtrar en dict comprehension
+precios = {"manzana": 1.5, "banana": 0.8, "cereza": 3.2}
+caros = {fruta: precio for fruta, precio in precios.items() if precio > 1.0}
+print(caros)  # {'manzana': 1.5, 'cereza': 3.2}`
+    }
+  ]}
+  output={"{1: 1, 2: 4, 3: 9, 4: 16, 5: 25}\n{1: 'a', 2: 'b', 3: 'c'}\n{'nombre': 'Ana', 'edad': 30, 'ciudad': 'Madrid'}\n{'manzana': 1.5, 'cereza': 3.2}"}
+/>
+
+</Section>
+
+<Section id="set-comprehension" title="Set comprehension">
+
+La sintaxis `{expresión for ... in ...}` (con llaves pero sin los dos puntos del dict) crea un set — una colección sin duplicados. Ideal para obtener valores únicos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Set de letras únicas en una palabra
+letras = {c for c in "mississippi"}
+print(letras)  # {'m', 'i', 's', 'p'} (orden arbitrario)
+
+# Longitudes únicas de palabras
+palabras = ["hi", "python", "es", "genial", "y", "limpio"]
+longitudes_unicas = {len(p) for p in palabras}
+print(sorted(longitudes_unicas))  # [1, 2, 6, 7]
+
+# Eliminar duplicados transformando
+numeros = [1, -1, 2, -2, 3, 3]
+valores_absolutos_unicos = {abs(n) for n in numeros}
+print(sorted(valores_absolutos_unicos))  # [1, 2, 3]`
+    }
+  ]}
+  output={"{'m', 'i', 's', 'p'}\n[1, 2, 6, 7]\n[1, 2, 3]"}
+/>
+
+<Callout variant="info" title="Set vs list comprehension">
+`{x for x in items}` crea un set (sin duplicados, sin orden garantizado). `[x for x in items]` crea una lista (con duplicados, con orden). La elección depende de si el orden y los repetidos importan.
+</Callout>
+
+</Section>
+
+<Section id="comprehensions-anidadas" title="Comprehensions anidadas">
+
+Puedes anidar for loops dentro de una comprehension para aplanar o transformar estructuras anidadas. Con dos loops, primero el externo, luego el interno — igual que un for anidado tradicional.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Aplanar una lista de listas
+matriz = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+plana = [n for fila in matriz for n in fila]
+print(plana)  # [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Transponer una matriz 3x3
+transpuesta = [[fila[i] for fila in matriz] for i in range(3)]
+print(transpuesta)
+# [[1, 4, 7], [2, 5, 8], [3, 6, 9]]
+
+# Producto cartesiano
+colores = ["rojo", "azul"]
+tallas = ["S", "M", "L"]
+combinaciones = [(c, t) for c in colores for t in tallas]
+print(combinaciones)
+# [('rojo', 'S'), ('rojo', 'M'), ('rojo', 'L'),
+#  ('azul', 'S'), ('azul', 'M'), ('azul', 'L')]`
+    }
+  ]}
+  output={"[1, 2, 3, 4, 5, 6, 7, 8, 9]\n[[1, 4, 7], [2, 5, 8], [3, 6, 9]]\n[('rojo', 'S'), ('rojo', 'M'), ('rojo', 'L'), ('azul', 'S'), ('azul', 'M'), ('azul', 'L')]"}
+/>
+
+</Section>
+
+<Section id="cuando-no-usar-comprehensions" title="Cuándo NO usar comprehensions">
+
+Las comprehensions son poderosas pero no siempre son la herramienta correcta. La legibilidad siempre gana sobre la brevedad.
+
+<Callout variant="warn" title="Complejidad máxima: un nivel de anidación">
+Si necesitas más de dos for loops o la lógica condicional es compleja, escribe un for tradicional. Una comprehension de tres líneas que nadie entiende es peor que cuatro líneas claras.
+</Callout>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# ❌ Demasiado compleja — difícil de leer
+resultado = [x * y for x in range(5) for y in range(5) if x != y if x + y > 4]
+
+# ✅ Versión clara con for tradicional
+resultado = []
+for x in range(5):
+    for y in range(5):
+        if x != y and x + y > 4:
+            resultado.append(x * y)
+
+# ❌ No uses comprehension solo para efectos secundarios
+[print(n) for n in range(5)]  # antipatrón
+
+# ✅ Para efectos secundarios, usa un for normal
+for n in range(5):
+    print(n)
+
+# ✅ Comprehension ideal: una transformación + un filtro opcional
+emails_validos = [e.lower() for e in emails if "@" in e]`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Lista de cuadrados de 1 a 20", diff: "easy", minutes: 2 },
+    { num: "02", name: "Lista de números pares filtrada", diff: "easy", minutes: 3 },
+    { num: "03", name: "Dict de nombres en mayúsculas como clave", diff: "easy", minutes: 4 },
+    { num: "04", name: "Set de longitudes únicas de palabras", diff: "easy", minutes: 3 },
+    { num: "05", name: "Transponer una matriz 3x3 con comprehension anidada", diff: "hard", minutes: 8 },
+    { num: "06", name: "Reformatea una lista de dicts con dict comprehension", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>

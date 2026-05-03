@@ -1,0 +1,264 @@
+---
+title: "Errores en código asíncrono: captura y propagación con asyncio"
+short: "Errores asíncronos"
+chapter: "06"
+num: "05"
+chapterTitle: "Asincronía"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Los errores en corrutinas se propagan igual que en código síncrono, con try/except. El reto es cuando varios errores ocurren en paralelo — ahí entra ExceptionGroup (Python 3.11+)."
+pro: false
+---
+
+<Section id="try-except-corrutinas" title="try/except dentro de corrutinas">
+
+Las excepciones en corrutinas se comportan exactamente igual que en funciones síncronas: si no se capturan, suben por el stack hasta que alguien las atrapa o el programa termina. Puedes usar `try/except/finally` con total normalidad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def consultar_db(query: str) -> list[dict]:
+    await asyncio.sleep(0.1)  # simula latencia
+    if "DROP" in query.upper():
+        raise PermissionError(f"Query peligrosa rechazada: {query}")
+    return [{"id": 1, "nombre": "resultado"}]
+
+async def obtener_usuarios() -> list[dict]:
+    try:
+        usuarios = await consultar_db("SELECT * FROM usuarios")
+        return usuarios
+    except PermissionError as e:
+        print(f"  Error de permisos: {e}")
+        return []
+    except Exception as e:
+        print(f"  Error inesperado: {e}")
+        raise   # re-lanza si no sabemos manejarlo
+
+async def main() -> None:
+    # Consulta segura ✅
+    resultado = await obtener_usuarios()
+    print(f"Usuarios: {resultado}")
+
+    # Consulta peligrosa ❌
+    async def peligrosa() -> None:
+        await consultar_db("DROP TABLE usuarios")
+
+    try:
+        await peligrosa()
+    except PermissionError as e:
+        print(f"Capturado en main: {e}")
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"Usuarios: [{'id': 1, 'nombre': 'resultado'}]\n  Error de permisos: Query peligrosa rechazada: DROP TABLE usuarios\nCapturado en main: Query peligrosa rechazada: DROP TABLE usuarios"}
+/>
+
+El bloque `finally` funciona igual — se ejecuta siempre, incluso si la corrutina es cancelada:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def con_recurso() -> None:
+    print("Abriendo conexión...")
+    try:
+        await asyncio.sleep(5)  # puede cancelarse aquí
+        print("Operación completada")
+    finally:
+        print("Cerrando conexión (siempre se ejecuta)")
+
+async def main() -> None:
+    tarea = asyncio.create_task(con_recurso())
+    await asyncio.sleep(0.1)
+    tarea.cancel()
+    try:
+        await tarea
+    except asyncio.CancelledError:
+        print("Tarea cancelada")
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"Abriendo conexión...\nCerrando conexión (siempre se ejecuta)\nTarea cancelada"}
+/>
+
+</Section>
+
+<Section id="errores-gather" title="Errores en gather (return_exceptions)">
+
+Cuando usas `gather` sin `return_exceptions=True`, la primera excepción cancela el gather y se propaga. Las demás tareas siguen ejecutándose en segundo plano pero sus resultados se descartan.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def tarea(nombre: str, falla: bool = False) -> str:
+    await asyncio.sleep(0.2)
+    if falla:
+        raise RuntimeError(f"Fallo en {nombre}")
+    return f"{nombre}: ok"
+
+async def main() -> None:
+    # Sin return_exceptions: el error se propaga inmediatamente
+    print("=== Sin return_exceptions ===")
+    try:
+        resultados = await asyncio.gather(
+            tarea("A"),
+            tarea("B", falla=True),   # lanza error
+            tarea("C"),
+        )
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        # Resultado de A y C se pierde ❌
+
+    # Con return_exceptions: recoge todo
+    print("=== Con return_exceptions=True ===")
+    resultados = await asyncio.gather(
+        tarea("A"),
+        tarea("B", falla=True),
+        tarea("C"),
+        return_exceptions=True,
+    )
+
+    for r in resultados:
+        if isinstance(r, Exception):
+            print(f"  ❌ {type(r).__name__}: {r}")
+        else:
+            print(f"  ✅ {r}")
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"=== Sin return_exceptions ===\nError: Fallo en B\n=== Con return_exceptions=True ===\n  ✅ A: ok\n  ❌ RuntimeError: Fallo en B\n  ✅ C: ok"}
+/>
+
+</Section>
+
+<Section id="taskgroup-exceptiongroup" title="TaskGroup y ExceptionGroup (Python 3.11+)">
+
+`asyncio.TaskGroup` es la forma moderna (Python 3.11+) de gestionar múltiples tareas. Si alguna falla, cancela automáticamente las demás y agrupa todos los errores en un `ExceptionGroup`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def servicio(nombre: str, demora: float, falla: bool = False) -> str:
+    await asyncio.sleep(demora)
+    if falla:
+        raise ConnectionError(f"No se pudo conectar a {nombre}")
+    return f"{nombre}: disponible"
+
+async def main() -> None:
+    resultados: list[str] = []
+
+    try:
+        async with asyncio.TaskGroup() as tg:
+            t1 = tg.create_task(servicio("auth",    0.1))
+            t2 = tg.create_task(servicio("db",      0.3, falla=True))
+            t3 = tg.create_task(servicio("cache",   0.2))
+        # Si alguna falla, las demás se cancelan automáticamente
+
+    except* ConnectionError as eg:
+        # except* maneja ExceptionGroup (sintaxis Python 3.11+)
+        for exc in eg.exceptions:
+            print(f"  Error de conexión: {exc}")
+
+    # Las tareas completadas antes del fallo tienen su resultado
+    if t1.done() and not t1.cancelled():
+        print(f"Auth: {t1.result()}")
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"  Error de conexión: No se pudo conectar a db\nAuth: auth: disponible"}
+/>
+
+<Callout variant="info" title="except* es sintaxis Python 3.11+">
+La sintaxis `except* TipoError as eg` captura un `ExceptionGroup`. Es diferente de `except` normal. Si usas Python 3.10 o anterior, necesitas capturar `BaseExceptionGroup` manualmente o usar `gather(return_exceptions=True)`.
+</Callout>
+
+</Section>
+
+<Section id="timeouts" title="Timeouts con asyncio.timeout()">
+
+Siempre debes poner un límite de tiempo a las operaciones de red. `asyncio.timeout()` (Python 3.11+) es la forma limpia de hacerlo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `import asyncio
+
+async def llamada_lenta(segundos: float) -> str:
+    await asyncio.sleep(segundos)
+    return "respuesta"
+
+async def main() -> None:
+    # asyncio.timeout() — Python 3.11+
+    print("=== asyncio.timeout() ===")
+    try:
+        async with asyncio.timeout(1.0):   # máximo 1 segundo
+            resultado = await llamada_lenta(0.5)
+            print(f"Éxito: {resultado}")
+    except TimeoutError:
+        print("Timeout alcanzado")
+
+    try:
+        async with asyncio.timeout(1.0):
+            resultado = await llamada_lenta(2.0)   # tarda demasiado
+            print(f"Esto no se imprime")
+    except TimeoutError:
+        print("Timeout: la llamada tardó más de 1 segundo")
+
+    # asyncio.wait_for() — compatible con Python 3.7+
+    print("=== asyncio.wait_for() ===")
+    try:
+        resultado = await asyncio.wait_for(
+            llamada_lenta(0.5),
+            timeout=1.0,
+        )
+        print(f"Éxito: {resultado}")
+    except asyncio.TimeoutError:
+        print("Timeout")
+
+asyncio.run(main())`
+    }
+  ]}
+  output={"=== asyncio.timeout() ===\nÉxito: respuesta\nTimeout: la llamada tardó más de 1 segundo\n=== asyncio.wait_for() ===\nÉxito: respuesta"}
+/>
+
+<Callout variant="tip" title="Siempre pon timeouts en operaciones de red">
+Sin timeout, una corrutina puede quedar esperando indefinidamente si el servidor no responde. Esto bloquea recursos del sistema y puede dejar el programa «colgado» sin error visible. Define siempre un timeout razonable para llamadas HTTP, consultas a DB y cualquier I/O externo.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  items={[
+    { num: "01", name: "Atrapa un error dentro de una corrutina con try/except", diff: "easy", minutes: 4 },
+    { num: "02", name: "Maneja errores parciales con gather(return_exceptions=True)", diff: "med", minutes: 6 },
+    { num: "03", name: "Usa asyncio.timeout para limitar el tiempo de espera", diff: "med", minutes: 7 },
+    { num: "04", name: "TaskGroup — cancela todo si uno falla", diff: "hard", minutes: 9 },
+  ]}
+/>
+</Section>

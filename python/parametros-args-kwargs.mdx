@@ -1,0 +1,229 @@
+---
+title: "Parámetros, defaults, *args y **kwargs: firmas flexibles"
+short: "Parámetros y *args/**kwargs"
+chapter: "04"
+num: "03"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 9
+appliesTo: ["py"]
+exercises: 5
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python ofrece el sistema de parámetros más flexible de los lenguajes populares. Con *args y **kwargs puedes escribir funciones que se adaptan a cualquier cantidad de argumentos."
+pro: false
+---
+
+<Section id="posicionales-keyword" title="Parámetros posicionales y keyword">
+
+Python soporta dos formas de pasar argumentos: **posicionales** (por orden) y **keyword** (por nombre):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def crear_perfil(nombre, edad, ciudad):
+    return f"{nombre}, {edad} años, {ciudad}"
+
+# Argumentos posicionales — el orden importa
+print(crear_perfil("Ana", 28, "Madrid"))
+
+# Argumentos keyword — el nombre importa, el orden no
+print(crear_perfil(edad=28, ciudad="Madrid", nombre="Ana"))
+
+# Mixto: posicionales primero, keywords después
+print(crear_perfil("Ana", ciudad="Madrid", edad=28))
+
+# ❌ Error: posicional después de keyword
+# crear_perfil(nombre="Ana", 28, "Madrid")  # SyntaxError
+
+# Forzar solo keyword con * en la firma
+def configurar(*, host, port, debug=False):
+    """Solo acepta keyword arguments."""
+    return f"{host}:{port} (debug={debug})"
+
+# configurar("localhost", 8000)  # TypeError
+print(configurar(host="localhost", port=8000))
+`
+    }
+  ]}
+  output={"Ana, 28 años, Madrid\nAna, 28 años, Madrid\nAna, 28 años, Madrid\nlocalhost:8000 (debug=False)"}
+/>
+
+</Section>
+
+<Section id="valores-defecto" title="Valores por defecto">
+
+Los parámetros con valor por defecto son opcionales al llamar la función. Deben ir siempre después de los parámetros sin default:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def saludar(nombre: str, saludo: str = "Hola", puntuacion: str = "!") -> str:
+    return f"{saludo}, {nombre}{puntuacion}"
+
+print(saludar("Ana"))                         # Hola, Ana!
+print(saludar("Carlos", "Buenos días"))       # Buenos días, Carlos!
+print(saludar("Beatriz", puntuacion="..."))   # Hola, Beatriz...
+
+# ⚠️ TRAMPA CLÁSICA: no usar objetos mutables como defaults
+# ❌ Mal — el default [] es compartido entre todas las llamadas
+def agregar_item_mal(item, lista=[]):
+    lista.append(item)
+    return lista
+
+print(agregar_item_mal("a"))  # ["a"]
+print(agregar_item_mal("b"))  # ["a", "b"] ← ¡el mismo objeto!
+print(agregar_item_mal("c"))  # ["a", "b", "c"] ← se acumula
+
+# ✅ Bien — usar None como centinela
+def agregar_item_bien(item, lista=None):
+    if lista is None:
+        lista = []
+    lista.append(item)
+    return lista
+
+print(agregar_item_bien("a"))  # ["a"]
+print(agregar_item_bien("b"))  # ["b"] ← lista nueva cada vez
+`
+    }
+  ]}
+  output={"Hola, Ana!\nBuenos días, Carlos!\nHola, Beatriz...\n['a']\n['a', 'b']\n['a', 'b', 'c']\n['a']\n['b']"}
+/>
+
+<Callout variant="warn" title="Nunca uses listas o dicts como defaults">
+Los valores por defecto se evalúan **una sola vez** cuando Python define la función, no cada vez que se llama. Si usas un objeto mutable (lista, dict, set) como default, todas las llamadas comparten el mismo objeto. Usa siempre `None` y crea el objeto dentro de la función.
+</Callout>
+
+</Section>
+
+<Section id="args" title="*args — posicionales variables">
+
+`*args` captura cualquier número de argumentos posicionales en una **tupla**:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# *args recibe los argumentos extra como tupla
+def sumar(*numeros):
+    print(f"Recibí: {numeros}")   # siempre es tupla
+    return sum(numeros)
+
+print(sumar(1, 2))           # 3
+print(sumar(1, 2, 3, 4, 5))  # 15
+print(sumar())               # 0
+
+# Combinado con parámetros normales
+def registrar(evento, *detalles):
+    print(f"[{evento}]", *detalles)
+
+registrar("LOGIN", "usuario: ana", "ip: 192.168.1.1")
+registrar("ERROR", "archivo no encontrado")
+registrar("INFO")
+
+# Desempaquetar una lista como argumentos posicionales con *
+numeros = [10, 20, 30]
+print(sumar(*numeros))   # equivale a sumar(10, 20, 30)
+`
+    }
+  ]}
+  output={"Recibí: (1, 2)\n3\nRecibí: (1, 2, 3, 4, 5)\n15\nRecibí: ()\n0\n[LOGIN] usuario: ana ip: 192.168.1.1\n[ERROR] archivo no encontrado\n[INFO]\n60"}
+/>
+
+</Section>
+
+<Section id="kwargs" title="**kwargs — keyword variables">
+
+`**kwargs` captura cualquier número de keyword arguments en un **diccionario**:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# **kwargs recibe los keyword args extra como dict
+def registrar_evento(tipo, **metadatos):
+    print(f"Tipo: {tipo}")
+    for clave, valor in metadatos.items():
+        print(f"  {clave}: {valor}")
+
+registrar_evento(
+    "COMPRA",
+    usuario="ana@ejemplo.com",
+    monto=99.99,
+    producto="Teclado mecánico",
+    metodo_pago="tarjeta"
+)
+
+# Desempaquetar un dict como keyword args con **
+datos = {"nombre": "Ana", "edad": 28, "ciudad": "Madrid"}
+
+def crear_perfil(nombre, edad, ciudad):
+    return f"{nombre}, {edad}, {ciudad}"
+
+print(crear_perfil(**datos))   # desempaqueta el dict como kwargs
+`
+    }
+  ]}
+  output={"Tipo: COMPRA\n  usuario: ana@ejemplo.com\n  monto: 99.99\n  producto: Teclado mecánico\n  metodo_pago: tarjeta\nAna, 28, Madrid"}
+/>
+
+</Section>
+
+<Section id="orden-correcto" title="Mezclar todo: el orden correcto">
+
+Cuando combinas todos los tipos de parámetros, el orden es obligatorio:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Orden obligatorio:
+# 1. Parámetros posicionales normales
+# 2. *args (posicionales variables)
+# 3. Parámetros solo-keyword (después de *)
+# 4. **kwargs (keyword variables)
+
+def funcion_completa(pos1, pos2, *args, kw_only, **kwargs):
+    print(f"Posicionales: {pos1}, {pos2}")
+    print(f"Extra posicionales: {args}")
+    print(f"Solo keyword: {kw_only}")
+    print(f"Extra keyword: {kwargs}")
+
+funcion_completa(
+    1, 2,           # pos1, pos2
+    3, 4, 5,        # va a *args
+    kw_only="obligatorio",
+    extra1="a",
+    extra2="b"      # van a **kwargs
+)
+`
+    }
+  ]}
+  output={"Posicionales: 1, 2\nExtra posicionales: (3, 4, 5)\nSolo keyword: obligatorio\nExtra keyword: {'extra1': 'a', 'extra2': 'b'}"}
+/>
+
+<Callout variant="tip" title="El nombre args y kwargs es convención">
+`*args` y `**kwargs` son nombres convencionales, no palabras clave. Puedes usar `*numeros` o `**opciones`. Lo que importa es el `*` y el `**`. Sin embargo, respetar la convención mejora la legibilidad del código.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cinco ejercicios para dominar los parámetros flexibles de Python."
+  items={[
+    { num: "01", name: "Función que acepta cualquier número de números y los suma", diff: "easy", minutes: 3 },
+    { num: "02", name: "Función de log con **kwargs para metadatos", diff: "med", minutes: 5 },
+    { num: "03", name: "Implementa una función que acepta solo keyword arguments", diff: "med", minutes: 5 },
+    { num: "04", name: "Función que combina *args y **kwargs", diff: "med", minutes: 6 },
+    { num: "05", name: "Pasa un dict como **kwargs a una función", diff: "easy", minutes: 4 },
+  ]}
+/>
+</Section>

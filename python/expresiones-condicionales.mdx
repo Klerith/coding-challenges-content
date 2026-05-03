@@ -1,0 +1,152 @@
+---
+title: "Expresiones condicionales: el ternario en Python"
+short: "Expresión condicional"
+chapter: "03"
+num: "03"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["py"]
+exercises: 3
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Python no tiene el operador ternario ?: de otros lenguajes — tiene algo más legible: `valor_si_true if condicion else valor_si_false`."
+pro: false
+---
+
+<Section id="sintaxis" title="Sintaxis: valor if cond else otro">
+
+La expresión condicional de Python tiene una sintaxis muy legible: el resultado positivo va primero, luego la condición, luego el resultado negativo:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `edad = 20
+
+# Expresión condicional (ternario)
+estado = "mayor de edad" if edad >= 18 else "menor de edad"
+print(estado)   # mayor de edad
+
+# En otros lenguajes sería:
+# estado = edad >= 18 ? "mayor de edad" : "menor de edad"  (JavaScript)
+# Python lo hace más legible porque el resultado positivo aparece primero
+
+# Puede usarse directamente en print, asignaciones, return...
+print("par" if edad % 2 == 0 else "impar")   # par
+
+# Ternario con cálculos
+descuento = 0.2 if edad >= 60 else 0.0
+precio = 100
+precio_final = precio * (1 - descuento)
+print(f"Precio final: ${precio_final}")
+`
+    }
+  ]}
+  output={"mayor de edad\npar\nPrecio final: $100.0"}
+/>
+
+</Section>
+
+<Section id="comparacion-if-else" title="Comparación con if/else clásico">
+
+El ternario es equivalente a un `if/else` de dos ramas, pero en una sola línea:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `puntos = 750
+
+# ✅ Con if/else clásico — más verboso, más claro para lógica compleja
+if puntos >= 1000:
+    nivel = "Oro"
+elif puntos >= 500:
+    nivel = "Plata"
+else:
+    nivel = "Bronce"
+
+# ✅ Con ternario — solo para dos opciones simples
+etiqueta = "alto" if puntos > 500 else "bajo"
+
+# ❌ Ternarios anidados — difíciles de leer
+# categoria = "A" if p > 90 else "B" if p > 70 else "C" if p > 50 else "D"
+# Esto es técnicamente válido pero confuso — usa if/elif en su lugar
+
+print(f"Nivel: {nivel}, Puntuación: {etiqueta}")
+`
+    }
+  ]}
+  output={"Nivel: Plata, Puntuación: alto"}
+/>
+
+<CompareTable
+  headers={["if/else clásico", "Expresión condicional"]}
+  rows={[
+    [{ kind: "good", value: "Múltiples ramas (elif)" }, { kind: "bad", value: "Solo dos opciones" }],
+    [{ kind: "good", value: "Cualquier complejidad de lógica" }, { kind: "good", value: "Asignación simple en una línea" }],
+    [{ kind: "good", value: "Bloques con múltiples instrucciones" }, { kind: "bad", value: "Una sola expresión por rama" }],
+    [{ kind: "bad", value: "Más líneas de código" }, { kind: "good", value: "Conciso en contextos simples" }],
+  ]}
+/>
+
+</Section>
+
+<Section id="usos-validos" title="Cuándo usarlo y cuándo no">
+
+El ternario brilla en contextos donde necesitas un valor en una expresión más grande:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python — usos válidos",
+      code: `usuario = {"nombre": "Ana", "admin": False}
+
+# ✅ En f-strings
+print(f"Rol: {'administrador' if usuario['admin'] else 'usuario'}")
+
+# ✅ En listas por comprensión
+numeros = [1, -2, 3, -4, 5]
+absolutos = [n if n >= 0 else -n for n in numeros]
+print(absolutos)  # [1, 2, 3, 4, 5]
+
+# ✅ En argumentos de funciones
+resultado = max(0, -10 if False else 5)
+print(resultado)  # 5
+
+# ✅ En return
+def signo(n):
+    return "positivo" if n > 0 else ("negativo" if n < 0 else "cero")
+
+print(signo(5))    # positivo
+print(signo(-3))   # negativo
+print(signo(0))    # cero
+
+# ❌ Cuándo NO usar el ternario (legibilidad sacrificada)
+# resultado = procesar_complejo(datos) if validar_datos(datos) and datos is not None and len(datos) > 0 else manejar_error(datos)
+# ← demasiado largo — usa if/else
+`
+    }
+  ]}
+  output={"Rol: usuario\n[1, 2, 3, 4, 5]\n5\npositivo\nnegativo\ncero"}
+/>
+
+<Callout variant="tip" title="La regla de oro">
+El ternario debe caber en una línea de menos de 80 caracteres y ser inmediatamente comprensible. Si tienes que releerlo dos veces para entenderlo, usa `if/else`.
+</Callout>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Tres ejercicios para practicar las expresiones condicionales."
+  items={[
+    { num: "01", name: "Determina si un número es positivo o negativo en una línea", diff: "easy", minutes: 2 },
+    { num: "02", name: "Usa ternario en un f-string", diff: "easy", minutes: 3 },
+    { num: "03", name: "Decide cuándo NO usar el ternario (legibilidad)", diff: "med", minutes: 4 },
+  ]}
+/>
+</Section>

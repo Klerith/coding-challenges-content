@@ -1,0 +1,212 @@
+---
+title: "def y return: definir y llamar funciones en Python"
+short: "def y return"
+chapter: "04"
+num: "01"
+chapterTitle: "Funciones"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["py"]
+exercises: 4
+updatedAt: "2026-05-03"
+author: "Fernando Herrera"
+lede: "Las funciones son la unidad fundamental de reutilización. def define, return entrega el resultado. En Python también puedes retornar múltiples valores — algo que otros lenguajes envidian."
+pro: false
+---
+
+<Section id="sintaxis-def" title="Sintaxis de def">
+
+Una función se define con `def`, seguido del nombre, paréntesis con los parámetros y dos puntos. El cuerpo va indentado:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# Función sin parámetros
+def saludar():
+    print("¡Hola, mundo!")
+
+saludar()   # llamar la función
+
+# Función con parámetros
+def saludar_a(nombre):
+    print(f"¡Hola, {nombre}!")
+
+saludar_a("Fernando")
+saludar_a("Ana")
+
+# Función con anotaciones de tipo (buena práctica)
+def sumar(a: int, b: int) -> int:
+    return a + b
+
+resultado = sumar(3, 4)
+print(resultado)   # 7
+
+# Las anotaciones no son obligatorias, pero documentan la intención
+def calcular_area(base: float, altura: float) -> float:
+    """Calcula el área de un rectángulo."""
+    return base * altura
+
+area = calcular_area(5.0, 3.0)
+print(f"Área: {area}")   # Área: 15.0
+`
+    }
+  ]}
+  output={"¡Hola, mundo!\n¡Hola, Fernando!\n¡Hola, Ana!\n7\nÁrea: 15.0"}
+/>
+
+<Callout variant="info" title="Funciones sin return devuelven None">
+Si una función no tiene `return` (o tiene `return` sin valor), Python devuelve `None` automáticamente. Esto es diferente de un error — simplemente significa que la función no produce un valor.
+</Callout>
+
+</Section>
+
+<Section id="return-multiple" title="return y retorno múltiple">
+
+`return` termina la función y devuelve un valor. Python permite retornar múltiples valores usando una tupla:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `# return simple
+def cuadrado(n: float) -> float:
+    return n ** 2
+
+print(cuadrado(5))   # 25.0
+
+# return múltiple — Python retorna una tupla
+def min_max(numeros: list) -> tuple[int, int]:
+    return min(numeros), max(numeros)
+
+datos = [3, 1, 4, 1, 5, 9, 2, 6]
+
+# Recibir como tupla
+resultado = min_max(datos)
+print(resultado)          # (1, 9)
+
+# Desempaquetar directamente
+minimo, maximo = min_max(datos)
+print(f"Min: {minimo}, Max: {maximo}")
+
+# return temprano para salir antes
+def dividir(a: float, b: float) -> float | None:
+    if b == 0:
+        print("Error: división por cero")
+        return None   # ← return temprano
+    return a / b
+
+print(dividir(10, 2))   # 5.0
+print(dividir(10, 0))   # Error: división por cero → None
+`
+    }
+  ]}
+  output={"25.0\n(1, 9)\nMin: 1, Max: 9\n5.0\nError: división por cero\nNone"}
+/>
+
+</Section>
+
+<Section id="docstrings-funciones" title="Docstrings en funciones">
+
+Un docstring describe el propósito de la función, sus parámetros y lo que retorna. Es la documentación que `help()` y los editores muestran:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def calcular_imc(peso_kg: float, altura_m: float) -> float:
+    """Calcula el Índice de Masa Corporal (IMC).
+
+    Args:
+        peso_kg: Peso en kilogramos.
+        altura_m: Altura en metros.
+
+    Returns:
+        El IMC redondeado a 2 decimales.
+
+    Raises:
+        ValueError: Si la altura es cero o negativa.
+
+    Examples:
+        >>> calcular_imc(70, 1.75)
+        22.86
+    """
+    if altura_m <= 0:
+        raise ValueError("La altura debe ser positiva")
+    return round(peso_kg / (altura_m ** 2), 2)
+
+imc = calcular_imc(70, 1.75)
+print(f"IMC: {imc}")   # IMC: 22.86
+
+# Ver el docstring
+print(calcular_imc.__doc__)
+`
+    }
+  ]}
+  output={"IMC: 22.86"}
+/>
+
+</Section>
+
+<Section id="funciones-como-valores" title="Funciones como valores">
+
+En Python, las funciones son objetos de primera clase: puedes asignarlas a variables, pasarlas como argumentos y devolverlas desde otras funciones:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "py",
+      label: "Python",
+      code: `def doblar(n: int) -> int:
+    return n * 2
+
+def triplicar(n: int) -> int:
+    return n * 3
+
+# Asignar una función a una variable
+operacion = doblar
+print(operacion(5))    # 10
+
+operacion = triplicar
+print(operacion(5))    # 15
+
+# Pasar funciones como argumentos
+def aplicar(func, valor):
+    return func(valor)
+
+print(aplicar(doblar, 7))     # 14
+print(aplicar(triplicar, 7))  # 21
+
+# Función que devuelve otra función
+def crear_multiplicador(factor):
+    def multiplicar(n):
+        return n * factor
+    return multiplicar
+
+por_cinco = crear_multiplicador(5)
+por_diez = crear_multiplicador(10)
+
+print(por_cinco(3))   # 15
+print(por_diez(3))    # 30
+`
+    }
+  ]}
+  output={"10\n15\n14\n21\n15\n30"}
+/>
+
+</Section>
+
+<Section id="ejercicios" title="Practica">
+<ExerciseGrid
+  intro="Cuatro ejercicios para dominar la definición de funciones en Python."
+  items={[
+    { num: "01", name: "Función que calcula el área de un rectángulo", diff: "easy", minutes: 3 },
+    { num: "02", name: "Función que retorna el mínimo y máximo de una lista", diff: "easy", minutes: 4 },
+    { num: "03", name: "Función recursiva: factorial", diff: "med", minutes: 5 },
+    { num: "04", name: "Función que verifica si una cadena es palíndromo", diff: "med", minutes: 5 },
+  ]}
+/>
+</Section>
