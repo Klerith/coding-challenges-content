@@ -38,15 +38,20 @@ console.log(msg2); // Hola, Ana. Tienes 25 años.`
     {
       lang: "ts",
       label: "TypeScript",
-      code: `// TypeScript verifica el tipo dentro de ${}
-const precio: number = 19.99;
-const impuesto: number = 0.21;
+      code: `const nombre: string = "Ana";
+const edad: number = 25;
 
-const total: string = \`Precio: $\${(precio * (1 + impuesto)).toFixed(2)}\`;
-console.log(total); // Precio: $24.09`
+// Concatenación clásica (tedioso)
+const msg1 = "Hola, " + nombre + ". Tienes " + edad + " años.";
+
+// Template literal — TypeScript verifica los tipos dentro de \${}
+const msg2: string = \`Hola, \${nombre}. Tienes \${edad} años.\`;
+
+console.log(msg1); // Hola, Ana. Tienes 25 años.
+console.log(msg2); // Hola, Ana. Tienes 25 años.`
     }
   ]}
-  output={`Hola, Ana. Tienes 25 años.\nPrecio: $24.09`}
+  output={`Hola, Ana. Tienes 25 años.`}
 />
 
 </Section>
@@ -102,7 +107,7 @@ const html2 = \`
 console.log(html2);`
     }
   ]}
-  output={`<div>\n  <p>Hola</p>\n</div>`}
+  output={"<div>\n  <p>Hola</p>\n</div>"}
 />
 
 </Section>

@@ -57,6 +57,17 @@ if (hora < 12) {
 } else {
   console.log("Buenas tardes o noches");
 }`
+    },
+    {
+      lang: "ts",
+      label: "TypeScript",
+      code: `const hora: number = 14;
+
+if (hora < 12) {
+  console.log("Buenos días");
+} else {
+  console.log("Buenas tardes o noches");
+}`
     }
   ]}
   output={`Buenas tardes o noches`}
@@ -85,18 +96,17 @@ if (nota >= 90) {
     },
     {
       lang: "ts",
-      label: "TypeScript con narrowing",
-      code: `type Estado = "activo" | "inactivo" | "suspendido";
+      label: "TypeScript",
+      code: `const nota: number = 75;
 
-function describir(estado: Estado): string {
-  if (estado === "activo") {
-    return "El usuario puede iniciar sesión";
-  } else if (estado === "inactivo") {
-    return "El usuario debe reactivar la cuenta";
-  } else {
-    // TypeScript sabe que aquí estado === "suspendido"
-    return "El usuario está suspendido";
-  }
+if (nota >= 90) {
+  console.log("Sobresaliente");
+} else if (nota >= 70) {
+  console.log("Notable");
+} else if (nota >= 50) {
+  console.log("Aprobado");
+} else {
+  console.log("Suspenso");
 }`
     }
   ]}

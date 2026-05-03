@@ -41,13 +41,20 @@ for (let i = 0; i < frutas.length; i++) {
     {
       lang: "ts",
       label: "TypeScript",
-      code: `const numeros: number[] = [10, 20, 30];
-
-for (let i = 0; i < numeros.length; i++) {
-  // TypeScript infiere: numeros[i] es number
-  console.log(numeros[i] * 2);
+      code: `// Sintaxis: for (init; condición; actualización)
+for (let i = 0; i < 5; i++) {
+  console.log(i);
 }
-// 20 40 60`
+// 0 1 2 3 4
+
+// Iterar un array con índice — TypeScript infiere: frutas[i] es string
+const frutas: string[] = ["manzana", "pera", "uva"];
+for (let i = 0; i < frutas.length; i++) {
+  console.log(\`\${i}: \${frutas[i]}\`);
+}
+// 0: manzana
+// 1: pera
+// 2: uva`
     }
   ]}
   output={`0\n1\n2\n3\n4`}
@@ -88,22 +95,26 @@ for (const color of colores) {
     {
       lang: "ts",
       label: "TypeScript",
-      code: `interface Producto {
-  nombre: string;
-  precio: number;
-}
+      code: `const frutas: string[] = ["manzana", "pera", "uva"];
 
-const productos: Producto[] = [
-  { nombre: "Camiseta", precio: 19.99 },
-  { nombre: "Pantalón", precio: 49.99 },
-];
-
-for (const p of productos) {
-  // TypeScript infiere: p es Producto
-  console.log(\`\${p.nombre}: €\${p.precio}\`);
+// for...of — fruta: string inferido por TypeScript
+for (const fruta of frutas) {
+  console.log(fruta);
 }
-// Camiseta: €19.99
-// Pantalón: €49.99`
+// manzana pera uva
+
+// También funciona con strings
+for (const letra of "hola") {
+  console.log(letra);
+}
+// h o l a
+
+// Con Set<string> (valores únicos)
+const colores = new Set<string>(["rojo", "azul", "rojo"]);
+for (const color of colores) {
+  console.log(color);
+}
+// rojo azul`
     }
   ]}
   output={`manzana\npera\nuva`}

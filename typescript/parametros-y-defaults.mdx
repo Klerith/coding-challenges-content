@@ -42,19 +42,20 @@ console.log(saludar2(null));     // "Hola, null" ← null no activa el default`
     {
       lang: "ts",
       label: "TypeScript",
-      code: `// TypeScript infiere el tipo del default
-function saludar(nombre = "Invitado"): string {
+      code: `// Sin defaults — TypeScript requiere tipo explícito
+function saludar1(nombre: string) {
   return \`Hola, \${nombre}\`;
 }
-// nombre: string (inferido del default)
 
-// Con tipo explícito
-function crear(label: string, activo = true, puntos = 0) {
-  return { label, activo, puntos };
+// Con defaults (ES6) — TypeScript infiere: nombre es string
+function saludar2(nombre = "Invitado"): string {
+  return \`Hola, \${nombre}\`;
 }
 
-console.log(crear("Tarea"));            // { label: "Tarea", activo: true, puntos: 0 }
-console.log(crear("Reto", false, 50));  // { label: "Reto", activo: false, puntos: 50 }`
+console.log(saludar2());          // "Hola, Invitado"
+console.log(saludar2("Ana"));     // "Hola, Ana"
+console.log(saludar2(undefined)); // "Hola, Invitado"
+// saludar2(null) ← TypeScript lo bloquea: null no es string | undefined`
     }
   ]}
   output={`Hola, Invitado\nHola, Ana`}
@@ -97,23 +98,24 @@ mostrarUsuario2({ nombre: "Luis" });          // "Luis" 0`
     {
       lang: "ts",
       label: "TypeScript",
-      code: `interface Config {
-  host?: string;
-  port?: number;
-  debug?: boolean;
+      code: `// Sin desestructuración — tipo inline
+function mostrarUsuario1(usuario: { nombre: string; edad: number }): void {
+  console.log(usuario.nombre, usuario.edad);
 }
 
-function iniciarServidor({
-  host = "localhost",
-  port = 3000,
-  debug = false,
-}: Config = {}) {
-  console.log(\`\${host}:\${port} debug=\${debug}\`);
+// Con desestructuración en parámetro
+function mostrarUsuario({ nombre, edad }: { nombre: string; edad: number }): void {
+  console.log(nombre, edad);
 }
 
-iniciarServidor();                         // localhost:3000 debug=false
-iniciarServidor({ port: 8080 });           // localhost:8080 debug=false
-iniciarServidor({ host: "0.0.0.0", debug: true }); // 0.0.0.0:3000 debug=true`
+// Con defaults en la desestructuración
+function mostrarUsuario2({ nombre = "Sin nombre", edad = 0 }: { nombre?: string; edad?: number } = {}): void {
+  console.log(nombre, edad);
+}
+
+mostrarUsuario({ nombre: "Ana", edad: 25 }); // "Ana" 25
+mostrarUsuario2();                            // "Sin nombre" 0
+mostrarUsuario2({ nombre: "Luis" });          // "Luis" 0`
     }
   ]}
   output={`Ana 25\nSin nombre 0`}

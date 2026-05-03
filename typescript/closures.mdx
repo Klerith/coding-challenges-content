@@ -55,8 +55,14 @@ console.log(contador2()); // 1 — independiente del primero`
 }
 
 const contador = crearContador();
+// crearContador() ya terminó, pero 'cuenta' sigue viva
 console.log(contador()); // 1
-console.log(contador()); // 2`
+console.log(contador()); // 2
+console.log(contador()); // 3
+
+// Cada llamada a crearContador() crea un closure NUEVO
+const contador2 = crearContador();
+console.log(contador2()); // 1 — independiente del primero`
     }
   ]}
   output={`1\n2\n3`}
@@ -121,20 +127,32 @@ console.log(fibMemo(40)); // 102334155 (rápido)`
     {
       lang: "ts",
       label: "TypeScript",
-      code: `// Factory tipada
-function crearLogger(prefijo: string): (msg: string) => void {
-  return (msg: string) => console.log(\`[\${prefijo}] \${msg}\`);
+      code: `// 1. Encapsulación (estado privado)
+function crearCuenta(saldoInicial: number) {
+  let saldo = saldoInicial;
+
+  return {
+    depositar: (monto: number) => { saldo += monto; },
+    retirar:   (monto: number) => { saldo -= monto; },
+    consultar: (): number => saldo,
+  };
 }
 
-const errorLog = crearLogger("ERROR");
-const infoLog  = crearLogger("INFO");
+const cuenta = crearCuenta(100);
+cuenta.depositar(50);
+cuenta.retirar(30);
+console.log(cuenta.consultar()); // 120
 
-errorLog("Conexión fallida");   // [ERROR] Conexión fallida
-infoLog("Servidor listo");      // [INFO] Servidor listo
+// 2. Factory functions (creadores)
+function multiplicador(factor: number) {
+  return (numero: number): number => numero * factor;
+}
 
-// useState de React — internamente usa un closure
-// const [count, setCount] = useState(0);
-// setCount es una función que "recuerda" la referencia al estado interno`
+const doble  = multiplicador(2);
+const triple = multiplicador(3);
+
+console.log(doble(5));  // 10
+console.log(triple(5)); // 15`
     }
   ]}
   output={`120\n10\n15`}
@@ -174,7 +192,8 @@ for (var i = 0; i < 3; i++) {
 
 // ✅ let crea un nuevo binding por iteración
 for (let j = 0; j < 3; j++) {
-  setTimeout(() => console.log(j), 0); // 0 1 2`
+  setTimeout(() => console.log(j), 0); // 0 1 2
+}`
     }
   ]}
 />

@@ -106,10 +106,9 @@ else if (nota >= 70) clasificacion2 = "C";
 else if (nota >= 60) clasificacion2 = "D";
 else clasificacion2 = "F";
 
-// ✅ O con un objeto de mapeo
-const tabla = { 90: "A", 80: "B", 70: "C", 60: "D" };
-const clasificacion3 = Object.entries(tabla)
-  .find(([min]) => nota >= Number(min))?.[1] ?? "F";`
+// ✅ O con un array de rangos (ordenado de mayor a menor)
+const rangos = [[90, "A"], [80, "B"], [70, "C"], [60, "D"]];
+const clasificacion3 = rangos.find(([min]) => nota >= min)?.[1] ?? "F";`
     }
   ]}
 />

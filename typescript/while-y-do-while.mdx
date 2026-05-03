@@ -44,17 +44,23 @@ while (cola.length > 0) {
     {
       lang: "ts",
       label: "TypeScript",
-      code: `function buscarIndice(arr: number[], objetivo: number): number {
-  let i = 0;
-  while (i < arr.length) {
-    if (arr[i] === objetivo) return i;
-    i++;
-  }
-  return -1;
-}
+      code: `let contador: number = 0;
 
-console.log(buscarIndice([10, 20, 30], 20)); // 1
-console.log(buscarIndice([10, 20, 30], 99)); // -1`
+while (contador < 5) {
+  console.log(contador);
+  contador++;
+}
+// 0 1 2 3 4
+
+// Ejemplo práctico: procesar hasta vaciar una cola
+const cola: number[] = [1, 2, 3];
+while (cola.length > 0) {
+  const item = cola.shift(); // elimina el primero
+  console.log("Procesando:", item);
+}
+// Procesando: 1
+// Procesando: 2
+// Procesando: 3`
     }
   ]}
   output={`0\n1\n2\n3\n4`}

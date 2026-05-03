@@ -46,20 +46,25 @@ console.log(saludar4("Ana")); // "Hola, Ana"`
     {
       lang: "ts",
       label: "TypeScript",
-      code: `// Con tipos
-const saludar = (nombre: string): string => \`Hola, \${nombre}\`;
+      code: `// Función tradicional con tipos
+const saludar1 = function(nombre: string): string {
+  return \`Hola, \${nombre}\`;
+};
 
-// Sin parámetros
-const ahora = (): Date => new Date();
+// Arrow function equivalente
+const saludar2 = (nombre: string): string => {
+  return \`Hola, \${nombre}\`;
+};
 
-// Retorno de objeto — necesita paréntesis para evitar ambigüedad
-const crearUsuario = (nombre: string, edad: number) => ({
-  nombre,
-  edad,
-});
+// Con un solo parámetro (paréntesis requeridos en TS)
+const saludar3 = (nombre: string): string => {
+  return \`Hola, \${nombre}\`;
+};
 
-console.log(crearUsuario("Ana", 25));
-// { nombre: "Ana", edad: 25 }`
+// Con retorno de una sola expresión: return implícito
+const saludar4 = (nombre: string): string => \`Hola, \${nombre}\`;
+
+console.log(saludar4("Ana")); // "Hola, Ana"`
     }
   ]}
   output={`Hola, Ana`}
@@ -95,23 +100,21 @@ console.log(resultado); // 20`
     {
       lang: "ts",
       label: "TypeScript",
-      code: `interface Usuario {
-  nombre: string;
-  activo: boolean;
-  puntos: number;
-}
+      code: `const numeros: number[] = [1, 2, 3, 4, 5];
 
-const usuarios: Usuario[] = [
-  { nombre: "Ana", activo: true, puntos: 120 },
-  { nombre: "Luis", activo: false, puntos: 80 },
-  { nombre: "Eva", activo: true, puntos: 200 },
-];
+// Comparación: función tradicional vs arrow
+const dobles1 = numeros.map(function(n: number): number { return n * 2; });
+const dobles2 = numeros.map((n: number): number => n * 2);
 
-const nombresActivos = usuarios
-  .filter((u): u is Usuario => u.activo)
-  .map(u => u.nombre);
+console.log(dobles2); // [2, 4, 6, 8, 10]
 
-console.log(nombresActivos); // ["Ana", "Eva"]`
+// Encadenamiento limpio
+const resultado = numeros
+  .filter((n: number) => n % 2 === 0)  // [2, 4]
+  .map((n: number) => n ** 2)           // [4, 16]
+  .reduce((acc: number, n: number) => acc + n, 0); // 20
+
+console.log(resultado); // 20`
     }
   ]}
   output={`[2, 4, 6, 8, 10]\n20`}
