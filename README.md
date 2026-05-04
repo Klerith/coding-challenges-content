@@ -16,6 +16,7 @@ Si leyendo una lección notás cualquiera de estas cosas, **tu PR es bienvenido*
 - Información desactualizada (una API cambió, una sintaxis quedó deprecada, etc.)
 - Un concepto que falta o que merece más desarrollo
 - Un título o descripción del capítulo/lección que no es preciso
+- Todo lo que ayude, es bienvenido.
 
 No hace falta que el cambio sea grande. Corregir una sola palabra ya mejora la experiencia de miles de personas.
 
@@ -50,15 +51,15 @@ Cada `.mdx` empieza con un bloque de metadatos:
 
 ```yaml
 ---
-title: "Título completo de la lección"
-short: "Título corto para la barra lateral"
-chapter: "02"
-num: "03"
-chapterTitle: "Sintaxis"
+title: 'Título completo de la lección'
+short: 'Título corto para la barra lateral'
+chapter: '02'
+num: '03'
+chapterTitle: 'Sintaxis'
 difficulty: beginner | intermediate | advanced
 readingMinutes: 8
-appliesTo: [js, ts]   # o [py] para Python
-lede: "Una frase que resume de qué trata la lección."
+appliesTo: [js, ts] # o [py] para Python
+lede: 'Una frase que resume de qué trata la lección.'
 ---
 ```
 
@@ -68,14 +69,14 @@ Si modificás el contenido de un `.mdx` no es necesario tocar el frontmatter. So
 
 Las lecciones pueden usar estos componentes sin importarlos (están disponibles globalmente):
 
-| Componente | Uso |
-|---|---|
-| `<Section title="...">` | Agrupa contenido en una sección con título |
+| Componente                                   | Uso                                        |
+| -------------------------------------------- | ------------------------------------------ |
+| `<Section title="...">`                      | Agrupa contenido en una sección con título |
 | `<CodeBlock tabs={[{lang, label, code}]} />` | Bloque de código con pestañas por lenguaje |
-| `<Callout type="tip\|warning\|info">` | Caja de aviso o consejo |
-| `<CompareTable>` | Tabla comparativa de dos columnas |
-| `<Rules>` / `<Rule>` | Lista de reglas o buenas prácticas |
-| `<KeywordPill>` | Píldora inline para destacar una keyword |
+| `<Callout type="tip\|warning\|info">`        | Caja de aviso o consejo                    |
+| `<CompareTable>`                             | Tabla comparativa de dos columnas          |
+| `<Rules>` / `<Rule>`                         | Lista de reglas o buenas prácticas         |
+| `<KeywordPill>`                              | Píldora inline para destacar una keyword   |
 
 ---
 
