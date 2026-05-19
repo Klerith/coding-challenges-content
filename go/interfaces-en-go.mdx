@@ -1,0 +1,228 @@
+---
+title: "Interfaces: implementación implícita y polimorfismo"
+short: "Interfaces"
+chapter: "06"
+num: "01"
+chapterTitle: "Interfaces"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "En Go una interfaz es un conjunto de métodos. No se declara que un tipo la implementa: si el tipo tiene los métodos requeridos, ya la implementa. Esto se llama implementación implícita o duck typing estructural."
+pro: false
+---
+
+<Section id="que-es-una-interfaz" title="¿Qué es una interfaz en Go?">
+
+Una interfaz define un contrato: un conjunto de métodos que un tipo debe tener. A diferencia de Java o C#, en Go **no existe la palabra clave `implements`**. Si un tipo tiene todos los métodos de la interfaz, automáticamente la satisface.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Definimos un contrato: cualquier tipo con Sound() string es un Animal
+type Animal interface {
+	Sound() string
+}
+
+type Dog struct {
+	Name string
+}
+
+// Dog tiene Sound() -> Dog satisface Animal automáticamente
+func (d Dog) Sound() string {
+	return d.Name + " dice: Woof!"
+}
+
+type Cat struct {
+	Name string
+}
+
+func (c Cat) Sound() string {
+	return c.Name + " dice: Meow!"
+}
+
+func main() {
+	var a Animal = Dog{Name: "Rex"}
+	fmt.Println(a.Sound())
+
+	a = Cat{Name: "Luna"}
+	fmt.Println(a.Sound())
+}`
+    }
+  ]}
+  output={"Rex dice: Woof!\nLuna dice: Meow!"}
+/>
+
+<Callout variant="info" title="Sin `implements`">
+Go nunca te obliga a declarar qué interfaces implementa un tipo. La relación se resuelve en tiempo de compilación mirando los métodos. Esto permite que un tipo satisfaga interfaces definidas en paquetes que ni siquiera importa.
+</Callout>
+
+</Section>
+
+<Section id="polimorfismo" title="Polimorfismo con interfaces">
+
+Una variable de tipo interfaz puede contener cualquier valor cuyo tipo satisfaga la interfaz. Es la forma idiomática de hacer polimorfismo en Go.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Shape interface {
+	Area() float64
+}
+
+type Circle struct {
+	Radius float64
+}
+
+func (c Circle) Area() float64 {
+	return 3.1416 * c.Radius * c.Radius
+}
+
+type Rectangle struct {
+	Width, Height float64
+}
+
+func (r Rectangle) Area() float64 {
+	return r.Width * r.Height
+}
+
+// Una sola función trabaja con cualquier Shape
+func printArea(s Shape) {
+	fmt.Printf("Área: %.2f\\n", s.Area())
+}
+
+func main() {
+	shapes := []Shape{
+		Circle{Radius: 5},
+		Rectangle{Width: 4, Height: 3},
+	}
+	for _, s := range shapes {
+		printArea(s)
+	}
+}`
+    }
+  ]}
+  output={"Área: 78.54\nÁrea: 12.00"}
+/>
+
+</Section>
+
+<Section id="valor-de-interfaz" title="Valor de interfaz: (type, value)">
+
+Internamente, un valor de interfaz es un par `(tipo concreto, valor)`. Esto explica por qué `fmt.Println` puede saber si imprimir un `Dog` o un `Cat` aunque la variable sea de tipo `Animal`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Animal interface {
+	Sound() string
+}
+
+type Dog struct{ Name string }
+
+func (d Dog) Sound() string { return "Woof" }
+
+func main() {
+	var a Animal = Dog{Name: "Rex"}
+
+	// %T imprime el tipo concreto dentro de la interfaz
+	// %v imprime el valor
+	fmt.Printf("type=%T value=%v\\n", a, a)
+	fmt.Println(a.Sound())
+}`
+    }
+  ]}
+  output={"type=main.Dog value={Rex}\nWoof"}
+/>
+
+</Section>
+
+<Section id="nil-interface-vs-nil-concrete" title="Nil interface vs nil concreto">
+
+Una interfaz solo es `nil` cuando **tanto su tipo como su valor** son nil. Si asignas un puntero nil concreto, la interfaz no es nil — tiene tipo pero no valor. Es una de las trampas más famosas de Go.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Animal interface {
+	Sound() string
+}
+
+type Dog struct{ Name string }
+
+func (d *Dog) Sound() string {
+	if d == nil {
+		return "(perro nulo)"
+	}
+	return d.Name
+}
+
+func newDog() *Dog {
+	return nil // retornamos un *Dog nil
+}
+
+func main() {
+	// Interfaz realmente nil
+	var a1 Animal
+	fmt.Println(a1 == nil) // true
+
+	// Interfaz con tipo *Dog pero valor nil -> NO es nil
+	var d *Dog = newDog()
+	var a2 Animal = d
+	fmt.Println(a2 == nil)   // false (sorprendente)
+	fmt.Printf("%T\\n", a2)  // *main.Dog
+}`
+    }
+  ]}
+  output={"true\nfalse\n*main.Dog"}
+/>
+
+<Callout variant="warning" title="Cuidado al retornar errores">
+Este patrón causa bugs frecuentes con `error`. Si retornas un `*MyError` nil desde una función que declara `error` como tipo de retorno, el caller verá un error no-nil. Retorna `nil` literal, no un puntero concreto nil.
+</Callout>
+
+</Section>
+
+<Section id="comparacion-con-clases-abstractas" title="Comparación con clases abstractas">
+
+En lenguajes OOP tradicionales, una clase abstracta declara un contrato y las subclases lo heredan con `extends` o `implements`. En Go no hay herencia ni declaración explícita.
+
+| Concepto | Java / Python | Go |
+|---|---|---|
+| Declarar contrato | `abstract class` / `ABC` | `interface` |
+| Implementar contrato | `implements` / herencia | Tener los métodos |
+| Relación | Nominal (por nombre) | Estructural (por forma) |
+| Acoplamiento | Alto: el tipo conoce la interfaz | Bajo: la interfaz puede ser ajena |
+| Métodos por defecto | Sí | No (solo firmas) |
+
+<Callout variant="tip" title="Interfaces consumidas por el llamador">
+En Go la convención es definir la interfaz **en el paquete que la consume**, no en el que la implementa. Así el código que produce los valores no depende de la interfaz, y el código que los consume declara exactamente lo que necesita.
+</Callout>
+
+</Section>

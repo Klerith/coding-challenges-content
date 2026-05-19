@@ -1,0 +1,238 @@
+---
+title: "Channels: unbuffered, buffered y dirección"
+short: "Channels"
+chapter: "08"
+num: "02"
+chapterTitle: "Concurrencia"
+difficulty: "advanced"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Los canales son tuberías tipadas por las que las goroutines envían y reciben valores. Son la forma idiomática de comunicar goroutines en Go — sincronización y transferencia de datos en una sola primitiva."
+pro: false
+---
+
+<Section id="crear-canal" title="Crear un canal con make">
+
+Un canal se declara con `chan T`, donde `T` es el tipo de los valores que transporta. Se crea con `make`. El valor cero de un canal es `nil` — un canal nil bloquea para siempre.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	// Canal de enteros, sin buffer (unbuffered)
+	ch := make(chan int)
+
+	// Lanzamos una goroutine que envía un valor
+	go func() {
+		ch <- 42 // envía 42 al canal
+	}()
+
+	// Recibimos el valor desde el canal
+	v := <-ch
+	fmt.Println("recibido:", v)
+}`
+    }
+  ]}
+  output={"recibido: 42"}
+/>
+
+Las operaciones básicas:
+- `ch <- v` — envía `v` al canal `ch`
+- `v := <-ch` — recibe un valor de `ch` y lo asigna a `v`
+- `<-ch` — recibe un valor y lo descarta
+
+</Section>
+
+<Section id="unbuffered" title="Canales unbuffered: sincronización 1:1">
+
+Un canal sin buffer obliga a que el envío y la recepción ocurran **al mismo tiempo**. El emisor se bloquea hasta que alguien recibe, y el receptor se bloquea hasta que alguien envía. Es una sincronización perfecta.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func productor(ch chan<- string) {
+	for _, msg := range []string{"a", "b", "c"} {
+		fmt.Println("enviando", msg)
+		ch <- msg // bloquea hasta que alguien reciba
+	}
+	close(ch)
+}
+
+func main() {
+	ch := make(chan string)
+	go productor(ch)
+
+	// El receptor procesa lento — el productor espera
+	for msg := range ch {
+		time.Sleep(50 * time.Millisecond)
+		fmt.Println("recibido", msg)
+	}
+}`
+    }
+  ]}
+  output={"enviando a\nrecibido a\nenviando b\nrecibido b\nenviando c\nrecibido c"}
+/>
+
+<Callout variant="info" title="Send y receive son un rendezvous">
+En un canal unbuffered el envío no «encola» el valor: el valor se transfiere directamente del emisor al receptor en el mismo instante. Por eso son útiles como punto de sincronización entre goroutines.
+</Callout>
+
+</Section>
+
+<Section id="buffered" title="Canales buffered: desacoplar emisor y receptor">
+
+`make(chan T, n)` crea un canal con capacidad para `n` valores. El emisor solo bloquea si el buffer está lleno; el receptor solo bloquea si el buffer está vacío. Útil para suavizar ráfagas de trabajo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	// Canal con capacidad 3
+	ch := make(chan int, 3)
+
+	// Podemos enviar 3 valores sin que nadie los reciba
+	ch <- 1
+	ch <- 2
+	ch <- 3
+	fmt.Println("len:", len(ch), "cap:", cap(ch))
+
+	// El cuarto envío bloquearía. Recibimos primero.
+	fmt.Println(<-ch)
+	fmt.Println(<-ch)
+	fmt.Println(<-ch)
+
+	fmt.Println("len final:", len(ch))
+}`
+    }
+  ]}
+  output={"len: 3 cap: 3\n1\n2\n3\nlen final: 0"}
+/>
+
+<Callout variant="warn" title="No abuses del buffer">
+Un buffer grande puede ocultar problemas: el productor acumula trabajo que el consumidor nunca alcanza. Empieza siempre con canal sin buffer y añade buffer solo cuando midas un beneficio claro.
+</Callout>
+
+</Section>
+
+<Section id="close-y-range" title="close, ok-idiom y for range">
+
+Cerrar un canal con `close(ch)` indica que no se enviarán más valores. Los receptores aún pueden leer los valores pendientes; tras agotarlos, leer devuelve el valor cero del tipo.
+
+El **comma-ok idiom** `v, ok := <-ch` distingue un valor real (`ok == true`) del canal cerrado y vacío (`ok == false`).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	ch := make(chan int, 5)
+	for i := 1; i <= 3; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Forma 1: leer hasta detectar cierre con el ok-idiom
+	for {
+		v, ok := <-ch
+		if !ok {
+			fmt.Println("canal cerrado")
+			break
+		}
+		fmt.Println("recibido:", v)
+	}
+
+	// Forma 2: for-range itera hasta que el canal se cierra
+	ch2 := make(chan string, 2)
+	ch2 <- "hola"
+	ch2 <- "mundo"
+	close(ch2)
+
+	for msg := range ch2 {
+		fmt.Println(msg)
+	}
+}`
+    }
+  ]}
+  output={"recibido: 1\nrecibido: 2\nrecibido: 3\ncanal cerrado\nhola\nmundo"}
+/>
+
+<Callout variant="warn" title="Reglas de close">
+Solo el **emisor** debe cerrar un canal, nunca el receptor — cerrar un canal del que aún se envía provoca `panic`. Cerrar un canal ya cerrado también hace panic. Enviar a un canal cerrado hace panic. Recibir de uno cerrado es seguro.
+</Callout>
+
+</Section>
+
+<Section id="direccion" title="Dirección de canales: chan&lt;- y &lt;-chan">
+
+Las funciones pueden declarar parámetros de canal **direccionales** para documentar intención y dejar que el compilador impida errores.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// chan<- int: solo envío
+func producir(salida chan<- int, n int) {
+	for i := 1; i <= n; i++ {
+		salida <- i * i
+	}
+	close(salida)
+}
+
+// <-chan int: solo recepción
+func consumir(entrada <-chan int) {
+	for v := range entrada {
+		fmt.Println("consumido:", v)
+	}
+}
+
+func main() {
+	ch := make(chan int) // bidireccional
+	go producir(ch, 4)   // se convierte a chan<- int
+	consumir(ch)         // se convierte a <-chan int
+}`
+    }
+  ]}
+  output={"consumido: 1\nconsumido: 4\nconsumido: 9\nconsumido: 16"}
+/>
+
+Un canal bidireccional `chan int` puede pasarse a parámetros `chan<- int` o `<-chan int`, pero no al revés. Es una conversión implícita que el compilador hace automáticamente y que limita lo que cada función puede hacer con el canal.
+
+<Callout variant="tip" title="Patrón pipeline">
+Encadenar funciones que reciben `<-chan T` y devuelven `<-chan U` es el patrón pipeline de Go. Cada etapa es una goroutine que transforma valores. Los canales conectan las etapas con backpressure automática.
+</Callout>
+
+</Section>

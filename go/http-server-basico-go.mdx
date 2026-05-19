@@ -1,0 +1,261 @@
+---
+title: "Servidor HTTP básico con `net/http`"
+short: "Servidor HTTP"
+chapter: "09"
+num: "03"
+chapterTitle: "Stdlib y herramientas"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go fue pensado para servicios de red. `net/http` te permite levantar un servidor productivo en pocas líneas, sin frameworks ni dependencias externas."
+pro: false
+---
+
+<Section id="hola-mundo-http" title="Hola, mundo (HTTP edition)">
+
+Un servidor HTTP en Go cabe en menos de 15 líneas. `http.HandleFunc` registra un handler en el mux por defecto y `http.ListenAndServe` arranca el servidor.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "main.go",
+      code: `package main
+
+import (
+    "fmt"
+    "log"
+    "net/http"
+)
+
+func main() {
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintln(w, "Hola desde Go!")
+    })
+
+    log.Println("Escuchando en :8080")
+    if err := http.ListenAndServe(":8080", nil); err != nil {
+        log.Fatal(err)
+    }
+}
+`
+    }
+  ]}
+  output={`Escuchando en :8080
+# curl http://localhost:8080/
+Hola desde Go!`}
+/>
+
+Lo que pasa por debajo:
+
+- `HandleFunc` registra una función con la firma `func(w http.ResponseWriter, r *http.Request)` en el **DefaultServeMux** global.
+- `ListenAndServe(":8080", nil)` arranca el servidor. El `nil` indica «usa el DefaultServeMux».
+- `w` es donde escribes la respuesta; `r` contiene toda la información de la petición entrante.
+
+</Section>
+
+<Section id="responsewriter-request" title="`ResponseWriter` y `Request`">
+
+Estos dos tipos son el corazón de cualquier handler.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "handler.go",
+      code: `package main
+
+import (
+    "fmt"
+    "net/http"
+)
+
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+    // Headers de respuesta (deben ir ANTES de escribir el body)
+    w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+    // Status code (opcional; default 200)
+    w.WriteHeader(http.StatusOK)
+
+    // Body
+    fmt.Fprintf(w, "Method: %s\\n", r.Method)
+    fmt.Fprintf(w, "Path: %s\\n", r.URL.Path)
+    fmt.Fprintf(w, "Host: %s\\n", r.Host)
+}
+`
+    }
+  ]}
+/>
+
+<Callout variant="warn" title="Orden importa">
+Una vez que escribes en el body (con `Write`, `Fprintf`, etc.), los headers se envían y ya no se pueden cambiar. Configura headers y status code **antes** de escribir cualquier byte de respuesta.
+</Callout>
+
+</Section>
+
+<Section id="query-y-body" title="Leer query params y body">
+
+`r.URL.Query()` da acceso a los parámetros del query string y `r.Body` al body (típicamente JSON).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "params_body.go",
+      code: `package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "net/http"
+)
+
+// GET /greet?name=Ada
+func greetHandler(w http.ResponseWriter, r *http.Request) {
+    name := r.URL.Query().Get("name")
+    if name == "" {
+        name = "desconocido"
+    }
+    fmt.Fprintf(w, "Hola, %s!\\n", name)
+}
+
+// POST /users con JSON {"name": "...", "age": 30}
+type CreateUserRequest struct {
+    Name string \`json:"name"\`
+    Age  int    \`json:"age"\`
+}
+
+func createUser(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    var req CreateUserRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "invalid JSON", http.StatusBadRequest)
+        return
+    }
+    defer r.Body.Close()
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(map[string]any{
+        "message": "usuario creado",
+        "user":    req,
+    })
+}
+`
+    }
+  ]}
+  output={`# curl 'http://localhost:8080/greet?name=Ada'
+Hola, Ada!
+
+# curl -X POST -d '{"name":"Ada","age":36}' http://localhost:8080/users
+{"message":"usuario creado","user":{"name":"Ada","age":36}}`}
+/>
+
+`http.Error` es atajo para escribir un mensaje de error con su código de estado. `json.NewEncoder(w).Encode(v)` escribe directamente en el `ResponseWriter`, evitando intermedios.
+
+</Section>
+
+<Section id="servemux" title="`http.ServeMux`: tu propio router">
+
+El DefaultServeMux global es práctico para empezar, pero un servidor real define el suyo. Esto facilita testing, configuración por entorno y composición de servicios.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "mux.go",
+      code: `package main
+
+import (
+    "fmt"
+    "log"
+    "net/http"
+)
+
+func main() {
+    mux := http.NewServeMux()
+
+    mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintln(w, "ok")
+    })
+
+    // Desde Go 1.22 se puede prefijar con método y usar variables de ruta
+    mux.HandleFunc("GET /users/{id}", func(w http.ResponseWriter, r *http.Request) {
+        id := r.PathValue("id")
+        fmt.Fprintf(w, "user id = %s\\n", id)
+    })
+
+    log.Println("listening on :8080")
+    if err := http.ListenAndServe(":8080", mux); err != nil {
+        log.Fatal(err)
+    }
+}
+`
+    }
+  ]}
+  output={`# curl http://localhost:8080/health
+ok
+# curl http://localhost:8080/users/42
+user id = 42`}
+/>
+
+<Callout variant="tip" title="Mux desde Go 1.22">
+A partir de Go 1.22, el mux estándar soporta métodos HTTP en los patrones (`GET /path`) y parámetros de ruta (`{id}`). Para muchísimos servicios, ya no necesitas un router externo como `chi` o `gorilla/mux`.
+</Callout>
+
+</Section>
+
+<Section id="http-server-timeouts" title="`http.Server` con timeouts">
+
+`http.ListenAndServe` es el shortcut. Para producción usa `http.Server` directamente y configura **timeouts** explícitos: sin ellos, una conexión lenta puede mantenerse abierta indefinidamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "server.go",
+      code: `package main
+
+import (
+    "log"
+    "net/http"
+    "time"
+)
+
+func main() {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("ok"))
+    })
+
+    srv := &http.Server{
+        Addr:         ":8080",
+        Handler:      mux,
+        ReadTimeout:  5 * time.Second,
+        WriteTimeout: 10 * time.Second,
+        IdleTimeout:  120 * time.Second,
+    }
+
+    log.Println("listening on", srv.Addr)
+    if err := srv.ListenAndServe(); err != nil {
+        log.Fatal(err)
+    }
+}
+`
+    }
+  ]}
+  output={`listening on :8080`}
+/>
+
+<Callout variant="warn" title="Siempre configura timeouts">
+Los valores por defecto de `http.Server` son **infinitos**. Un cliente malicioso o una conexión rota pueden mantener goroutines vivas para siempre. Define `ReadTimeout`, `WriteTimeout` e `IdleTimeout` en cualquier servicio expuesto a internet.
+</Callout>
+
+</Section>

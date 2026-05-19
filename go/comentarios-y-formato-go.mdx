@@ -1,0 +1,194 @@
+---
+title: "Comentarios, `gofmt` y `godoc`"
+short: "Comentarios y formato"
+chapter: "02"
+num: "05"
+chapterTitle: "Sintaxis y tipos básicos"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go tiene una opinión clara sobre cómo se formatea y documenta el código: `gofmt` impone un único estilo y `godoc` genera documentación directamente desde los comentarios. Ningún debate sobre tabs vs espacios."
+pro: false
+---
+
+<Section id="sintaxis-comentarios" title="Sintaxis de comentarios">
+
+Go admite dos formas de comentar, idénticas a C, Java o JavaScript: comentarios de línea (`//`) y comentarios de bloque (`/* ... */`).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Comentario de línea — la forma más común en Go.
+// Se usa para casi todo, incluso para documentación.
+
+/*
+   Comentario de bloque — útil para fragmentos largos
+   o para deshabilitar código temporalmente.
+   No se anidan: /* esto */ rompería el comentario externo.
+*/
+
+func main() {
+    // Calcula el área del rectángulo
+    width := 10
+    height := 5
+    area := width * height // cálculo en una sola línea
+
+    fmt.Println(area)
+}
+`
+    }
+  ]}
+  output={"50"}
+/>
+
+<Callout variant="tip" title="Línea sobre bloque">
+La convención idiomática en Go es preferir `//` incluso para comentarios de varias líneas. `gofmt` no reformatea comentarios de bloque, así que su uso queda reservado para casos especiales como cabeceras de licencia o código deshabilitado.
+</Callout>
+
+</Section>
+
+<Section id="doc-comments" title="Doc comments: documentación que se publica">
+
+En Go, los comentarios **inmediatamente antes** de una declaración exportada (que empieza por mayúscula) son tratados como documentación oficial. La convención: empezar con el nombre del identificador documentado.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package geometry
+
+// Circle representa un círculo en el plano con un radio dado.
+type Circle struct {
+    Radius float64
+}
+
+// Area devuelve el área del círculo aplicando π·r².
+// Retorna 0 si el radio es negativo.
+func (c Circle) Area() float64 {
+    if c.Radius < 0 {
+        return 0
+    }
+    return 3.14159 * c.Radius * c.Radius
+}
+
+// MaxRadius define el radio máximo soportado por la librería.
+const MaxRadius = 1000.0
+`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="Identificadores exportados empiezan con mayúscula">
+En Go, la visibilidad se decide por la primera letra: `Area` es exportado (visible fuera del paquete), `area` es privado. Solo los identificadores exportados aparecen en la documentación pública.
+</Callout>
+
+Buenas prácticas para doc comments:
+
+- Empezar con el nombre del identificador: `Area devuelve...`, no `Devuelve el área...`.
+- Describir el comportamiento y los casos límite (errores, valores especiales).
+- Una línea en blanco entre párrafos para separar secciones en el HTML generado.
+- Líneas indentadas con tab → se renderizan como bloque de código.
+
+</Section>
+
+<Section id="gofmt-goimports" title="gofmt y goimports">
+
+`gofmt` es el formateador oficial de Go, incluido con la toolchain. Aplica un estilo único e inmutable: indentación con tabs, llaves en la misma línea, espacios canónicos. **No es configurable** — esa es justamente su virtud.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `// Antes de gofmt — código con formato libre
+package main
+import"fmt"
+func main(){
+x:=10
+    y :=  20
+fmt .Println( x+y )
+}
+
+// Después de gofmt — un único estilo, indentación con tabs
+package main
+
+import "fmt"
+
+func main() {
+    x := 10
+    y := 20
+    fmt.Println(x + y)
+}
+`
+    }
+  ]}
+/>
+
+Comandos clave:
+
+- `gofmt -w archivo.go` — reformatea el archivo in-place.
+- `gofmt -d archivo.go` — muestra el diff sin escribir.
+- `go fmt ./...` — formatea todo el módulo.
+- `goimports -w archivo.go` — además de formatear, **añade/quita imports** automáticamente.
+
+<Callout variant="tip" title="Integra goimports en el editor">
+Casi cualquier editor (VS Code, GoLand, Neovim, Zed) puede correr `goimports` al guardar. Una vez configurado, dejas de pensar en imports y formato: el editor lo hace por ti antes de cada commit.
+</Callout>
+
+</Section>
+
+<Section id="godoc" title="godoc y go doc: documentación que vive con el código">
+
+La toolchain de Go incluye dos comandos para leer documentación:
+
+- `go doc paquete.Identificador` — imprime la doc en la terminal.
+- `pkgsite` (o el antiguo `godoc`) — sirve un servidor web con toda la documentación HTML de un módulo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `# Documentación de un paquete completo
+$ go doc fmt
+package fmt // import "fmt"
+
+Package fmt implements formatted I/O with functions analogous
+to C's printf and scanf...
+
+# Documentación de un identificador concreto
+$ go doc fmt.Println
+func Println(a ...any) (n int, err error)
+    Println formats using the default formats for its operands
+    and writes to standard output...
+
+# Documentación de un paquete propio
+$ go doc ./geometry Circle.Area
+func (c Circle) Area() float64
+    Area devuelve el área del círculo aplicando π·r².
+    Retorna 0 si el radio es negativo.
+
+# Servidor web local con toda la documentación
+$ go install golang.org/x/pkgsite/cmd/pkgsite@latest
+$ pkgsite -open
+# Abre http://localhost:8080 con la doc renderizada
+`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="pkg.go.dev publica tus doc comments">
+Si tu módulo está en un repositorio público (GitHub, GitLab), [pkg.go.dev](https://pkg.go.dev) indexa automáticamente sus doc comments y los publica en línea. Eso significa que cada `//` que escribes encima de una función exportada termina siendo la documentación oficial para cualquiera que importe tu librería.
+</Callout>
+
+</Section>

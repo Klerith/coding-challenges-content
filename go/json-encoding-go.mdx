@@ -1,0 +1,250 @@
+---
+title: "`encoding/json`: struct tags, `Marshal` y `Unmarshal`"
+short: "encoding/json"
+chapter: "09"
+num: "02"
+chapterTitle: "Stdlib y herramientas"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "JSON es el formato universal de las APIs. Go incluye `encoding/json` en la librería estándar y resuelve la conversión entre structs y JSON de forma declarativa, usando struct tags."
+pro: false
+---
+
+<Section id="marshal" title="`Marshal`: de struct a JSON">
+
+`json.Marshal` recibe cualquier valor de Go y devuelve sus bytes en formato JSON. Funciona con structs, slices, maps, y tipos básicos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "marshal.go",
+      code: `package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type User struct {
+    Name  string
+    Email string
+    Age   int
+}
+
+func main() {
+    u := User{Name: "Ada", Email: "ada@example.com", Age: 36}
+
+    data, err := json.Marshal(u)
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Println(string(data))
+}
+`
+    }
+  ]}
+  output={`{"Name":"Ada","Email":"ada@example.com","Age":36}`}
+/>
+
+Por defecto, las claves del JSON son los nombres del campo en Go. Para personalizarlas, se usan **struct tags**.
+
+<Callout variant="warn" title="Campos exportados solamente">
+`encoding/json` solo serializa campos **exportados** (los que empiezan con mayúscula). Un campo `name string` (minúscula) será ignorado por completo en `Marshal` y `Unmarshal`, sin error ni warning.
+</Callout>
+
+</Section>
+
+<Section id="struct-tags" title="Struct tags: controlar la salida">
+
+Las struct tags son strings entre backticks que se anotan junto al tipo del campo. La librería las lee por reflexión.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "tags.go",
+      code: `package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type User struct {
+    Name     string \`json:"name"\`
+    Email    string \`json:"email"\`
+    Age      int    \`json:"age,omitempty"\`
+    Password string \`json:"-"\`
+}
+
+func main() {
+    u := User{
+        Name:     "Ada",
+        Email:    "ada@example.com",
+        Password: "secret123",
+        // Age omitido → vale 0
+    }
+
+    data, _ := json.Marshal(u)
+    fmt.Println(string(data))
+}
+`
+    }
+  ]}
+  output={`{"name":"Ada","email":"ada@example.com"}`}
+/>
+
+Las tres tags más usadas:
+
+- `json:"name"` — renombra la clave en el JSON.
+- `json:",omitempty"` — omite el campo si su valor es el **zero value** del tipo (`0`, `""`, `nil`, `false`).
+- `json:"-"` — ignora el campo en ambas direcciones. Útil para passwords, tokens y campos internos.
+
+<Callout variant="info" title="Combinando tags">
+Se pueden combinar nombre y opciones: `json:"age,omitempty"` renombra a `age` **y** omite si es cero. La coma sin nombre (`json:",omitempty"`) mantiene el nombre del campo Go.
+</Callout>
+
+</Section>
+
+<Section id="indent" title="Salida formateada con `MarshalIndent`">
+
+Para JSON legible (logs, debugging, archivos de configuración), usa `MarshalIndent`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "indent.go",
+      code: `package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type Product struct {
+    ID    int     \`json:"id"\`
+    Name  string  \`json:"name"\`
+    Price float64 \`json:"price"\`
+}
+
+func main() {
+    p := Product{ID: 1, Name: "Teclado", Price: 49.99}
+
+    // prefix = "", indent = "  " (dos espacios)
+    data, _ := json.MarshalIndent(p, "", "  ")
+    fmt.Println(string(data))
+}
+`
+    }
+  ]}
+  output={`{
+  "id": 1,
+  "name": "Teclado",
+  "price": 49.99
+}`}
+/>
+
+</Section>
+
+<Section id="unmarshal" title="`Unmarshal`: de JSON a struct">
+
+La operación inversa: recibe bytes JSON y los escribe en un puntero al destino.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "unmarshal.go",
+      code: `package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type User struct {
+    Name  string \`json:"name"\`
+    Email string \`json:"email"\`
+    Age   int    \`json:"age"\`
+}
+
+func main() {
+    raw := []byte(\`{"name":"Ada","email":"ada@example.com","age":36}\`)
+
+    var u User
+    if err := json.Unmarshal(raw, &u); err != nil {
+        panic(err)
+    }
+
+    fmt.Printf("%+v\\n", u)
+}
+`
+    }
+  ]}
+  output={`{Name:Ada Email:ada@example.com Age:36}`}
+/>
+
+Notas importantes:
+
+- El segundo argumento es **siempre un puntero** (`&u`). Sin él, `Unmarshal` no puede modificar el valor.
+- Campos del JSON que no existen en la struct se ignoran silenciosamente.
+- Campos de la struct que no aparecen en el JSON quedan con su **zero value**.
+
+</Section>
+
+<Section id="map-string-any" title="JSON dinámico: `map[string]any`">
+
+Cuando no conoces el shape del JSON de antemano (APIs flexibles, configuración variable), puedes deserializar a un `map[string]any` (alias de `map[string]interface{}` desde Go 1.18).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "dynamic.go",
+      code: `package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+func main() {
+    raw := []byte(\`{
+        "name": "Ada",
+        "age": 36,
+        "skills": ["go", "math"],
+        "active": true
+    }\`)
+
+    var data map[string]any
+    if err := json.Unmarshal(raw, &data); err != nil {
+        panic(err)
+    }
+
+    // Hay que hacer type assertion para usar los valores:
+    name := data["name"].(string)
+    age := data["age"].(float64) // todos los números → float64
+    skills := data["skills"].([]any)
+
+    fmt.Println(name, int(age), skills)
+}
+`
+    }
+  ]}
+  output={`Ada 36 [go math]`}
+/>
+
+<Callout variant="warn" title="Números siempre float64">
+Al deserializar a `any`, **todos los números** se convierten a `float64`, incluso si en el JSON parecen enteros. Si necesitas un `int`, haz cast: `int(data["age"].(float64))`.
+</Callout>
+
+Para producción, prefiere siempre structs concretos: son más rápidos, type-safe y autodocumentan el contrato de tu API. `map[string]any` es la salida de emergencia.
+
+</Section>

@@ -1,0 +1,272 @@
+---
+title: "`if`, `switch` y `type switch`"
+short: "if y switch"
+chapter: "03"
+num: "01"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go simplifica el control de flujo: el `if` admite una sentencia de inicialización, el `switch` no necesita `break` y existe un `type switch` para inspeccionar interfaces."
+pro: false
+---
+
+<Section id="if-basico" title="if, else if y else">
+
+El `if` de Go no usa paréntesis alrededor de la condición, pero sí requiere llaves obligatorias — incluso para una sola línea. La condición debe ser un `bool`: no hay conversiones implícitas desde enteros o strings.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	age := 20
+
+	if age >= 18 {
+		fmt.Println("mayor de edad")
+	} else if age >= 13 {
+		fmt.Println("adolescente")
+	} else {
+		fmt.Println("menor")
+	}
+
+	// ❌ No compila: la condición debe ser bool
+	// if age { ... }
+
+	// ✅ Las llaves son obligatorias, incluso en una línea
+	if age%2 == 0 {
+		fmt.Println("par")
+	}
+}
+`
+    }
+  ]}
+  output={"mayor de edad\npar"}
+/>
+
+</Section>
+
+<Section id="if-con-init" title="if con sentencia de inicialización">
+
+Una de las construcciones más idiomáticas de Go: declarar una variable dentro del propio `if`. Esa variable solo existe dentro del bloque `if/else`, lo que evita contaminar el scope exterior.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	// Patrón muy común: comprobar un error que solo se necesita dentro del if
+	if n, err := strconv.Atoi("42"); err == nil {
+		fmt.Println("parsed:", n)
+	} else {
+		fmt.Println("error:", err)
+	}
+
+	// n y err NO existen aquí fuera
+
+	// Otro caso típico: leer de un map con el "comma-ok"
+	users := map[string]int{"ana": 28, "luis": 35}
+	if age, ok := users["ana"]; ok {
+		fmt.Println("ana tiene", age)
+	}
+}
+`
+    }
+  ]}
+  output={"parsed: 42\nana tiene 28"}
+/>
+
+<Callout variant="tip" title="Scope acotado">
+La sentencia de inicialización del `if` es perfecta para `err`, valores devueltos por `comma-ok` o conversiones de tipo: la variable solo vive donde la necesitas.
+</Callout>
+
+</Section>
+
+<Section id="switch-con-expresion" title="switch con expresión">
+
+El `switch` de Go evalúa una expresión y compara contra cada `case`. La gran diferencia con C/Java: **no hay fall-through automático** — cada `case` rompe por defecto. Además, los `case` pueden listar varios valores separados por comas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func dayKind(day string) string {
+	switch day {
+	case "sat", "sun":
+		return "weekend"
+	case "mon", "tue", "wed", "thu", "fri":
+		return "weekday"
+	default:
+		return "unknown"
+	}
+}
+
+func main() {
+	fmt.Println(dayKind("sat"))   // weekend
+	fmt.Println(dayKind("wed"))   // weekday
+	fmt.Println(dayKind("xyz"))   // unknown
+
+	// Switch con inicialización (igual que el if)
+	switch hour := 14; {
+	case hour < 12:
+		fmt.Println("morning")
+	case hour < 18:
+		fmt.Println("afternoon")
+	default:
+		fmt.Println("evening")
+	}
+}
+`
+    }
+  ]}
+  output={"weekend\nweekday\nunknown\nafternoon"}
+/>
+
+</Section>
+
+<Section id="switch-sin-expresion" title="switch sin expresión (alternativa a if/else if)">
+
+Si omites la expresión, cada `case` se convierte en una condición booleana. Es la forma idiomática de reemplazar cadenas largas de `if/else if`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func grade(score int) string {
+	switch {
+	case score >= 90:
+		return "A"
+	case score >= 75:
+		return "B"
+	case score >= 60:
+		return "C"
+	default:
+		return "F"
+	}
+}
+
+func main() {
+	fmt.Println(grade(95))   // A
+	fmt.Println(grade(78))   // B
+	fmt.Println(grade(40))   // F
+}
+`
+    }
+  ]}
+  output={"A\nB\nF"}
+/>
+
+</Section>
+
+<Section id="fallthrough" title="fallthrough explícito">
+
+Cuando sí necesitas que un `case` continúe ejecutando el siguiente, usa la palabra clave `fallthrough`. Pasa al siguiente `case` **sin** volver a evaluar su condición.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	n := 1
+	switch n {
+	case 1:
+		fmt.Println("uno")
+		fallthrough
+	case 2:
+		fmt.Println("dos (alcanzado por fallthrough)")
+	case 3:
+		fmt.Println("tres (NO se ejecuta)")
+	}
+}
+`
+    }
+  ]}
+  output={"uno\ndos (alcanzado por fallthrough)"}
+/>
+
+<Callout variant="warn" title="Úsalo con moderación">
+`fallthrough` es raro en Go idiomático. Si lo necesitas a menudo, probablemente sea más claro agrupar valores con `case a, b:` o reestructurar la lógica.
+</Callout>
+
+</Section>
+
+<Section id="type-switch" title="type switch: inspeccionar interfaces">
+
+Cuando trabajas con una interfaz (típicamente `interface{}` o `any`), el `type switch` te permite ramificar según el tipo dinámico del valor. La variable `v` queda tipada en cada rama.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func describe(x any) string {
+	switch v := x.(type) {
+	case nil:
+		return "nil"
+	case int:
+		return fmt.Sprintf("int: %d", v*2)
+	case string:
+		return fmt.Sprintf("string de %d chars", len(v))
+	case []int:
+		return fmt.Sprintf("slice de %d ints", len(v))
+	case bool, float64:
+		// Múltiples tipos: v queda como any aquí
+		return fmt.Sprintf("bool o float64: %v", v)
+	default:
+		return fmt.Sprintf("tipo desconocido: %T", v)
+	}
+}
+
+func main() {
+	fmt.Println(describe(7))
+	fmt.Println(describe("hola"))
+	fmt.Println(describe([]int{1, 2, 3}))
+	fmt.Println(describe(3.14))
+	fmt.Println(describe(nil))
+}
+`
+    }
+  ]}
+  output={"int: 14\nstring de 4 chars\nslice de 3 ints\nbool o float64: 3.14\nnil"}
+/>
+
+<Callout variant="info" title="x.(type) solo dentro del switch">
+La sintaxis `x.(type)` únicamente puede aparecer como expresión de un `switch`. Para comprobar un solo tipo, usa la aserción `v, ok := x.(int)`.
+</Callout>
+
+</Section>

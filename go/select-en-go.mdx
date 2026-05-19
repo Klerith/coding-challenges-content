@@ -1,0 +1,236 @@
+---
+title: "`select`: multiplexar canales, `default` y timeouts"
+short: "select"
+chapter: "08"
+num: "03"
+chapterTitle: "Concurrencia"
+difficulty: "advanced"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "select es el switch para canales. Permite esperar a que cualquiera de varias operaciones de canal esté lista — el corazón de la concurrencia idiomática en Go."
+pro: false
+---
+
+<Section id="que-es-select" title="¿Qué hace select?">
+
+`select` bloquea hasta que uno de sus `case` esté listo (un envío o recepción que no bloquearía). Si varios están listos a la vez, elige uno **al azar**. Si ninguno está listo y hay `default`, ejecuta el `default` sin bloquear.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	ch1 := make(chan string)
+	ch2 := make(chan string)
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		ch1 <- "desde ch1"
+	}()
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		ch2 <- "desde ch2"
+	}()
+
+	// Esperamos al primero que llegue
+	select {
+	case v := <-ch1:
+		fmt.Println("ganó ch1:", v)
+	case v := <-ch2:
+		fmt.Println("ganó ch2:", v)
+	}
+}`
+    }
+  ]}
+  output={"ganó ch1: desde ch1"}
+/>
+
+</Section>
+
+<Section id="envio-y-recepcion" title="Mezclar envíos y recepciones">
+
+Cada `case` puede ser un envío (`ch <- v`) o una recepción (`v := <-ch`). `select` los considera todos a la vez.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	entrada := make(chan int, 1)
+	salida := make(chan int, 1)
+
+	entrada <- 7 // dejamos un valor listo para recibir
+
+	select {
+	case v := <-entrada:
+		fmt.Println("recibido de entrada:", v)
+	case salida <- 99:
+		fmt.Println("enviado a salida")
+	}
+}`
+    }
+  ]}
+  output={"recibido de entrada: 7"}
+/>
+
+<Callout variant="info" title="Elección aleatoria">
+Cuando varios `case` están listos al mismo tiempo, el runtime elige uno pseudoaleatoriamente. Esto evita inanición (que un canal nunca se atienda) y obliga a no asumir orden de prioridad. Si necesitas prioridad, anida un `select` con `default`.
+</Callout>
+
+</Section>
+
+<Section id="default" title="default: select no bloqueante">
+
+Con `default`, `select` no bloquea: si ningún canal está listo, ejecuta el bloque por defecto. Sirve para hacer envíos/recepciones oportunistas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	ch := make(chan int, 1)
+
+	// Envío no bloqueante: si el canal está lleno, descarta
+	select {
+	case ch <- 1:
+		fmt.Println("enviado 1")
+	default:
+		fmt.Println("canal lleno, descartamos")
+	}
+
+	// Segundo intento: el buffer ya está lleno
+	select {
+	case ch <- 2:
+		fmt.Println("enviado 2")
+	default:
+		fmt.Println("canal lleno, descartamos")
+	}
+
+	// Recepción no bloqueante
+	select {
+	case v := <-ch:
+		fmt.Println("recibido:", v)
+	default:
+		fmt.Println("nada que recibir")
+	}
+}`
+    }
+  ]}
+  output={"enviado 1\ncanal lleno, descartamos\nrecibido: 1"}
+/>
+
+</Section>
+
+<Section id="timeout" title="Timeouts con time.After">
+
+`time.After(d)` devuelve un `<-chan Time` que recibe un valor pasados `d` nanosegundos. Combinado con `select` da timeouts elegantes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func consulta() <-chan string {
+	out := make(chan string)
+	go func() {
+		time.Sleep(2 * time.Second) // simula trabajo lento
+		out <- "resultado"
+	}()
+	return out
+}
+
+func main() {
+	select {
+	case r := <-consulta():
+		fmt.Println("respuesta:", r)
+	case <-time.After(500 * time.Millisecond):
+		fmt.Println("timeout: la consulta tardó demasiado")
+	}
+}`
+    }
+  ]}
+  output={"timeout: la consulta tardó demasiado"}
+/>
+
+<Callout variant="warn" title="time.After tiene coste">
+Cada llamada a `time.After` crea un timer que vive hasta vencer aunque ya no te interese. Dentro de bucles muy frecuentes usa `time.NewTimer` y `Stop()` para reciclarlo, o mejor aún `context.WithTimeout` (capítulo siguiente).
+</Callout>
+
+</Section>
+
+<Section id="bucle-cancelacion" title="Bucle con canal de cancelación">
+
+Un patrón muy frecuente: una goroutine trabaja en bucle hasta que su canal de cancelación recibe algo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func trabajador(done <-chan struct{}) {
+	tick := time.Tick(100 * time.Millisecond)
+	for {
+		select {
+		case <-tick:
+			fmt.Println("trabajando...")
+		case <-done:
+			fmt.Println("recibí cancelación, salgo")
+			return
+		}
+	}
+}
+
+func main() {
+	done := make(chan struct{})
+	go trabajador(done)
+
+	time.Sleep(350 * time.Millisecond)
+	close(done) // cerrar es la forma idiomática de "broadcast"
+	time.Sleep(50 * time.Millisecond)
+}`
+    }
+  ]}
+  output={"trabajando...\ntrabajando...\ntrabajando...\nrecibí cancelación, salgo"}
+/>
+
+<Callout variant="tip" title="Cerrar canal = señal broadcast">
+Cerrar un canal `done` notifica a todas las goroutines que escuchan `<-done` al mismo tiempo: una recepción de canal cerrado nunca bloquea. Es la base de la cancelación con `context.Context`.
+</Callout>
+
+</Section>

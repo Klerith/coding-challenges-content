@@ -1,0 +1,177 @@
+---
+title: "`any`, type assertions y `type switch`"
+short: "any y type assertions"
+chapter: "06"
+num: "02"
+chapterTitle: "Interfaces"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "`any` es una interfaz vacía que acepta cualquier valor. Para recuperar el tipo concreto necesitas una type assertion o un type switch — y conviene saber cuándo evitarlas."
+pro: false
+---
+
+<Section id="any-es-interface-vacia" title="`any` es la interfaz vacía">
+
+Desde Go 1.18, `any` es un alias del tipo `interface{}` — una interfaz sin métodos. Como cualquier tipo tiene cero o más métodos, cualquier tipo satisface `interface{}`. Es la forma idiomática actual de aceptar valores arbitrarios.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// describe acepta cualquier valor
+func describe(x any) {
+	fmt.Printf("type=%T value=%v\\n", x, x)
+}
+
+func main() {
+	describe(42)
+	describe("hola")
+	describe(3.14)
+	describe([]int{1, 2, 3})
+
+	// any y interface{} son el mismo tipo
+	var a any = "x"
+	var b interface{} = a
+	fmt.Println(b) // x
+}`
+    }
+  ]}
+  output={"type=int value=42\ntype=string value=hola\ntype=float64 value=3.14\ntype=[]int value=[1 2 3]\nx"}
+/>
+
+</Section>
+
+<Section id="type-assertion" title="Type assertion: `v, ok := x.(T)`">
+
+Para extraer el valor concreto desde un `any` se usa una **type assertion**. La forma con dos retornos (`v, ok`) nunca falla: si el tipo no coincide, `ok` es `false` y `v` es el valor cero.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	var x any = "hola Go"
+
+	// Forma segura: dos valores, ok indica si tuvo éxito
+	if s, ok := x.(string); ok {
+		fmt.Println("es string:", s, "len=", len(s))
+	}
+
+	if n, ok := x.(int); ok {
+		fmt.Println("es int:", n)
+	} else {
+		fmt.Println("no era int, valor cero:", n)
+	}
+}`
+    }
+  ]}
+  output={"es string: hola Go len= 8\nno era int, valor cero: 0"}
+/>
+
+<Callout variant="warning" title="Sin `ok` hay panic">
+La forma `s := x.(string)` (un solo retorno) **panickea** si el tipo no coincide. Úsala solo cuando estés seguro del tipo concreto; en código defensivo prefiere siempre `v, ok := x.(T)`.
+</Callout>
+
+</Section>
+
+<Section id="type-switch" title="`type switch` para varios tipos">
+
+Cuando necesitas ramificar por tipo, un `type switch` es mucho más legible que una cadena de type assertions. La sintaxis especial `x.(type)` solo se permite dentro de `switch`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func describe(x any) string {
+	switch v := x.(type) {
+	case int:
+		return fmt.Sprintf("int: %d (doble = %d)", v, v*2)
+	case string:
+		return fmt.Sprintf("string: %q (len = %d)", v, len(v))
+	case []int:
+		return fmt.Sprintf("[]int con %d elementos", len(v))
+	case nil:
+		return "nil"
+	default:
+		return fmt.Sprintf("tipo desconocido: %T", v)
+	}
+}
+
+func main() {
+	for _, x := range []any{1, "go", []int{1, 2}, 3.14, nil} {
+		fmt.Println(describe(x))
+	}
+}`
+    }
+  ]}
+  output={"int: 1 (doble = 2)\nstring: \"go\" (len = 2)\n[]int con 2 elementos\ntipo desconocido: float64\nnil"}
+/>
+
+</Section>
+
+<Section id="cuando-evitar-any" title="Cuándo evitar `any`">
+
+`any` es útil para librerías generales (`fmt.Println`, `json.Unmarshal`, contenedores genéricos), pero abusar de él convierte tu código en un Python sin tipos: pierdes la ayuda del compilador. Antes de usarlo, pregúntate:
+
+- ¿Puedo declarar una **interfaz pequeña** con el método que necesito? Casi siempre sí.
+- ¿Puedo usar **generics** (Go 1.18+) para preservar el tipo? Si el tipo es uniforme, sí.
+- ¿Estoy haciendo type switch en muchos sitios? Es una señal de diseño OOP forzado — refactoriza a interfaz con métodos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// MAL: any obliga a type switch en cada uso
+func areaAny(x any) float64 {
+	switch v := x.(type) {
+	case float64:
+		return v * v
+	default:
+		_ = v
+		return 0
+	}
+}
+
+// BIEN: interfaz pequeña, polimorfismo natural
+type Shape interface {
+	Area() float64
+}
+
+type Square struct{ Side float64 }
+
+func (s Square) Area() float64 { return s.Side * s.Side }
+
+func main() {
+	fmt.Println(areaAny(3.0))      // 9
+	fmt.Println(Square{3}.Area())  // 9
+}`
+    }
+  ]}
+  output={"9\n9"}
+/>
+
+</Section>

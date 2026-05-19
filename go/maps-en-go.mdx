@@ -1,0 +1,197 @@
+---
+title: "Maps: declaración, idiom `ok` y eliminación"
+short: "Maps"
+chapter: "05"
+num: "02"
+chapterTitle: "Composición de datos"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Los maps de Go son tablas hash con sintaxis ligera. Aprenderás a declararlos con `make`, distinguir clave ausente de valor zero con el idiom `ok`, y por qué el orden de iteración nunca está garantizado."
+pro: false
+---
+
+<Section id="declarar-map" title="Declarar un map">
+
+Un map asocia claves de un tipo a valores de otro tipo. La declaración `var m map[string]int` crea un map `nil` — leer está permitido, pero **escribir provoca panic**. Para uso real, inicialízalo con `make` o con un literal.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // map nil — válido para leer, pero NO para escribir
+    var ages map[string]int
+    fmt.Println(ages == nil) // true
+    fmt.Println(ages["x"])   // 0  — leer un map nil retorna zero value
+
+    // make: la forma idiomática de crear un map vacío
+    scores := make(map[string]int)
+    scores["ana"] = 10
+    scores["bob"] = 7
+    fmt.Println(scores) // map[ana:10 bob:7]
+
+    // Literal: claves y valores en la declaración
+    capitals := map[string]string{
+        "España":  "Madrid",
+        "Francia": "París",
+        "Japón":   "Tokio",
+    }
+    fmt.Println(capitals["España"])  // Madrid
+    fmt.Println(len(capitals))       // 3
+}`
+    }
+  ]}
+  output={"true\n0\nmap[ana:10 bob:7]\nMadrid\n3"}
+/>
+
+<Callout variant="warn" title="Escribir en un map nil hace panic">
+`var m map[string]int; m["k"] = 1` lanza `panic: assignment to entry in nil map`. Siempre inicializa con `make` o con un literal antes de escribir.
+</Callout>
+
+</Section>
+
+<Section id="lectura-y-idiom-ok" title="Lectura: el idiom `v, ok`">
+
+Leer una clave que no existe retorna el zero value del tipo. Eso significa que en `map[string]int`, no puedes distinguir "clave ausente" de "valor `0`". El idiom `v, ok := m[key]` resuelve la ambigüedad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    scores := map[string]int{
+        "ana": 0,
+        "bob": 7,
+    }
+
+    // Acceso simple — no distingue ausente de zero
+    fmt.Println(scores["ana"])  // 0  — ¿valor real o ausente?
+    fmt.Println(scores["zoe"])  // 0  — clave NO existe
+
+    // Idiom de dos retornos: v es el valor, ok dice si la clave existía
+    v, ok := scores["ana"]
+    fmt.Println(v, ok)  // 0 true   — ana existe y vale 0
+
+    v, ok = scores["zoe"]
+    fmt.Println(v, ok)  // 0 false  — zoe NO existe
+
+    // Patrón típico: solo procesar si la clave existe
+    if score, ok := scores["bob"]; ok {
+        fmt.Println("Bob tiene", score, "puntos")
+    }
+}`
+    }
+  ]}
+  output={"0\n0\n0 true\n0 false\nBob tiene 7 puntos"}
+/>
+
+</Section>
+
+<Section id="delete-y-len" title="delete y len">
+
+`delete(m, k)` elimina una clave del map. Es seguro llamarlo con una clave que no existe — no hace nada. `len(m)` devuelve el número de entradas actuales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    inventory := map[string]int{
+        "manzanas": 10,
+        "peras":    5,
+        "uvas":     20,
+    }
+    fmt.Println(len(inventory)) // 3
+
+    // Eliminar una clave existente
+    delete(inventory, "peras")
+    fmt.Println(inventory)       // map[manzanas:10 uvas:20]
+    fmt.Println(len(inventory))  // 2
+
+    // Eliminar una clave que no existe — seguro, no hace nada
+    delete(inventory, "no-existe")
+    fmt.Println(len(inventory))  // 2
+
+    // Vaciar un map: iterar y borrar (Go 1.21+ tiene clear(m))
+    for k := range inventory {
+        delete(inventory, k)
+    }
+    fmt.Println(len(inventory))  // 0
+}`
+    }
+  ]}
+  output={"3\nmap[manzanas:10 uvas:20]\n2\n2\n0"}
+/>
+
+</Section>
+
+<Section id="range-orden-no-garantizado" title="range sobre maps: orden no garantizado">
+
+El orden de iteración en un map **no está garantizado** y puede cambiar entre ejecuciones. Es deliberado: evita que el código dependa accidentalmente del orden interno de la tabla hash. Si necesitas un orden, extrae las claves a un slice y ordénalo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "sort"
+)
+
+func main() {
+    scores := map[string]int{
+        "ana": 10,
+        "bob": 7,
+        "eve": 15,
+    }
+
+    // range devuelve clave y valor — en orden aleatorio
+    for name, score := range scores {
+        fmt.Println(name, score)
+    }
+
+    fmt.Println("---")
+
+    // Para iterar en orden, extrae las claves y ordénalas
+    keys := make([]string, 0, len(scores))
+    for k := range scores {
+        keys = append(keys, k)
+    }
+    sort.Strings(keys)
+
+    for _, k := range keys {
+        fmt.Println(k, scores[k])
+    }
+}`
+    }
+  ]}
+  output={"ana 10\nbob 7\neve 15\n---\nana 10\nbob 7\neve 15"}
+/>
+
+<Callout variant="info" title="No se puede tomar la dirección de un valor en un map">
+`&m["k"]` es un error de compilación. El motivo es que el map puede reorganizar su memoria al crecer y los punteros quedarían inválidos. Si necesitas mutar un valor complejo, usa `map[K]*V` (punteros) o lee, modifica y reasigna.
+</Callout>
+
+</Section>

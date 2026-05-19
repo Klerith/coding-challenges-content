@@ -1,0 +1,196 @@
+---
+title: "Introducción a Go: el lenguaje que prioriza la simplicidad"
+short: "Introducción a Go"
+chapter: "01"
+num: "01"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go nació en Google en 2007 para resolver un problema concreto: compilar rápido, ejecutar rápido y escribir código que cualquier persona del equipo pueda leer sin esfuerzo."
+pro: false
+---
+
+<Section id="que-es-go" title="¿Qué es Go?">
+
+Go (también llamado Golang) es un lenguaje de programación compilado, de tipado estático y con recolector de basura. Fue creado en Google por Robert Griesemer, Rob Pike y Ken Thompson en 2007, y publicado como software libre en 2009.
+
+Su diseño tiene una meta muy clara: que un equipo grande pueda mantener un sistema grande sin que la complejidad se vuelva ingobernable.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    names := []string{"Ana", "Carlos", "Beatriz"}
+
+    for _, name := range names {
+        fmt.Printf("Hola, %s!\\n", name)
+    }
+}
+`
+    }
+  ]}
+  output={"Hola, Ana!\nHola, Carlos!\nHola, Beatriz!"}
+/>
+
+Comparado con Java o C++, Go elimina herencia, genéricos complejos, sobrecarga de operadores y ficheros de cabecera. El resultado es un lenguaje pequeño que puedes aprender en pocos días y leer sin sorpresas.
+
+<Callout variant="info" title="La filosofía de Go">
+Rob Pike resume el lenguaje en una frase: *«Less is exponentially more»*. Go prefiere una forma evidente de hacer las cosas en vez de varias formas «inteligentes». Por eso solo hay un formateador oficial (`gofmt`), una estructura de proyecto recomendada y una convención de nombres aceptada por todo el ecosistema.
+</Callout>
+
+</Section>
+
+<Section id="caracteristicas-clave" title="Características clave">
+
+Estas son las decisiones de diseño que definen a Go:
+
+**1. Compilación a binario nativo**
+
+Go compila directamente a un único ejecutable estático. No necesita máquina virtual ni intérprete. El binario incluye todo lo necesario para correr.
+
+**2. Tipado estático con inferencia**
+
+El tipo se infiere cuando es obvio (`x := 10`), pero está chequeado en tiempo de compilación. Los errores de tipo no llegan a producción.
+
+**3. Concurrencia como ciudadano de primera clase**
+
+Las *goroutines* y los *channels* hacen que escribir código concurrente sea natural. Lanzar mil tareas en paralelo cuesta una palabra clave: `go`.
+
+**4. Recolector de basura**
+
+No gestionas memoria manualmente como en C. Pero el GC de Go está diseñado para pausas muy cortas (menos de 1 ms en la mayoría de cargas).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "time"
+)
+
+func task(id int) {
+    fmt.Printf("Tarea %d empieza\\n", id)
+    time.Sleep(100 * time.Millisecond)
+    fmt.Printf("Tarea %d termina\\n", id)
+}
+
+func main() {
+    // Lanzar 3 tareas concurrentes con la palabra "go"
+    for i := 1; i <= 3; i++ {
+        go task(i)
+    }
+
+    // Esperamos a que terminen
+    time.Sleep(200 * time.Millisecond)
+}
+`
+    }
+  ]}
+/>
+
+**5. Standard library potente**
+
+La librería estándar trae servidor HTTP, JSON, criptografía, testing y mucho más, todo listo para usar sin dependencias externas.
+
+</Section>
+
+<Section id="donde-se-usa" title="¿Dónde se usa Go?">
+
+Go domina el espacio de la infraestructura moderna. Si has usado contenedores, orquestadores o herramientas de CLI recientes, probablemente estás usando Go sin saberlo.
+
+**Infraestructura y DevOps**
+Docker, Kubernetes, Terraform, Prometheus, Grafana, etcd. Casi toda la nube moderna está escrita en Go.
+
+**Backends y microservicios**
+Empresas como Uber, Twitch, Cloudflare, Dropbox y Monzo migraron servicios críticos a Go por su rendimiento y bajo consumo de memoria.
+
+**Herramientas CLI**
+La GitHub CLI (`gh`), `hugo`, `cobra` y muchas otras CLIs populares están escritas en Go. Compilar a un solo binario portable es ideal para distribuir herramientas.
+
+**Sistemas distribuidos y bases de datos**
+CockroachDB, InfluxDB, NATS y TiDB usan Go para aprovechar su modelo de concurrencia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "net/http"
+)
+
+// Un servidor HTTP completo en 10 líneas, sin dependencias
+func main() {
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintln(w, "Hola desde Go")
+    })
+
+    fmt.Println("Servidor en http://localhost:8080")
+    // http.ListenAndServe(":8080", nil)
+}
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Go no es solo backend">
+Aunque brilla en backends y herramientas de sistema, Go también se usa para CLIs multiplataforma, bots, scrapers y procesos batch. Cualquier programa que valore arranque instantáneo y un binario distribuible es buen candidato.
+</Callout>
+
+</Section>
+
+<Section id="go-hoy" title="Go hoy: versiones y estado actual">
+
+Go sigue una política de compatibilidad fuerte: el código escrito hoy seguirá compilando con versiones futuras. Esto convierte a Go en una apuesta segura para proyectos a largo plazo.
+
+**Hitos importantes:**
+- **Go 1.11** (2018) — Introdujo *modules*, el sistema actual de gestión de dependencias.
+- **Go 1.18** (2022) — Añadió *generics*, una de las características más esperadas.
+- **Go 1.21** (2023) — Funciones built-in `min`, `max`, `clear` y mejoras de toolchain.
+- **Go 1.22+** — Mejoras de rendimiento en el runtime y nuevo enrutador HTTP.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "runtime"
+)
+
+func main() {
+    fmt.Println("Versión de Go:", runtime.Version())
+    fmt.Println("Sistema operativo:", runtime.GOOS)
+    fmt.Println("Arquitectura:", runtime.GOARCH)
+}
+`
+    }
+  ]}
+  output={"Versión de Go: go1.22.0\nSistema operativo: darwin\nArquitectura: arm64"}
+/>
+
+<Callout variant="warn" title="No confundas Go con GoLang antiguo">
+Antes de Go 1.11 había un sistema basado en `GOPATH` que obligaba a guardar todo el código en un único directorio. Si encuentras tutoriales que hablan de `$GOPATH/src/github.com/...`, son anteriores a *modules* y están desactualizados.
+</Callout>
+
+</Section>

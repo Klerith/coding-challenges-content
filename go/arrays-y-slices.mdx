@@ -1,0 +1,236 @@
+---
+title: "Arrays y slices: capacidad, longitud y `append`"
+short: "Arrays y slices"
+chapter: "05"
+num: "01"
+chapterTitle: "Composición de datos"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "En Go, los arrays tienen tamaño fijo como parte del tipo y los slices son la abstracción dinámica que usarás el 99% del tiempo. Entender cómo se relacionan evita bugs sutiles con `append` y memoria compartida."
+pro: false
+---
+
+<Section id="arrays-tamano-fijo" title="Arrays: tamaño fijo como parte del tipo">
+
+Un array en Go tiene un tamaño fijo que forma parte del tipo. `[5]int` y `[6]int` son tipos distintos y no se pueden asignar entre sí. Por eso, en código real, casi nunca usarás arrays directamente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Array de 5 enteros — el tamaño es parte del tipo
+    var numbers [5]int
+    fmt.Println(numbers) // [0 0 0 0 0] — valores zero por defecto
+
+    // Literal con valores iniciales
+    primes := [5]int{2, 3, 5, 7, 11}
+    fmt.Println(primes)        // [2 3 5 7 11]
+    fmt.Println(len(primes))   // 5
+
+    // Asignación: el array se COPIA entero, no se comparte
+    copy := primes
+    copy[0] = 99
+    fmt.Println(primes[0]) // 2  — el original no cambia
+    fmt.Println(copy[0])   // 99
+
+    // [...] deja al compilador contar los elementos
+    days := [...]string{"lun", "mar", "mié"}
+    fmt.Println(len(days)) // 3
+}`
+    }
+  ]}
+  output={"[0 0 0 0 0]\n[2 3 5 7 11]\n5\n2\n99\n3"}
+/>
+
+<Callout variant="info" title="El tamaño es parte del tipo">
+Una función que recibe `[5]int` no acepta `[6]int`. Por eso los arrays son rígidos: para colecciones de tamaño variable, usa siempre slices.
+</Callout>
+
+</Section>
+
+<Section id="slices-vista-sobre-array" title="Slices: una vista sobre un array">
+
+Un slice es una estructura ligera con tres campos: puntero al array subyacente, longitud (`len`) y capacidad (`cap`). Los slices se redimensionan con `append` y son el tipo idiomático para listas en Go.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Slice literal — sin tamaño en el tipo
+    primes := []int{2, 3, 5, 7, 11}
+    fmt.Println(primes)       // [2 3 5 7 11]
+    fmt.Println(len(primes))  // 5
+    fmt.Println(cap(primes))  // 5
+
+    // make: crea un slice con longitud y capacidad explícitas
+    buffer := make([]int, 3, 10)
+    fmt.Println(buffer)       // [0 0 0]
+    fmt.Println(len(buffer))  // 3
+    fmt.Println(cap(buffer))  // 10
+
+    // Slice nil — válido y útil
+    var empty []int
+    fmt.Println(empty == nil) // true
+    fmt.Println(len(empty))   // 0  — len y append funcionan en nil
+}`
+    }
+  ]}
+  output={"[2 3 5 7 11]\n5\n5\n[0 0 0]\n3\n10\ntrue\n0"}
+/>
+
+</Section>
+
+<Section id="append-crecimiento" title="append y crecimiento del slice">
+
+`append` añade elementos al final de un slice. Si la capacidad alcanza, escribe en el mismo array subyacente; si no, asigna un array nuevo más grande y copia los datos. Siempre debes reasignar el resultado.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    nums := make([]int, 0, 4)
+    fmt.Printf("inicio: len=%d cap=%d\\n", len(nums), cap(nums))
+
+    for i := 1; i <= 6; i++ {
+        nums = append(nums, i)
+        fmt.Printf("tras %d: len=%d cap=%d\\n", i, len(nums), cap(nums))
+    }
+    fmt.Println(nums)
+
+    // append acepta varios elementos
+    more := append(nums, 7, 8, 9)
+    fmt.Println(more)
+
+    // Concatenar dos slices con ...
+    a := []int{1, 2, 3}
+    b := []int{4, 5, 6}
+    combined := append(a, b...)
+    fmt.Println(combined)
+}`
+    }
+  ]}
+  output={"inicio: len=0 cap=4\ntras 1: len=1 cap=4\ntras 2: len=2 cap=4\ntras 3: len=3 cap=4\ntras 4: len=4 cap=4\ntras 5: len=5 cap=8\ntras 6: len=6 cap=8\n[1 2 3 4 5 6]\n[1 2 3 4 5 6 7 8 9]\n[1 2 3 4 5 6]"}
+/>
+
+<Callout variant="warn" title="Siempre reasigna el resultado de append">
+`append(s, x)` puede devolver un slice nuevo si reasigna memoria. Si escribes `append(s, x)` sin guardar el retorno, perderás los cambios. Lo idiomático es `s = append(s, x)`.
+</Callout>
+
+</Section>
+
+<Section id="slicing-y-array-compartido" title="Slicing y array subyacente compartido">
+
+`s[a:b]` crea un slice que comparte el array subyacente con `s`. Modificar uno afecta al otro mientras no se reasigne la memoria. Es la principal fuente de bugs sutiles con slices.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    base := []int{10, 20, 30, 40, 50}
+
+    // s apunta al mismo array que base, desde el índice 1 hasta el 3 (exclusivo)
+    s := base[1:3]
+    fmt.Println(s)        // [20 30]
+    fmt.Println(len(s))   // 2
+    fmt.Println(cap(s))   // 4 — desde el índice 1 hasta el final
+
+    // Modificar s muta base
+    s[0] = 999
+    fmt.Println(base)     // [10 999 30 40 50]
+
+    // append dentro de la capacidad también muta base
+    s = append(s, 777)
+    fmt.Println(s)        // [999 30 777]
+    fmt.Println(base)     // [10 999 30 777 50]  — ¡el 40 se sobreescribió!
+
+    // Para aislar, copia con make + copy
+    independent := make([]int, len(s))
+    copy(independent, s)
+    independent[0] = -1
+    fmt.Println(s)            // [999 30 777]   — sin cambios
+    fmt.Println(independent)  // [-1 30 777]
+}`
+    }
+  ]}
+  output={"[20 30]\n2\n4\n[10 999 30 40 50]\n[999 30 777]\n[10 999 30 777 50]\n[999 30 777]\n[-1 30 777]"}
+/>
+
+<Callout variant="tip" title="Usa copy para aislar slices">
+Cuando necesites un slice realmente independiente, usa `dst := make([]T, len(src)); copy(dst, src)`. Evita compartir memoria por accidente entre funciones o estructuras.
+</Callout>
+
+</Section>
+
+<Section id="iterar-y-recorrer" title="Iterar slices con range">
+
+`range` recorre un slice devolviendo índice y valor. El valor es siempre una copia — modificarlo dentro del bucle no afecta al slice original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    words := []string{"go", "es", "simple"}
+
+    // Índice y valor
+    for i, w := range words {
+        fmt.Printf("%d: %s\\n", i, w)
+    }
+
+    // Solo índice (omitir valor)
+    for i := range words {
+        fmt.Println(i)
+    }
+
+    // Modificar el valor de range NO modifica el slice
+    nums := []int{1, 2, 3}
+    for _, n := range nums {
+        n *= 10 // copia local — sin efecto
+    }
+    fmt.Println(nums) // [1 2 3]
+
+    // Para modificar, usa el índice
+    for i := range nums {
+        nums[i] *= 10
+    }
+    fmt.Println(nums) // [10 20 30]
+}`
+    }
+  ]}
+  output={"0: go\n1: es\n2: simple\n0\n1\n2\n[1 2 3]\n[10 20 30]"}
+/>
+
+</Section>

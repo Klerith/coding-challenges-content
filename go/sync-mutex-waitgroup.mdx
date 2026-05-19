@@ -1,0 +1,273 @@
+---
+title: "`sync.Mutex`, `sync.WaitGroup` y `sync.Once`"
+short: "sync.Mutex y WaitGroup"
+chapter: "08"
+num: "04"
+chapterTitle: "Concurrencia"
+difficulty: "advanced"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "El paquete sync ofrece primitivas clásicas de concurrencia: mutex para proteger estado compartido, WaitGroup para esperar a un grupo de goroutines, y Once para inicializar exactamente una vez."
+pro: false
+---
+
+<Section id="mutex" title="sync.Mutex: exclusión mutua">
+
+Cuando varias goroutines acceden a la misma variable y al menos una escribe, necesitas protegerla. `sync.Mutex` garantiza que solo una goroutine ejecute la sección crítica a la vez.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type Contador struct {
+	mu    sync.Mutex
+	valor int
+}
+
+func (c *Contador) Incrementar() {
+	c.mu.Lock()
+	defer c.mu.Unlock() // se libera al salir, incluso con panic
+	c.valor++
+}
+
+func (c *Contador) Valor() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.valor
+}
+
+func main() {
+	c := &Contador{}
+	var wg sync.WaitGroup
+
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.Incrementar()
+		}()
+	}
+	wg.Wait()
+
+	fmt.Println("valor final:", c.Valor())
+}`
+    }
+  ]}
+  output={"valor final: 1000"}
+/>
+
+<Callout variant="info" title="defer Unlock siempre">
+El patrón `mu.Lock(); defer mu.Unlock()` evita olvidar la liberación en caminos de error o panic. Si tu sección crítica es muy corta y conoces todos los caminos, puedes llamar `Unlock()` manualmente, pero el defer es la opción segura por defecto.
+</Callout>
+
+</Section>
+
+<Section id="rwmutex" title="sync.RWMutex: muchos lectores, un escritor">
+
+Cuando las lecturas son mucho más frecuentes que las escrituras, `sync.RWMutex` permite **múltiples lectores en paralelo** y exclusión solo entre escritores.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type Cache struct {
+	mu    sync.RWMutex
+	datos map[string]string
+}
+
+func (c *Cache) Get(k string) (string, bool) {
+	c.mu.RLock() // bloqueo de lectura: varias goroutines pueden leer
+	defer c.mu.RUnlock()
+	v, ok := c.datos[k]
+	return v, ok
+}
+
+func (c *Cache) Set(k, v string) {
+	c.mu.Lock() // bloqueo de escritura: exclusivo
+	defer c.mu.Unlock()
+	c.datos[k] = v
+}
+
+func main() {
+	cache := &Cache{datos: map[string]string{}}
+	cache.Set("user:1", "Ana")
+
+	v, _ := cache.Get("user:1")
+	fmt.Println("user:1 =", v)
+}`
+    }
+  ]}
+  output={"user:1 = Ana"}
+/>
+
+</Section>
+
+<Section id="waitgroup" title="sync.WaitGroup: esperar a un grupo">
+
+`sync.WaitGroup` cuenta goroutines pendientes. `Add(n)` suma al contador, `Done()` lo decrementa, `Wait()` bloquea hasta que llegue a cero.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+func trabajo(id int, wg *sync.WaitGroup) {
+	defer wg.Done() // decrementa al salir
+	time.Sleep(time.Duration(id*50) * time.Millisecond)
+	fmt.Printf("worker %d terminado\\n", id)
+}
+
+func main() {
+	var wg sync.WaitGroup
+
+	for i := 1; i <= 3; i++ {
+		wg.Add(1) // se llama ANTES de lanzar la goroutine
+		go trabajo(i, &wg)
+	}
+
+	wg.Wait()
+	fmt.Println("todos los workers terminaron")
+}`
+    }
+  ]}
+  output={"worker 1 terminado\nworker 2 terminado\nworker 3 terminado\ntodos los workers terminaron"}
+/>
+
+<Callout variant="warn" title="Add antes de go, Done con defer">
+Llama `wg.Add(1)` **antes** de lanzar la goroutine, no dentro: si lo haces dentro, `Wait()` podría empezar antes de que `Add` se ejecute. Y siempre pasa el `*WaitGroup` por puntero — copiarlo es un bug silencioso.
+</Callout>
+
+</Section>
+
+<Section id="once" title="sync.Once: ejecutar exactamente una vez">
+
+`sync.Once.Do(f)` garantiza que `f` se ejecute **una sola vez**, sin importar cuántas goroutines llamen `Do` ni cuántas veces. Las demás llamadas esperan a que la primera termine. Ideal para inicialización perezosa thread-safe.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type Config struct {
+	URL string
+}
+
+var (
+	once   sync.Once
+	config *Config
+)
+
+func cargarConfig() *Config {
+	once.Do(func() {
+		fmt.Println("cargando configuración (solo se ve una vez)")
+		config = &Config{URL: "https://api.ejemplo.com"}
+	})
+	return config
+}
+
+func main() {
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c := cargarConfig()
+			_ = c
+		}()
+	}
+	wg.Wait()
+	fmt.Println("URL:", cargarConfig().URL)
+}`
+    }
+  ]}
+  output={"cargando configuración (solo se ve una vez)\nURL: https://api.ejemplo.com"}
+/>
+
+</Section>
+
+<Section id="mutex-vs-canales" title="¿Mutex o canales?">
+
+El consejo idiomático de Go es **comunicar con canales** en lugar de **compartir memoria con locks**. Pero los mutex son perfectamente válidos — y a veces más simples — cuando el estado es local a una struct y solo necesitas proteger lecturas/escrituras puntuales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// ✅ Mutex es la opción simple y correcta para esto:
+type Counter struct {
+	mu sync.Mutex
+	n  int
+}
+
+func (c *Counter) Inc() {
+	c.mu.Lock()
+	c.n++
+	c.mu.Unlock()
+}
+
+// ✅ Canales encajan mejor cuando hay flujo de trabajo:
+//    - pipelines productor/consumidor
+//    - balanceo de tareas entre workers
+//    - propagar cancelación o eventos
+func main() {
+	c := &Counter{}
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); c.Inc() }()
+	}
+	wg.Wait()
+	fmt.Println("contador:", c.n)
+}`
+    }
+  ]}
+  output={"contador: 100"}
+/>
+
+<Callout variant="tip" title="Regla práctica">
+Usa **mutex** para proteger campos de una struct (estado encapsulado). Usa **canales** cuando el problema se modela como paso de mensajes entre goroutines. Mezclarlos está bien — el paquete `sync` y los canales son herramientas complementarias, no rivales.
+</Callout>
+
+</Section>

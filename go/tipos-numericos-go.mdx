@@ -1,0 +1,206 @@
+---
+title: "Tipos numéricos: enteros, flotantes y conversión explícita"
+short: "Tipos numéricos"
+chapter: "02"
+num: "02"
+chapterTitle: "Sintaxis y tipos básicos"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go ofrece un catálogo completo de tipos numéricos con tamaño explícito. A diferencia de otros lenguajes, nunca convierte tipos numéricos por ti — siempre tienes que pedir la conversión a mano."
+pro: false
+---
+
+<Section id="enteros" title="Enteros con y sin signo">
+
+Go ofrece enteros con tamaño explícito (`int8`, `int16`, `int32`, `int64`) y sin signo (`uint8`, `uint16`, `uint32`, `uint64`). Además, `int` y `uint` tienen el tamaño nativo del sistema (32 o 64 bits según la arquitectura).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "math"
+)
+
+func main() {
+    // Enteros con signo
+    var a int8 = -128            // rango: -128 a 127
+    var b int16 = 32_000         // guion bajo como separador visual
+    var c int32 = 2_000_000_000
+    var d int64 = 9_000_000_000_000
+
+    // Enteros sin signo — solo positivos
+    var e uint8 = 255            // rango: 0 a 255
+    var f uint32 = 4_000_000_000
+
+    // int e uint usan el tamaño nativo del sistema
+    var n int = 42
+
+    fmt.Println(a, b, c, d, e, f, n)
+
+    // Rango máximo de cada tipo
+    fmt.Println("int8 max:", math.MaxInt8)
+    fmt.Println("int64 max:", math.MaxInt64)
+    fmt.Println("uint8 max:", math.MaxUint8)
+}
+`
+    }
+  ]}
+  output={"-128 32000 2000000000 9000000000000 255 4000000000 42\nint8 max: 127\nint64 max: 9223372036854775807\nuint8 max: 255"}
+/>
+
+<Callout variant="info" title="Cuándo usar cada tamaño">
+Para uso general usa `int` — es lo idiomático en Go. Reserva los tamaños explícitos (`int32`, `uint64`, etc.) para serialización binaria, protocolos de red o cuando necesitas un rango específico. `byte` es un alias de `uint8` y `rune` es un alias de `int32`.
+</Callout>
+
+</Section>
+
+<Section id="flotantes" title="Flotantes: float32 y float64">
+
+Go tiene dos tipos de coma flotante siguiendo el estándar IEEE 754: `float32` (precisión simple) y `float64` (precisión doble, el predeterminado en Go).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // float64 es el tipo flotante por defecto
+    price := 19.99            // inferido como float64
+    temperature := -3.5
+
+    // Notación científica
+    bigNumber := 1.5e10       // 15_000_000_000
+    small := 2.5e-3           // 0.0025
+
+    // float32 explícito
+    var ratio float32 = 0.75
+
+    fmt.Println(price, temperature, bigNumber, small, ratio)
+
+    // El clásico problema de precisión IEEE 754
+    fmt.Println(0.1 + 0.2)    // 0.30000000000000004
+    fmt.Println(0.1+0.2 == 0.3) // false
+}
+`
+    }
+  ]}
+  output={"19.99 -3.5 1.5e+10 0.0025 0.75\n0.30000000000000004\nfalse"}
+/>
+
+<Callout variant="warn" title="No uses float para dinero">
+Como en cualquier otro lenguaje, `float` arrastra errores de redondeo binario. Para cálculos financieros usa enteros (céntimos en `int64`) o librerías de decimal arbitrario como `shopspring/decimal`.
+</Callout>
+
+</Section>
+
+<Section id="conversion-explicita" title="Conversión explícita: el contrato de Go">
+
+Go **no convierte tipos numéricos automáticamente**, ni siquiera entre tipos compatibles como `int` e `int64`. Toda conversión debe ser explícita con la sintaxis `T(value)`. Esto evita bugs sutiles pero requiere disciplina.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    var i int = 42
+    var f float64 = 3.14
+    var u uint = 100
+
+    // ❌ Esto NO compila — tipos distintos
+    // total := i + f
+    // total := i + u
+
+    // ✅ Conversión explícita con T(value)
+    sum := float64(i) + f
+    fmt.Println(sum)                    // 45.14
+
+    sum2 := i + int(u)
+    fmt.Println(sum2)                   // 142
+
+    // Conversión float → int trunca (no redondea)
+    pi := 3.99
+    truncated := int(pi)
+    fmt.Println(truncated)              // 3
+
+    // int → float64
+    n := 7
+    half := float64(n) / 2.0
+    fmt.Println(half)                   // 3.5
+
+    // Sin la conversión obtendrías división entera
+    wrong := n / 2
+    fmt.Println(wrong)                  // 3
+}
+`
+    }
+  ]}
+  output={"45.14\n142\n3\n3.5\n3"}
+/>
+
+<Callout variant="tip" title="División entera vs flotante">
+`10 / 3` da `3` si ambos operandos son enteros, y `3.3333...` si al menos uno es flotante. Si quieres división real entre enteros, convierte uno: `float64(10) / 3`.
+</Callout>
+
+</Section>
+
+<Section id="overflow" title="Overflow: silencioso en runtime">
+
+Cuando un cálculo se sale del rango del tipo, Go **no lanza error en runtime** — simplemente desborda (wraps around). Las constantes sí se detectan en compilación.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Overflow en runtime — silencioso
+    var x int8 = 127
+    x++
+    fmt.Println(x) // -128 (wrap around)
+
+    var u uint8 = 255
+    u++
+    fmt.Println(u) // 0
+
+    // Overflow en compilación — sí da error
+    // var bad int8 = 200 // ❌ constant 200 overflows int8
+
+    // Para detectar overflow, usa el paquete math/bits o checks manuales
+    a, b := int8(100), int8(50)
+    if int(a)+int(b) > 127 {
+        fmt.Println("overflow detectado")
+    }
+}
+`
+    }
+  ]}
+  output={"-128\n0\noverflow detectado"}
+/>
+
+<Callout variant="warn" title="Overflow no es excepción">
+Go no tiene excepciones por overflow como Python o Java con `Math.addExact`. Si trabajas con valores cerca de los límites de un tipo, debes verificarlos manualmente o usar un tipo más grande.
+</Callout>
+
+</Section>

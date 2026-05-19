@@ -1,0 +1,252 @@
+---
+title: "Errores como valor: el patrón `return err`"
+short: "Error como valor"
+chapter: "07"
+num: "01"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "En Go los errores no se lanzan: se devuelven. Cada función que puede fallar retorna un `error` como último valor, y el código que llama decide qué hacer. Es explícito, predecible y sin magia."
+pro: false
+---
+
+<Section id="error-interface" title="La interfaz `error`">
+
+`error` es una interfaz built-in con un solo método. Cualquier tipo que implemente `Error() string` satisface la interfaz, y por eso los errores en Go son valores normales: se asignan, se comparan, se pasan a funciones, se guardan en structs.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// La interfaz error definida en el paquete builtin:
+//
+//   type error interface {
+//       Error() string
+//   }
+//
+// Cualquier tipo con un método Error() string es un error.
+
+func main() {
+    var err error = fmt.Errorf("algo salió mal")
+    fmt.Println(err)         // algo salió mal
+    fmt.Println(err.Error()) // algo salió mal
+
+    // Un error es nil cuando no hay error
+    var sinError error
+    fmt.Println(sinError == nil) // true
+}`
+    }
+  ]}
+  output={"algo salió mal\nalgo salió mal\ntrue"}
+/>
+
+</Section>
+
+<Section id="retornar-error" title="Retornar `(T, error)`">
+
+La convención canónica en Go: las funciones que pueden fallar retornan dos valores. Primero el resultado, después el error. Si `err != nil`, el resultado puede estar en estado cero y no debe usarse.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, errors.New("división por cero")
+    }
+    return a / b, nil
+}
+
+func main() {
+    // Caso correcto
+    result, err := divide(10, 2)
+    if err != nil {
+        fmt.Println("error:", err)
+        return
+    }
+    fmt.Println("resultado:", result)
+
+    // Caso con error
+    _, err = divide(10, 0)
+    if err != nil {
+        fmt.Println("error:", err)
+    }
+}`
+    }
+  ]}
+  output={"resultado: 5\nerror: división por cero"}
+/>
+
+</Section>
+
+<Section id="if-err-nil" title="El idiom `if err != nil`">
+
+El patrón más visible de Go: tras cada llamada que puede fallar, verificas el error y decides. Lo más común es propagarlo hacia arriba con `return err`. Cada chequeo es una decisión consciente sobre el flujo de control.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+    "strconv"
+)
+
+func parseAge(input string) (int, error) {
+    age, err := strconv.Atoi(input)
+    if err != nil {
+        return 0, err // propagamos el error al caller
+    }
+    if age < 0 {
+        return 0, errors.New("edad no puede ser negativa")
+    }
+    return age, nil
+}
+
+func greet(input string) (string, error) {
+    age, err := parseAge(input)
+    if err != nil {
+        return "", err
+    }
+    return fmt.Sprintf("hola, tienes %d años", age), nil
+}
+
+func main() {
+    msg, err := greet("42")
+    if err != nil {
+        fmt.Println("error:", err)
+        return
+    }
+    fmt.Println(msg)
+
+    _, err = greet("doce")
+    if err != nil {
+        fmt.Println("error:", err)
+    }
+}`
+    }
+  ]}
+  output={"hola, tienes 42 años\nerror: strconv.Atoi: parsing \"doce\": invalid syntax"}
+/>
+
+</Section>
+
+<Section id="errors-new-fmt-errorf" title="`errors.New` vs `fmt.Errorf`">
+
+Hay dos formas estándar de crear un error. `errors.New` para mensajes estáticos. `fmt.Errorf` cuando necesitas interpolar valores con verbos de formato.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+func findUser(id int) (string, error) {
+    // Mensaje estático: errors.New
+    if id == 0 {
+        return "", errors.New("id no puede ser cero")
+    }
+    // Mensaje con contexto: fmt.Errorf
+    if id < 0 {
+        return "", fmt.Errorf("id inválido: %d", id)
+    }
+    if id > 1000 {
+        return "", fmt.Errorf("usuario %d no encontrado en tabla users", id)
+    }
+    return fmt.Sprintf("user-%d", id), nil
+}
+
+func main() {
+    for _, id := range []int{42, 0, -3, 9999} {
+        name, err := findUser(id)
+        if err != nil {
+            fmt.Println("error:", err)
+            continue
+        }
+        fmt.Println("usuario:", name)
+    }
+}`
+    }
+  ]}
+  output={"usuario: user-42\nerror: id no puede ser cero\nerror: id inválido: -3\nerror: usuario 9999 no encontrado en tabla users"}
+/>
+
+</Section>
+
+<Section id="panic-no" title="No uses `panic` para errores esperados">
+
+`panic` aborta el programa (a menos que un `recover` lo atrape). En Go se reserva para errores irrecuperables del programador: accesos nil, índices fuera de rango, invariantes rotos. Para errores normales del dominio o de I/O, **siempre retorna `error`**.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+// ❌ Mal: usar panic para un error esperado
+func withdrawBad(balance, amount float64) float64 {
+    if amount > balance {
+        panic("fondos insuficientes") // aborta todo el programa
+    }
+    return balance - amount
+}
+
+// ✅ Bien: retornar el error y dejar que el caller decida
+func withdraw(balance, amount float64) (float64, error) {
+    if amount > balance {
+        return 0, errors.New("fondos insuficientes")
+    }
+    return balance - amount, nil
+}
+
+func main() {
+    newBalance, err := withdraw(100, 150)
+    if err != nil {
+        fmt.Println("rechazado:", err)
+        return
+    }
+    fmt.Println("nuevo saldo:", newBalance)
+}`
+    }
+  ]}
+  output={"rechazado: fondos insuficientes"}
+/>
+
+<Callout variant="tip" title="¿Cuándo sí usar panic?">
+Solo para condiciones que indican un bug en el código: un caso `default` imposible en un `switch`, un puntero que no debería ser nil, una invariante de programa que se rompió. Nunca para validación de input ni para I/O fallido.
+</Callout>
+
+</Section>

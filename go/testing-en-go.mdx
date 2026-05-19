@@ -1,0 +1,237 @@
+---
+title: "Testing: `go test`, table-driven tests y `t.Run`"
+short: "Testing"
+chapter: "09"
+num: "01"
+chapterTitle: "Stdlib y herramientas"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go trae testing en la librería estándar. Sin frameworks, sin configuración: archivos `_test.go`, funciones `TestX` y `go test`. El patrón table-driven es el idioma natural para cubrir muchos casos con poco código."
+pro: false
+---
+
+<Section id="primer-test" title="Tu primer test">
+
+Las pruebas en Go viven junto al código que prueban. Si tienes `math.go`, los tests van en `math_test.go` en el **mismo paquete**. La herramienta `go test` descubre automáticamente los archivos que terminan en `_test.go` y ejecuta cualquier función con la firma `func TestXxx(t *testing.T)`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "math.go",
+      code: `package math
+
+func Add(a, b int) int {
+    return a + b
+}
+`
+    }
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "math_test.go",
+      code: `package math
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+    got := Add(2, 3)
+    want := 5
+
+    if got != want {
+        t.Errorf("Add(2, 3) = %d; want %d", got, want)
+    }
+}
+`
+    }
+  ]}
+  output={"=== RUN   TestAdd\n--- PASS: TestAdd (0.00s)\nPASS\nok      example/math    0.123s"}
+/>
+
+Reglas clave:
+
+- El nombre del archivo debe terminar en `_test.go`.
+- La función debe empezar por `Test` y la siguiente letra debe ir en mayúscula (`TestAdd`, no `Testadd`).
+- Recibe un único parámetro: `t *testing.T`.
+
+</Section>
+
+<Section id="t-errorf-vs-t-fatal" title="`t.Errorf` vs `t.Fatal`">
+
+El parámetro `t` es tu interfaz con el runner de tests. Los dos métodos más usados para reportar fallos son `t.Errorf` y `t.Fatal`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "errorf_vs_fatal_test.go",
+      code: `package math
+
+import "testing"
+
+func TestDivide(t *testing.T) {
+    result, err := Divide(10, 2)
+
+    // t.Fatal: aborta el test inmediatamente.
+    // Útil cuando lo que sigue no tiene sentido sin esto.
+    if err != nil {
+        t.Fatalf("Divide returned unexpected error: %v", err)
+    }
+
+    // t.Errorf: registra el fallo pero sigue ejecutando.
+    // Útil cuando puedes seguir comprobando otras condiciones.
+    if result != 5 {
+        t.Errorf("Divide(10, 2) = %d; want 5", result)
+    }
+}
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Regla práctica">
+Usa `t.Fatal` cuando el resto del test depende de la condición (por ejemplo, un error al abrir un archivo). Usa `t.Errorf` cuando quieres reportar todos los fallos de un mismo test en una sola ejecución.
+</Callout>
+
+</Section>
+
+<Section id="table-driven" title="Table-driven tests">
+
+El patrón más idiomático en Go: define una **tabla** (un slice de structs) con los casos a probar y itera. Reduces duplicación y haces trivial añadir nuevos casos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "math_table_test.go",
+      code: `package math
+
+import "testing"
+
+func TestAddTable(t *testing.T) {
+    tests := []struct {
+        name string
+        a, b int
+        want int
+    }{
+        {"positivos", 2, 3, 5},
+        {"con cero", 0, 7, 7},
+        {"negativos", -4, -6, -10},
+        {"mixto", -5, 10, 5},
+    }
+
+    for _, tc := range tests {
+        got := Add(tc.a, tc.b)
+        if got != tc.want {
+            t.Errorf("%s: Add(%d, %d) = %d; want %d",
+                tc.name, tc.a, tc.b, got, tc.want)
+        }
+    }
+}
+`
+    }
+  ]}
+  output={"--- PASS: TestAddTable (0.00s)\nPASS"}
+/>
+
+La struct anónima permite definir el shape del caso de prueba en línea. El campo `name` se usa para identificar qué caso falló sin necesidad de mensajes complicados.
+
+</Section>
+
+<Section id="subtests-t-run" title="Subtests con `t.Run`">
+
+Combinar table-driven con `t.Run` te da subtests independientes: cada caso aparece como un test propio en la salida, se puede ejecutar de forma aislada con `-run`, y un `t.Fatal` en uno no detiene el resto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "subtests_test.go",
+      code: `package math
+
+import "testing"
+
+func TestAddSubtests(t *testing.T) {
+    tests := []struct {
+        name string
+        a, b int
+        want int
+    }{
+        {"positivos", 2, 3, 5},
+        {"con cero", 0, 7, 7},
+        {"negativos", -4, -6, -10},
+    }
+
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            got := Add(tc.a, tc.b)
+            if got != tc.want {
+                t.Errorf("Add(%d, %d) = %d; want %d",
+                    tc.a, tc.b, got, tc.want)
+            }
+        })
+    }
+}
+`
+    }
+  ]}
+  output={"=== RUN   TestAddSubtests\n=== RUN   TestAddSubtests/positivos\n=== RUN   TestAddSubtests/con_cero\n=== RUN   TestAddSubtests/negativos\n--- PASS: TestAddSubtests (0.00s)\n    --- PASS: TestAddSubtests/positivos (0.00s)\n    --- PASS: TestAddSubtests/con_cero (0.00s)\n    --- PASS: TestAddSubtests/negativos (0.00s)"}
+/>
+
+<Callout variant="info" title="Espacios en nombres">
+Los espacios en `tc.name` se convierten automáticamente en guiones bajos en la salida y al usar `-run`. Por eso `con cero` aparece como `con_cero`.
+</Callout>
+
+</Section>
+
+<Section id="ejecutar-tests" title="Ejecutar tests">
+
+`go test` es el comando que ejecuta toda la maquinaria. Las flags más útiles:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Ejecutar tests del paquete actual
+// go test
+
+// Verbose: muestra cada test y su resultado
+// go test -v
+
+// Ejecutar todos los tests del módulo (recursivo)
+// go test ./...
+
+// Filtrar por nombre con regex
+// go test -run TestAdd
+// go test -run TestAddSubtests/positivos
+
+// Cobertura de código
+// go test -cover
+// go test -coverprofile=cover.out
+// go tool cover -html=cover.out
+
+// Repetir y detectar tests inestables
+// go test -count=10
+
+// Detectar condiciones de carrera
+// go test -race
+`
+    }
+  ]}
+  output={"ok      example/math    0.231s  coverage: 92.3% of statements"}
+/>
+
+<Callout variant="tip" title="Buenas prácticas">
+Mantén tests pequeños y deterministas. Si un test depende de tiempo, red o filesystem, márcalo y considera moverlo a `_integration_test.go` con la build tag `//go:build integration`. Para cualquier ayuda al diagnóstico, usa `t.Logf` — solo se imprime con `-v` o cuando el test falla.
+</Callout>
+
+</Section>

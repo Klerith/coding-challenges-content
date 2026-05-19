@@ -1,0 +1,248 @@
+---
+title: "Configurar el entorno: toolchain, gopls y editor"
+short: "Configurar el entorno"
+chapter: "01"
+num: "04"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go viene con casi todo lo que necesitas en una sola descarga: compilador, formateador, gestor de paquetes y framework de testing. Configurar el entorno son 10 minutos."
+pro: false
+---
+
+<Section id="instalar-go" title="Instalar Go">
+
+La forma oficial y recomendada es descargar Go desde [go.dev/dl](https://go.dev/dl). El instalador trae todo el toolchain en un único paquete.
+
+**macOS**
+
+La opción más rápida es usar Homebrew, aunque también puedes descargar el `.pkg` oficial:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal (macOS)",
+      code: `// Con Homebrew:
+// brew install go
+
+// Con el instalador oficial:
+// Descarga el .pkg desde https://go.dev/dl y haz doble clic.
+
+// Verificar
+// go version  →  go version go1.22.0 darwin/arm64
+`
+    }
+  ]}
+/>
+
+**Windows**
+
+Descarga el instalador `.msi` desde [go.dev/dl](https://go.dev/dl) y ejecútalo. El instalador añade `go` al PATH automáticamente. Reinicia la terminal después de instalar.
+
+**Linux (Ubuntu/Debian)**
+
+Evita el paquete de `apt` (suele estar muy desactualizado). Mejor descarga el tarball oficial:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal (Linux)",
+      code: `// Descargar la versión actual (ajusta la versión según go.dev/dl):
+// wget https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
+
+// Extraer en /usr/local
+// sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
+
+// Añadir Go al PATH (añadir a ~/.bashrc o ~/.zshrc)
+// export PATH=$PATH:/usr/local/go/bin
+
+// Verificar
+// go version
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="Una sola descarga, todo el toolchain">
+A diferencia de Node.js o Python, no necesitas instalar gestor de paquetes aparte. La descarga oficial trae `go build`, `go test`, `go mod`, `go fmt`, `go vet` y todo lo que necesitas.
+</Callout>
+
+</Section>
+
+<Section id="verificar-instalacion" title="Verificar la instalación">
+
+Después de instalar, abre una terminal nueva y ejecuta:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Versión instalada
+// go version
+// →  go version go1.22.0 darwin/arm64
+
+// Ver dónde está instalado y configuración
+// go env GOROOT     →  /usr/local/go
+// go env GOPATH     →  /Users/tu-usuario/go
+// go env GOOS       →  darwin / linux / windows
+// go env GOARCH     →  amd64 / arm64
+
+// Listar todas las variables de entorno de Go
+// go env
+`
+    }
+  ]}
+/>
+
+**GOROOT vs GOPATH vs Go Modules**
+
+Hay tres conceptos que suelen confundir al empezar:
+
+- **GOROOT** — Dónde está instalado Go. Casi nunca lo tocas. Si Go funciona, está bien.
+- **GOPATH** — Directorio para herramientas instaladas con `go install` y caché de módulos. Por defecto `$HOME/go`. Tampoco lo tocas habitualmente.
+- **Go Modules** — El sistema moderno (desde Go 1.11) para gestionar dependencias por proyecto. Cada proyecto tiene su propio `go.mod`.
+
+<Callout variant="warn" title="Ignora tutoriales antiguos que hablan de $GOPATH/src">
+Antes de Go 1.11, había que poner todo el código bajo `$GOPATH/src/github.com/usuario/proyecto`. Eso ya **no es necesario**. Hoy puedes crear proyectos en cualquier carpeta gracias a Go Modules.
+</Callout>
+
+</Section>
+
+<Section id="editor" title="Configurar el editor">
+
+**VS Code (recomendado para empezar)**
+
+1. Descarga VS Code desde [code.visualstudio.com](https://code.visualstudio.com).
+2. Instala la extensión oficial **Go** (publicada por «Go Team at Google»).
+3. Al abrir tu primer archivo `.go`, VS Code te pedirá instalar las herramientas. Acepta — instalará `gopls`, `dlv` (debugger), `staticcheck` y otras automáticamente.
+
+Lo que obtienes con esa configuración:
+
+- Autocompletado inteligente con tipos.
+- Ir a definición (`F12`), ver referencias y refactors básicos.
+- Formateo automático al guardar (con `gofmt`).
+- Linting y detección de errores en vivo.
+- Debugger integrado.
+
+**GoLand (JetBrains)**
+
+Editor comercial dedicado solo a Go. Tiene mejor soporte para refactorización en proyectos grandes y un excelente debugger visual. Es la opción favorita en empresas. No es gratuito, pero existe trial de 30 días.
+
+**Neovim / Vim**
+
+El plugin recomendado es [`gopls` + `nvim-lspconfig`](https://github.com/neovim/nvim-lspconfig) (o `coc-go` si prefieres CoC). `gopls` es el language server oficial de Go y funciona en cualquier editor que soporte LSP.
+
+</Section>
+
+<Section id="gopls-tools" title="gopls y herramientas oficiales">
+
+`gopls` es el *language server* oficial mantenido por el equipo de Go. Es el que potencia el autocompletado, la navegación, los hints de tipos y los refactors en cualquier editor moderno.
+
+Junto a `gopls`, hay un puñado de herramientas que conviene tener instaladas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Language server oficial
+// go install golang.org/x/tools/gopls@latest
+
+// Debugger (Delve)
+// go install github.com/go-delve/delve/cmd/dlv@latest
+
+// Linter avanzado (recomendado para proyectos serios)
+// go install honnef.co/go/tools/cmd/staticcheck@latest
+
+// Las herramientas se instalan en $GOPATH/bin (por defecto $HOME/go/bin).
+// Añade ese directorio al PATH:
+// export PATH=$PATH:$HOME/go/bin
+`
+    }
+  ]}
+/>
+
+**Herramientas que vienen con el compilador**
+
+No necesitan instalación aparte, ya las tienes en cuanto instalas Go:
+
+| Comando | Para qué sirve |
+|---|---|
+| `go build` | Compila el proyecto a un binario |
+| `go run` | Compila y ejecuta sin guardar el binario |
+| `go test` | Ejecuta los tests del paquete |
+| `go fmt` | Formatea el código según la convención oficial |
+| `go vet` | Detecta errores comunes en estático |
+| `go mod` | Gestiona dependencias del proyecto |
+| `go doc` | Muestra la documentación de un símbolo |
+
+<Callout variant="tip" title="gofmt no es opcional">
+En Go no hay debate sobre el formato del código: `gofmt` decide. Tu editor lo aplicará al guardar y todos los proyectos serios lo enforce en CI. Esto elimina por completo las discusiones de estilo en code reviews.
+</Callout>
+
+</Section>
+
+<Section id="primer-archivo" title="Tu primer archivo Go funcionando">
+
+Vamos a verificar que todo está bien creando un programa mínimo. En cualquier carpeta vacía:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// 1. Inicializar el módulo del proyecto
+// go mod init ejemplo/hola
+
+// 2. Crear un archivo llamado main.go con el contenido de la siguiente pestaña
+
+// 3. Ejecutar el programa
+// go run main.go
+// →  ¡Hola desde Go!
+
+// 4. (Opcional) Compilar a binario
+// go build
+// ./hola      (macOS/Linux)
+// hola.exe    (Windows)
+`
+    }
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "main.go",
+      code: `package main
+
+import (
+    "fmt"
+    "runtime"
+)
+
+func main() {
+    fmt.Println("¡Hola desde Go!")
+    fmt.Println("Versión:", runtime.Version())
+    fmt.Printf("Sistema: %s/%s\\n", runtime.GOOS, runtime.GOARCH)
+}
+`
+    }
+  ]}
+  output={"¡Hola desde Go!\nVersión: go1.22.0\nSistema: darwin/arm64"}
+/>
+
+Si ves la salida sin errores, tu entorno está listo. En la siguiente lección veremos qué significa cada uno de esos archivos (`go.mod`, `main.go`) y cómo se organiza un proyecto Go bien estructurado.
+
+<Callout variant="info" title="Problemas comunes al instalar">
+Si `go` no se reconoce en la terminal, casi siempre es un problema de PATH. En Windows: reinicia la terminal después del instalador. En macOS/Linux con Homebrew: ejecuta `brew doctor`. Y si usas tarball manual en Linux, recuerda añadir `/usr/local/go/bin` al PATH en tu `~/.bashrc` o `~/.zshrc`.
+</Callout>
+
+</Section>

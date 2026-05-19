@@ -1,0 +1,269 @@
+---
+title: "Variables y constantes: `var`, `:=`, `const` y `iota`"
+short: "Variables y constantes"
+chapter: "02"
+num: "01"
+chapterTitle: "Sintaxis y tipos básicos"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go es un lenguaje de tipado estático pero con inferencia ergonómica. Aprender las cuatro formas de declarar valores — `var`, `:=`, `const` y `iota` — es la base de todo programa Go idiomático."
+pro: false
+---
+
+<Section id="declaracion-con-var" title="Declaración con var">
+
+La forma canónica de declarar una variable en Go es con la palabra clave `var`. Puedes especificar el tipo explícitamente, dejar que Go lo infiera, o incluso omitir el valor inicial (Go asigna el *zero value* del tipo).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // 1. Tipo explícito y valor inicial
+    var name string = "Fernando"
+
+    // 2. Tipo inferido — Go deduce string del literal
+    var city = "Madrid"
+
+    // 3. Sin valor inicial — Go asigna el zero value (0, "", false, nil)
+    var age int        // 0
+    var active bool    // false
+    var nickname string // ""
+
+    fmt.Println(name, city, age, active, nickname)
+}
+`
+    }
+  ]}
+  output={"Fernando Madrid 0 false "}
+/>
+
+<Callout variant="info" title="Zero values, no undefined">
+A diferencia de JavaScript o Python, en Go una variable declarada **siempre tiene un valor**. Si no le das uno, Go le asigna el cero del tipo: `0` para números, `""` para strings, `false` para bools, `nil` para punteros, slices y maps.
+</Callout>
+
+También puedes declarar varias variables a la vez con un bloque `var (...)`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+var (
+    appName    = "coding-challenges"
+    version    = "1.0.0"
+    maxRetries = 5
+    debugMode  = false
+)
+
+func main() {
+    fmt.Println(appName, version, maxRetries, debugMode)
+}
+`
+    }
+  ]}
+  output={"coding-challenges 1.0.0 5 false"}
+/>
+
+</Section>
+
+<Section id="short-declaration" title="Short declaration con :=">
+
+Dentro de una función, Go ofrece una forma más compacta: el operador `:=`. Declara e inicializa la variable en un solo paso, infiriendo el tipo. Es la forma más usada en código idiomático.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Short declaration — solo dentro de funciones
+    name := "Fernando"
+    age := 30
+    height := 1.80
+    active := true
+
+    // Asignación múltiple
+    x, y, z := 1, 2, 3
+
+    // Swap idiomático sin variable temporal
+    a, b := 10, 20
+    a, b = b, a
+
+    fmt.Println(name, age, height, active)
+    fmt.Println(x, y, z)
+    fmt.Println(a, b)
+}
+`
+    }
+  ]}
+  output={"Fernando 30 1.8 true\n1 2 3\n20 10"}
+/>
+
+<Callout variant="warn" title=":= solo dentro de funciones">
+El operador `:=` **no se puede usar a nivel de paquete** (fuera de funciones). Para variables globales debes usar `var`. Tampoco puedes redeclarar todas las variables con `:=` — al menos una debe ser nueva.
+</Callout>
+
+</Section>
+
+<Section id="scope-y-shadowing" title="Scope y shadowing">
+
+Las variables en Go tienen *scope de bloque*: solo son visibles dentro del `{ ... }` donde se declaran. Una variable declarada en un bloque interno con el mismo nombre que una externa la *oculta* (shadowing) — un error sutil pero común.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    count := 10
+
+    if true {
+        // Esto NO modifica el count externo, crea uno nuevo
+        count := 99
+        fmt.Println("dentro del if:", count) // 99
+    }
+
+    fmt.Println("fuera del if:", count) // 10 — el externo no cambió
+
+    // Para modificar el externo, usa = en vez de :=
+    if true {
+        count = 99
+    }
+    fmt.Println("ahora sí:", count) // 99
+}
+`
+    }
+  ]}
+  output={"dentro del if: 99\nfuera del if: 10\nahora sí: 99"}
+/>
+
+<Callout variant="tip" title="go vet detecta shadowing">
+La herramienta `go vet -vettool=$(which shadow)` (o el linter `golangci-lint`) detecta automáticamente shadowing accidental. Es un buen reflejo activar este check en CI.
+</Callout>
+
+</Section>
+
+<Section id="constantes" title="Constantes con const">
+
+Una constante es un valor inmutable conocido en tiempo de compilación. Se declara con `const` y solo admite tipos primitivos: números, strings y booleanos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+const Pi = 3.14159
+const AppName = "coding-challenges"
+
+// Bloque const — agrupa constantes relacionadas
+const (
+    StatusActive   = "active"
+    StatusInactive = "inactive"
+    StatusPending  = "pending"
+
+    MaxConnections = 100
+    Timeout        = 30
+)
+
+func main() {
+    fmt.Println(Pi, AppName)
+    fmt.Println(StatusActive, MaxConnections)
+
+    // const PiLocal = 3.14
+    // PiLocal = 3.15 // ❌ error de compilación: cannot assign to PiLocal
+}
+`
+    }
+  ]}
+  output={"3.14159 coding-challenges\nactive 100"}
+/>
+
+<Callout variant="info" title="Constantes sin tipo (untyped)">
+Si declaras `const Pi = 3.14159` sin tipo explícito, la constante es *untyped*: Go la adaptará al contexto donde se use (puede ser `float32`, `float64`, etc.). Si escribes `const Pi float64 = 3.14159`, queda fijada como `float64`.
+</Callout>
+
+</Section>
+
+<Section id="iota" title="iota: enumeraciones idiomáticas">
+
+`iota` es un identificador especial dentro de bloques `const` que arranca en `0` y se incrementa en cada línea. Es la forma idiomática de definir enumeraciones en Go.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// iota arranca en 0 y se incrementa por línea
+const (
+    Sunday    = iota // 0
+    Monday           // 1
+    Tuesday          // 2
+    Wednesday        // 3
+    Thursday         // 4
+    Friday           // 5
+    Saturday         // 6
+)
+
+// Tipos enumerados con un type dedicado
+type LogLevel int
+
+const (
+    Debug LogLevel = iota
+    Info
+    Warn
+    Error
+)
+
+// iota con expresiones — bit flags
+const (
+    Read    = 1 << iota // 1
+    Write               // 2
+    Execute             // 4
+)
+
+func main() {
+    fmt.Println(Sunday, Wednesday, Saturday)
+    fmt.Println(Debug, Info, Warn, Error)
+    fmt.Println(Read, Write, Execute, Read|Write)
+}
+`
+    }
+  ]}
+  output={"0 3 6\n0 1 2 3\n1 2 4 3"}
+/>
+
+<Callout variant="tip" title="iota se reinicia por bloque">
+Cada bloque `const ( ... )` reinicia `iota` a `0`. Si necesitas saltarte valores, usa `_` como nombre: `const ( _ = iota; KB; MB; GB )` te da `1, 2, 3` saltándose el `0`.
+</Callout>
+
+</Section>

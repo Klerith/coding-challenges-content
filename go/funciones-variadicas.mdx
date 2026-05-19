@@ -1,0 +1,205 @@
+---
+title: "Funciones variádicas y ...args"
+short: "Funciones variádicas"
+chapter: "04"
+num: "04"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 5
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Una función variádica acepta un número variable de argumentos del mismo tipo. Es la base de funciones tan usadas como fmt.Println o append, y permite escribir APIs cómodas y flexibles."
+pro: false
+---
+
+<Section id="sintaxis-variadica" title="Sintaxis: ...T">
+
+Para declarar una función variádica, antecede el tipo del último parámetro con `...`. Dentro de la función, ese parámetro se comporta como un slice:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// nums es un []int dentro de la función
+func sum(nums ...int) int {
+    total := 0
+    for _, n := range nums {
+        total += n
+    }
+    return total
+}
+
+func main() {
+    fmt.Println(sum())               // 0
+    fmt.Println(sum(1))              // 1
+    fmt.Println(sum(1, 2, 3))        // 6
+    fmt.Println(sum(1, 2, 3, 4, 5))  // 15
+}
+`
+    }
+  ]}
+  output={"0\n1\n6\n15"}
+/>
+
+<Callout variant="info" title="Solo el último parámetro">
+Únicamente el **último** parámetro de la función puede ser variádico. Si necesitas argumentos fijos antes, decláralos primero: `func log(prefix string, parts ...string)`.
+</Callout>
+
+</Section>
+
+<Section id="spread-operator" title="Pasar un slice con ...">
+
+Cuando ya tienes los argumentos en un slice, puedes "expandirlo" para pasarlo a la función variádica con la misma sintaxis `...`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func sum(nums ...int) int {
+    total := 0
+    for _, n := range nums {
+        total += n
+    }
+    return total
+}
+
+func main() {
+    values := []int{10, 20, 30, 40}
+
+    // ✗ Esto NO compila: pasar un slice donde se esperan ints sueltos
+    // fmt.Println(sum(values))
+
+    // ✓ Expansión con ... — equivale a sum(10, 20, 30, 40)
+    fmt.Println(sum(values...))           // 100
+
+    // append es el ejemplo canónico de spread
+    a := []int{1, 2, 3}
+    b := []int{4, 5, 6}
+    c := append(a, b...)
+    fmt.Println(c)                         // [1 2 3 4 5 6]
+}
+`
+    }
+  ]}
+  output={"100\n[1 2 3 4 5 6]"}
+/>
+
+</Section>
+
+<Section id="ejemplos-stdlib" title="Variádicas en la biblioteca estándar">
+
+Buena parte de la stdlib usa variádicas para crear APIs limpias. `fmt.Printf` y `fmt.Println` son los casos más conocidos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "strings"
+)
+
+// fmt.Printf(format string, a ...any) (int, error)
+// fmt.Println(a ...any)              (int, error)
+// append(slice []T, elems ...T) []T  ← built-in
+// strings.Join(elems []string, sep string) string  ← NO variádica
+
+func main() {
+    name := "Ada"
+    age := 36
+    city := "London"
+
+    // Printf recibe cualquier cantidad de argumentos de cualquier tipo
+    fmt.Printf("%s, %d años, vive en %s\n", name, age, city)
+
+    // Println también es variádica
+    fmt.Println("multiple", "values", "here", 42, true)
+
+    // append es variádica en su segundo parámetro
+    nums := []int{1, 2}
+    nums = append(nums, 3, 4, 5)
+    fmt.Println(nums)                       // [1 2 3 4 5]
+
+    // strings.Join NO es variádica, espera un slice
+    fmt.Println(strings.Join([]string{"a", "b", "c"}, "-"))
+}
+`
+    }
+  ]}
+  output={"Ada, 36 años, vive en London\nmultiple values here 42 true\n[1 2 3 4 5]\na-b-c"}
+/>
+
+</Section>
+
+<Section id="patron-options" title="Patrón funcional: variadic options">
+
+Una técnica muy común en librerías Go: usar funciones variádicas para configuración opcional, evitando constructores con muchos parámetros o structs de "options" con campos opcionales:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Server struct {
+    Host    string
+    Port    int
+    Timeout int
+}
+
+// Option modifica un Server. Es un tipo función.
+type Option func(*Server)
+
+func WithHost(h string) Option    { return func(s *Server) { s.Host = h } }
+func WithPort(p int) Option       { return func(s *Server) { s.Port = p } }
+func WithTimeout(t int) Option    { return func(s *Server) { s.Timeout = t } }
+
+// NewServer acepta cualquier cantidad de options
+func NewServer(opts ...Option) *Server {
+    s := &Server{
+        Host:    "localhost",
+        Port:    8080,
+        Timeout: 30,
+    }
+    for _, opt := range opts {
+        opt(s)
+    }
+    return s
+}
+
+func main() {
+    s1 := NewServer()
+    fmt.Printf("%+v\n", s1)
+
+    s2 := NewServer(WithPort(9090), WithTimeout(60))
+    fmt.Printf("%+v\n", s2)
+}
+`
+    }
+  ]}
+  output={"&{Host:localhost Port:8080 Timeout:30}\n&{Host:localhost Port:9090 Timeout:60}"}
+/>
+
+<Callout variant="tip" title="Por qué este patrón es popular">
+Permite añadir nuevas opciones sin romper la firma del constructor, ofrece valores por defecto explícitos y produce código autodocumentado en el call site (`WithTimeout(60)` se lee mejor que un argumento posicional anónimo).
+</Callout>
+
+</Section>

@@ -1,0 +1,296 @@
+---
+title: "Estructura de un proyecto: módulos y packages"
+short: "Estructura de un proyecto"
+chapter: "01"
+num: "05"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go propone una manera única y aceptada por todo el ecosistema de organizar el código. Aprende los conceptos de módulo, paquete y el layout estándar que verás en todos los proyectos serios."
+pro: false
+---
+
+<Section id="que-es-modulo" title="¿Qué es un módulo?">
+
+Un **módulo** es la unidad de versionado y distribución de Go. En la práctica, es un directorio que contiene un archivo `go.mod` en su raíz. Todo proyecto Go moderno es un módulo.
+
+Para crear uno nuevo, basta un comando:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Crear una carpeta vacía y entrar
+// mkdir mi-proyecto && cd mi-proyecto
+
+// Inicializar el módulo
+// go mod init github.com/usuario/mi-proyecto
+
+// Esto crea un archivo go.mod en el directorio actual
+// El nombre del módulo se usa luego en los imports
+`
+    }
+  ]}
+/>
+
+El nombre suele ser la ruta del repositorio donde vivirá el código (por ejemplo `github.com/usuario/mi-proyecto`). Si solo es un proyecto local de práctica, puedes usar un nombre corto como `ejemplo/hola`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "go.mod",
+      code: `// El archivo go.mod inicial se ve así:
+
+// module github.com/usuario/mi-proyecto
+
+// go 1.22
+
+// (las dependencias aparecen aquí cuando vayas añadiéndolas)
+`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="go.mod y go.sum">
+`go.mod` declara el módulo, su versión de Go y sus dependencias directas. `go.sum` se genera automáticamente y guarda los *hashes* de cada versión de dependencia que usas, para garantizar que siempre descargas exactamente el mismo código. **Ambos archivos se commitean al repositorio.**
+</Callout>
+
+</Section>
+
+<Section id="que-es-package" title="¿Qué es un package?">
+
+Un **package** (paquete) es una colección de archivos `.go` en el mismo directorio que comparten un mismo espacio de nombres. La primera línea de cada archivo declara a qué paquete pertenece.
+
+Hay dos tipos de paquetes:
+
+- **`package main`** — produce un programa ejecutable. Debe tener una función `main()`.
+- **Cualquier otro nombre** — es una librería que otros paquetes pueden importar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "math/calculator.go",
+      code: `// Archivo: math/calculator.go
+package math
+
+// Add suma dos enteros.
+// Empieza con mayúscula → exportado (público).
+func Add(a, b int) int {
+    return a + b
+}
+
+// multiply empieza con minúscula → privado al paquete.
+func multiply(a, b int) int {
+    return a * b
+}
+`
+    },
+    {
+      lang: "go",
+      label: "main.go",
+      code: `// Archivo: main.go
+package main
+
+import (
+    "fmt"
+    "github.com/usuario/mi-proyecto/math"
+)
+
+func main() {
+    result := math.Add(2, 3)
+    fmt.Println("Suma:", result)
+
+    // math.multiply NO sería accesible — empieza con minúscula
+}
+`
+    }
+  ]}
+  output={"Suma: 5"}
+/>
+
+<Callout variant="tip" title="La regla de la mayúscula">
+En Go no existen las palabras `public` o `private`. La visibilidad la decide la primera letra del identificador: **mayúscula = exportado fuera del paquete, minúscula = privado al paquete**. Sencillo y sin sintaxis extra.
+</Callout>
+
+</Section>
+
+<Section id="layout-pequeno" title="Layout para proyectos pequeños">
+
+No todo proyecto necesita una estructura compleja. Para herramientas pequeñas o ejercicios, basta con un único `main.go`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Estructura mínima",
+      code: `// mi-proyecto/
+// ├── go.mod
+// ├── go.sum         (se crea cuando añades dependencias)
+// └── main.go        (todo el código)
+`
+    }
+  ]}
+/>
+
+Y para proyectos un poco más grandes, donde quieres separar el código en varios paquetes:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Estructura intermedia",
+      code: `// mi-proyecto/
+// ├── go.mod
+// ├── go.sum
+// ├── main.go              (package main, punto de entrada)
+// ├── handlers/
+// │   └── users.go         (package handlers)
+// └── storage/
+//     └── postgres.go      (package storage)
+`
+    }
+  ]}
+/>
+
+Para empezar es suficiente. No compliques la estructura antes de necesitarlo.
+
+</Section>
+
+<Section id="layout-estandar" title="El layout estándar para proyectos grandes">
+
+Cuando un proyecto crece, la comunidad Go ha convergido en un layout que verás repetido una y otra vez. Está documentado en el repositorio [golang-standards/project-layout](https://github.com/golang-standards/project-layout):
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Layout estándar",
+      code: `// mi-app/
+// ├── go.mod
+// ├── go.sum
+// ├── README.md
+// │
+// ├── cmd/                  Ejecutables de la aplicación
+// │   ├── server/
+// │   │   └── main.go       go build -o server ./cmd/server
+// │   └── cli/
+// │       └── main.go       go build -o cli ./cmd/cli
+// │
+// ├── internal/             Código privado del proyecto
+// │   ├── auth/             (no se puede importar desde fuera)
+// │   │   └── auth.go
+// │   ├── database/
+// │   │   └── postgres.go
+// │   └── handlers/
+// │       └── users.go
+// │
+// ├── pkg/                  Librerías reutilizables y públicas
+// │   └── validator/
+// │       └── email.go      (cualquier proyecto puede importarlo)
+// │
+// ├── api/                  Definiciones de API (OpenAPI, protobuf)
+// ├── configs/              Archivos de configuración
+// ├── scripts/              Scripts de build, deploy, etc.
+// └── test/                 Tests de integración / fixtures
+`
+    }
+  ]}
+/>
+
+Las tres carpetas clave que tienes que recordar son:
+
+**`cmd/`** — Cada subcarpeta es un binario ejecutable distinto. Si tu proyecto produce un servidor y una CLI, cada uno vive en su propia subcarpeta de `cmd/`.
+
+**`internal/`** — Tiene tratamiento especial del compilador: **el código aquí solo puede importarse desde el mismo módulo**. Si alguien intenta importar `github.com/tu/proyecto/internal/auth` desde otro proyecto, Go lo rechaza. Perfecto para lógica que no quieres exponer como API pública.
+
+**`pkg/`** — Código pensado para ser reutilizado. Si publicas una librería, ponla aquí. (Aunque hay debate: muchos proyectos modernos colocan las librerías reutilizables directamente en la raíz, sin `pkg/`.)
+
+<Callout variant="warn" title="No copies el layout completo desde el primer día">
+El layout estándar es para proyectos que ya tienen tamaño. Empezar con `cmd/`, `internal/`, `pkg/`, `api/`, `configs/` para un programa de 100 líneas es sobre-ingeniería. Empieza con `main.go` y `go.mod`, y añade estructura cuando el proyecto te lo pida.
+</Callout>
+
+</Section>
+
+<Section id="dependencias" title="Gestionar dependencias">
+
+Añadir dependencias externas es trivial gracias a Go Modules:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Añadir una dependencia (descarga y la registra en go.mod)
+// go get github.com/google/uuid
+
+// Después puedes importarla desde el código:
+// import "github.com/google/uuid"
+
+// Sincronizar dependencias después de clonar un proyecto
+// go mod download
+
+// Limpiar dependencias no usadas
+// go mod tidy
+
+// Ver el árbol de dependencias
+// go list -m all
+
+// Actualizar a la última versión
+// go get -u github.com/google/uuid
+`
+    }
+  ]}
+/>
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "main.go",
+      code: `package main
+
+import (
+    "fmt"
+
+    "github.com/google/uuid"
+)
+
+func main() {
+    // Generar un identificador único
+    id := uuid.New()
+    fmt.Println("ID generado:", id)
+}
+`
+    }
+  ]}
+  output={"ID generado: 550e8400-e29b-41d4-a716-446655440000"}
+/>
+
+<Callout variant="tip" title="go mod tidy es tu amigo">
+Después de añadir o borrar imports, ejecuta `go mod tidy`. Limpia dependencias no usadas y añade las que falten en `go.mod` / `go.sum`. Es una buena práctica correrlo antes de cada commit.
+</Callout>
+
+</Section>
+
+<Section id="archivos-tipicos" title="Archivos que verás en todo proyecto Go">
+
+Además de `go.mod` y `go.sum`, hay un puñado de archivos convencionales que aparecen una y otra vez:
+
+- **`main.go`** — Punto de entrada del programa (cuando el paquete es `main`).
+- **`*_test.go`** — Archivos de tests. `go test` los detecta automáticamente.
+- **`doc.go`** — Documentación general del paquete (común en librerías).
+- **`README.md`** — Documentación legible para humanos.
+- **`Makefile`** — Atajos para tareas comunes (`make build`, `make test`).
+- **`.golangci.yml`** — Configuración del linter (si usas `golangci-lint`).
+- **`Dockerfile`** — Si la aplicación se distribuye en contenedor.
+
+Con esto ya tienes el mapa mental de cómo se organiza cualquier proyecto Go que te encuentres en el mundo real. En el próximo capítulo entraremos al detalle del lenguaje: variables, tipos, funciones y control de flujo.
+
+</Section>

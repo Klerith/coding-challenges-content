@@ -1,0 +1,236 @@
+---
+title: "Closures y funciones anónimas"
+short: "Closures"
+chapter: "04"
+num: "03"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Una función anónima no tiene nombre; un closure es una función que recuerda las variables del scope donde se creó. Juntas son la base de patrones como callbacks, factories, generadores y middleware en Go."
+pro: false
+---
+
+<Section id="funciones-anonimas" title="Funciones anónimas">
+
+Una función anónima es exactamente eso: una función sin nombre. Puedes definirla y ejecutarla en el sitio, o asignarla a una variable:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Definir y ejecutar inmediatamente — IIFE
+    func() {
+        fmt.Println("Ejecutada al vuelo")
+    }()
+
+    // Con parámetros y argumentos
+    result := func(a, b int) int {
+        return a + b
+    }(3, 4)
+    fmt.Println(result)        // 7
+
+    // Asignar a una variable y reusar
+    square := func(n int) int {
+        return n * n
+    }
+    fmt.Println(square(5))     // 25
+    fmt.Println(square(9))     // 81
+}
+`
+    }
+  ]}
+  output={"Ejecutada al vuelo\n7\n25\n81"}
+/>
+
+</Section>
+
+<Section id="que-es-closure" title="¿Qué es un closure?">
+
+Un **closure** es una función anónima (o cualquier función literal) que **captura** variables del scope que la rodea. Esas variables siguen vivas mientras el closure pueda usarlas:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Devuelve un closure que "recuerda" prefix
+func makeGreeter(prefix string) func(string) string {
+    return func(name string) string {
+        return prefix + ", " + name + "!"
+    }
+}
+
+func main() {
+    hello := makeGreeter("Hola")
+    goodMorning := makeGreeter("Buenos días")
+
+    fmt.Println(hello("Ada"))            // Hola, Ada!
+    fmt.Println(hello("Carlos"))         // Hola, Carlos!
+    fmt.Println(goodMorning("Ada"))      // Buenos días, Ada!
+}
+`
+    }
+  ]}
+  output={"Hola, Ada!\nHola, Carlos!\nBuenos días, Ada!"}
+/>
+
+<Callout variant="info" title="Captura por referencia">
+Go captura las variables del enclosing scope **por referencia**, no por valor. Si modificas la variable original, el closure verá el nuevo valor. Esto tiene implicaciones importantes (ver más abajo).
+</Callout>
+
+</Section>
+
+<Section id="contador-clasico" title="El contador clásico">
+
+El ejemplo canónico: un generador de IDs o contador con estado privado. La variable `count` es accesible **solo** desde el closure — un patrón de encapsulación sin necesidad de structs:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func counter() func() int {
+    count := 0
+    return func() int {
+        count++
+        return count
+    }
+}
+
+func main() {
+    next := counter()
+    fmt.Println(next())   // 1
+    fmt.Println(next())   // 2
+    fmt.Println(next())   // 3
+
+    // Cada llamada a counter() crea un estado independiente
+    other := counter()
+    fmt.Println(other())  // 1 — empieza desde cero
+    fmt.Println(next())   // 4 — el primer contador sigue avanzando
+}
+`
+    }
+  ]}
+  output={"1\n2\n3\n1\n4"}
+/>
+
+</Section>
+
+<Section id="loop-variable-capture" title="La trampa del loop variable">
+
+Antes de Go 1.22, las variables declaradas en el `for` se **compartían** entre todas las iteraciones. Capturarlas en un closure llevaba a un bug clásico:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    funcs := []func() int{}
+
+    // En Go 1.22+ cada iteración crea su propia 'i'
+    // En Go <1.22 todas comparten la misma 'i' y al final vale 3
+    for i := 0; i < 3; i++ {
+        funcs = append(funcs, func() int {
+            return i
+        })
+    }
+
+    for _, f := range funcs {
+        fmt.Println(f())
+    }
+    // Go 1.22+:  0  1  2
+    // Go <1.22:  3  3  3
+}
+`
+    }
+  ]}
+  output={"0\n1\n2"}
+/>
+
+<Callout variant="warn" title="Solución para Go <1.22">
+Si trabajas con una versión anterior, la solución idiomática era crear una copia local en cada iteración:
+
+```go
+for i := 0; i < 3; i++ {
+    i := i // shadow: nueva variable por iteración
+    funcs = append(funcs, func() int { return i })
+}
+```
+Desde Go 1.22 esto ya no es necesario — el compilador lo hace por ti.
+</Callout>
+
+</Section>
+
+<Section id="usos-reales" title="Casos de uso reales">
+
+Los closures aparecen por todas partes en Go idiomático: callbacks, middlewares, `defer`, `sync.Once`, opciones funcionales y más.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "sort"
+)
+
+func main() {
+    // sort.Slice usa un closure como comparador
+    people := []struct {
+        Name string
+        Age  int
+    }{
+        {"Ada", 36}, {"Bob", 29}, {"Carla", 41},
+    }
+
+    sort.Slice(people, func(i, j int) bool {
+        return people[i].Age < people[j].Age
+    })
+
+    for _, p := range people {
+        fmt.Println(p.Name, p.Age)
+    }
+
+    // Closure capturando un acumulador
+    sum := 0
+    apply := func(n int) {
+        sum += n
+    }
+    for _, n := range []int{1, 2, 3, 4, 5} {
+        apply(n)
+    }
+    fmt.Println("Total:", sum)   // Total: 15
+}
+`
+    }
+  ]}
+  output={"Bob 29\nAda 36\nCarla 41\nTotal: 15"}
+/>
+
+</Section>

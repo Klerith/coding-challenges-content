@@ -1,0 +1,263 @@
+---
+title: "Copias vs referencias: cómo viaja la memoria en Go"
+short: "Copias vs referencias"
+chapter: "05"
+num: "05"
+chapterTitle: "Composición de datos"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "En Go la asignación copia: arrays, structs e ints se duplican byte a byte. Pero slices, maps y channels son reference-like: copias el header, no el contenido. Entender esta diferencia es esencial para evitar mutaciones inesperadas."
+pro: false
+---
+
+<Section id="asignacion-copia" title="La asignación copia siempre">
+
+Cuando asignas un valor a otra variable o lo pasas a una función, Go **copia** los bytes. Para tipos básicos (`int`, `bool`, `float64`) y para structs, esto significa una copia completa e independiente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Point struct {
+    X, Y int
+}
+
+func main() {
+    // int — copia por valor
+    a := 10
+    b := a
+    b = 99
+    fmt.Println(a, b) // 10 99
+
+    // struct — copia byte a byte
+    p1 := Point{X: 1, Y: 2}
+    p2 := p1
+    p2.X = 999
+    fmt.Println(p1) // {1 2}    — sin cambios
+    fmt.Println(p2) // {999 2}
+
+    // array — copia completa (no es como en C)
+    arr1 := [3]int{1, 2, 3}
+    arr2 := arr1
+    arr2[0] = 999
+    fmt.Println(arr1) // [1 2 3]
+    fmt.Println(arr2) // [999 2 3]
+}`
+    }
+  ]}
+  output={"10 99\n{1 2}\n{999 2}\n[1 2 3]\n[999 2 3]"}
+/>
+
+</Section>
+
+<Section id="tipos-reference-like" title="Slices, maps y channels: reference-like">
+
+Slices, maps y channels son estructuras internas que contienen un **puntero al backing data**. Al copiarlas, copias el header (puntero + metadata), pero el backing es compartido. Mutar el contenido a través de una copia afecta al original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Slice: el header (ptr, len, cap) se copia,
+    // pero el array subyacente se comparte
+    s1 := []int{1, 2, 3}
+    s2 := s1
+    s2[0] = 999
+    fmt.Println(s1) // [999 2 3]  — ¡mutación visible!
+    fmt.Println(s2) // [999 2 3]
+
+    // Map: igualmente, dos variables apuntan al mismo backing
+    m1 := map[string]int{"a": 1}
+    m2 := m1
+    m2["a"] = 999
+    fmt.Println(m1) // map[a:999]
+    fmt.Println(m2) // map[a:999]
+
+    // Para AISLAR un slice, copia explícitamente
+    independent := make([]int, len(s1))
+    copy(independent, s1)
+    independent[0] = -1
+    fmt.Println(s1)          // [999 2 3]
+    fmt.Println(independent) // [-1 2 3]
+}`
+    }
+  ]}
+  output={"[999 2 3]\n[999 2 3]\nmap[a:999]\nmap[a:999]\n[999 2 3]\n[-1 2 3]"}
+/>
+
+<Callout variant="info" title="¿Por qué se llaman 'reference-like'?">
+Go no tiene referencias en el sentido de C++. Slices, maps y channels son **valores** que contienen un puntero internamente. La copia del valor copia el puntero — por eso se comportan como referencias sin serlo.
+</Callout>
+
+</Section>
+
+<Section id="paso-a-funciones" title="Paso de argumentos a funciones">
+
+Las funciones reciben **copias** de sus argumentos. Para tipos por valor (struct, int, array), la función no puede mutar el original. Para slices y maps, sí puede mutar el contenido (pero no la cabecera).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Counter struct{ Value int }
+
+// Por valor: recibe copia del struct
+func incByValue(c Counter) {
+    c.Value++ // muta la copia local
+}
+
+// Por puntero: recibe la dirección — puede mutar el original
+func incByPointer(c *Counter) {
+    c.Value++
+}
+
+// Slice: la función recibe copia del header,
+// pero apunta al mismo array. Puede mutar el contenido.
+func zeroFirst(s []int) {
+    s[0] = 0
+}
+
+// Sin embargo, REASIGNAR el slice dentro no afecta fuera
+func reassign(s []int) {
+    s = []int{999, 999, 999}
+    _ = s
+}
+
+func main() {
+    c := Counter{Value: 5}
+    incByValue(&c.Value)  // (truco) — pero veamos el caso real:
+    incByValue(c)
+    fmt.Println(c.Value) // 5 — sin cambio
+
+    incByPointer(&c)
+    fmt.Println(c.Value) // 6
+
+    nums := []int{1, 2, 3}
+    zeroFirst(nums)
+    fmt.Println(nums) // [0 2 3]  — contenido mutado
+
+    reassign(nums)
+    fmt.Println(nums) // [0 2 3]  — la reasignación local no afecta
+}`
+    }
+  ]}
+  output={"5\n6\n[0 2 3]\n[0 2 3]"}
+/>
+
+</Section>
+
+<Section id="trampa-append-en-funcion" title="Trampa: append dentro de funciones">
+
+Como `append` puede crear un array nuevo cuando se llena la capacidad, una función que hace `append` y no devuelve el slice resultante **puede o no** ver sus cambios reflejados fuera. Es un bug clásico.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Mala idea: la función no devuelve el slice — el caller
+// puede o no ver el append dependiendo de la capacidad
+func addLocal(s []int, v int) {
+    s = append(s, v) // si crece, asigna nuevo array → caller no lo ve
+}
+
+// Forma correcta: devolver el slice
+func add(s []int, v int) []int {
+    return append(s, v)
+}
+
+func main() {
+    // Capacidad justa para 3 — el append fuerza realojo
+    a := make([]int, 3, 3)
+    a[0], a[1], a[2] = 1, 2, 3
+
+    addLocal(a, 99)
+    fmt.Println(a) // [1 2 3]  — el append local se perdió
+
+    a = add(a, 99)
+    fmt.Println(a) // [1 2 3 99]
+
+    // Con capacidad sobrante puede engañarte
+    b := make([]int, 3, 5)
+    b[0], b[1], b[2] = 1, 2, 3
+    addLocal(b, 77) // escribe en b[3] dentro del backing compartido
+    fmt.Println(b[:4]) // [1 2 3 77] — visible POR ACCIDENTE
+}`
+    }
+  ]}
+  output={"[1 2 3]\n[1 2 3 99]\n[1 2 3 77]"}
+/>
+
+<Callout variant="warn" title="Regla: devuelve siempre el slice tras append">
+Como `append` puede reasignar memoria, el patrón seguro es `s = add(s, v)`. Las funciones que añaden a un slice deben devolverlo, igual que el `append` de stdlib.
+</Callout>
+
+</Section>
+
+<Section id="resumen-mental" title="Modelo mental rápido">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Cheat sheet en código:
+//
+//   Tipo            Copia al asignar       Mutación visible fuera
+//   --------------  ---------------------  -------------------------
+//   int, bool       valor completo         no
+//   array [N]T      valor completo         no
+//   struct          valor completo         no
+//   *T (puntero)    copia el puntero       sí (a través de *)
+//   []T (slice)     copia header           sí (al backing array)
+//   map[K]V         copia header           sí (al backing)
+//   chan T          copia header           sí (al backing)
+//   string          copia header (inmut.)  no (las strings son inmutables)
+
+func main() {
+    type Big struct {
+        Data [1000]int
+    }
+    // Para structs grandes, pasa puntero — evita copiar 1000 ints
+    b := &Big{}
+    b.Data[0] = 42
+    fmt.Println(b.Data[0]) // 42
+}`
+    }
+  ]}
+  output={"42"}
+/>
+
+<Callout variant="tip" title="Cuándo usar punteros">
+Usa puntero cuando: (1) quieras que la función mute el original; (2) el struct sea grande y la copia importe; (3) compartas un mismo valor entre varios sitios y todos deban ver los cambios. Para todo lo demás, valor es lo idiomático y más simple.
+</Callout>
+
+</Section>

@@ -1,0 +1,271 @@
+---
+title: "Structs: campos, literales y embebido"
+short: "Structs"
+chapter: "05"
+num: "03"
+chapterTitle: "Composición de datos"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Los structs son la forma idiomática de agrupar datos en Go. Sin clases ni herencia: solo composición a través de campos y embebido. Aquí cubrimos literales, structs anónimos y el mecanismo de promotion."
+pro: false
+---
+
+<Section id="declarar-struct" title="Declarar un struct">
+
+Un struct agrupa varios campos bajo un mismo tipo. `type Point struct { X, Y int }` define un nuevo tipo `Point` con dos campos enteros. Los nombres que empiezan con mayúscula son exportados (visibles fuera del paquete).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Definición del tipo — fuera de main, normalmente a nivel de paquete
+type Point struct {
+    X, Y int
+}
+
+type Person struct {
+    Name    string
+    Age     int
+    Email   string
+}
+
+func main() {
+    // Zero value: todos los campos a su zero
+    var p Point
+    fmt.Println(p)      // {0 0}
+    fmt.Println(p.X)    // 0
+
+    // Asignar campos directamente
+    p.X = 3
+    p.Y = 4
+    fmt.Println(p)      // {3 4}
+
+    var alice Person
+    alice.Name = "Alice"
+    alice.Age = 30
+    fmt.Println(alice)  // {Alice 30 }
+}`
+    }
+  ]}
+  output={"{0 0}\n0\n{3 4}\n{Alice 30 }"}
+/>
+
+</Section>
+
+<Section id="literales-posicional-y-nombrado" title="Literales: posicional y nombrado">
+
+Hay dos formas de construir un struct: posicional (`Point{1, 2}`) o nombrada (`Point{X: 1, Y: 2}`). La nombrada es más legible y resiste cambios futuros en el orden de campos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Point struct {
+    X, Y int
+}
+
+type Person struct {
+    Name  string
+    Age   int
+    Email string
+}
+
+func main() {
+    // Posicional — tienes que dar TODOS los campos, en orden
+    p1 := Point{3, 4}
+    fmt.Println(p1) // {3 4}
+
+    // Nombrado — puedes omitir campos (quedan en zero value)
+    p2 := Point{X: 5}
+    fmt.Println(p2) // {5 0}
+
+    // Nombrado es más claro con muchos campos
+    alice := Person{
+        Name:  "Alice",
+        Age:   30,
+        Email: "alice@example.com",
+    }
+    fmt.Println(alice)
+
+    // Puntero a struct con & — útil para evitar copias grandes
+    pp := &Point{X: 10, Y: 20}
+    pp.X = 99  // Go aplica auto-deref: (*pp).X = 99
+    fmt.Println(*pp) // {99 20}
+}`
+    }
+  ]}
+  output={"{3 4}\n{5 0}\n{Alice 30 alice@example.com}\n{99 20}"}
+/>
+
+<Callout variant="tip" title="Prefiere literales nombrados">
+Los literales posicionales son frágiles: si añades un campo o reordenas, todos los call-sites rompen. En código de producción, usa siempre el formato nombrado.
+</Callout>
+
+</Section>
+
+<Section id="structs-anonimos" title="Structs anónimos">
+
+Para datos efímeros (decodificar JSON, configuración local de una función) puedes declarar un struct sin tipo nombrado. Útil cuando el tipo solo se usa en un lugar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Struct anónimo: tipo y valor en la misma expresión
+    config := struct {
+        Host    string
+        Port    int
+        Verbose bool
+    }{
+        Host:    "localhost",
+        Port:    8080,
+        Verbose: true,
+    }
+
+    fmt.Println(config.Host, config.Port, config.Verbose)
+
+    // Útil en slices de datos de prueba
+    users := []struct {
+        Name string
+        Age  int
+    }{
+        {"Ana", 30},
+        {"Bob", 25},
+    }
+    for _, u := range users {
+        fmt.Printf("%s tiene %d años\\n", u.Name, u.Age)
+    }
+}`
+    }
+  ]}
+  output={"localhost 8080 true\nAna tiene 30 años\nBob tiene 25 años"}
+/>
+
+</Section>
+
+<Section id="embebido-y-promotion" title="Embebido y promotion">
+
+Go no tiene herencia, pero tiene **embebido**: un campo sin nombre cuyo tipo aporta directamente sus campos y métodos al struct contenedor. A esto se le llama *promotion* — los campos del tipo embebido se acceden como si fueran propios.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Person struct {
+    Name string
+    Age  int
+}
+
+// Employee embebe Person — sin nombre de campo
+type Employee struct {
+    Person   // <-- embebido
+    Salary float64
+    Role   string
+}
+
+func main() {
+    e := Employee{
+        Person: Person{Name: "Alice", Age: 30},
+        Salary: 50000,
+        Role:   "Engineer",
+    }
+
+    // Promotion: Name y Age se acceden directamente desde Employee
+    fmt.Println(e.Name)    // Alice
+    fmt.Println(e.Age)     // 30
+    fmt.Println(e.Salary)  // 50000
+
+    // Pero el tipo embebido también está disponible explícitamente
+    fmt.Println(e.Person.Name) // Alice
+    fmt.Println(e.Person)      // {Alice 30}
+
+    // Si Employee define un campo Name propio, ese gana al promovido
+    type Manager struct {
+        Person
+        Name string // sombra el de Person
+    }
+    m := Manager{Person: Person{Name: "interno"}, Name: "Externo"}
+    fmt.Println(m.Name)        // Externo  — el campo propio gana
+    fmt.Println(m.Person.Name) // interno
+}`
+    }
+  ]}
+  output={"Alice\n30\n50000\nAlice\n{Alice 30}\nExterno\ninterno"}
+/>
+
+<Callout variant="info" title="Embebido = composición, no herencia">
+El embebido aporta acceso conveniente a campos y métodos, pero no hay polimorfismo automático. Para polimorfismo se usan interfaces, que veremos más adelante.
+</Callout>
+
+</Section>
+
+<Section id="comparacion-de-structs" title="Comparación e igualdad">
+
+Dos structs son comparables con `==` si todos sus campos son comparables. La igualdad es campo a campo. Structs con slices o maps no son comparables: usar `==` da error de compilación.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Point struct{ X, Y int }
+
+type Box struct {
+    Name  string
+    Items []string // <-- slice: hace Box NO comparable con ==
+}
+
+func main() {
+    a := Point{1, 2}
+    b := Point{1, 2}
+    c := Point{3, 4}
+
+    fmt.Println(a == b) // true
+    fmt.Println(a == c) // false
+
+    // Structs comparables pueden ser claves de map
+    counter := map[Point]int{}
+    counter[a]++
+    counter[b]++ // a == b, así que cuenta en la misma clave
+    counter[c]++
+    fmt.Println(counter) // map[{1 2}:2 {3 4}:1]
+
+    // Box NO se puede comparar con == (slice dentro)
+    // box1 == box2 // error de compilación
+    _ = Box{Name: "x"}
+}`
+    }
+  ]}
+  output={"true\nfalse\nmap[{1 2}:2 {3 4}:1]"}
+/>
+
+</Section>

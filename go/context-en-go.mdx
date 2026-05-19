@@ -1,0 +1,273 @@
+---
+title: "`context`: cancelación, deadlines y propagación"
+short: "context"
+chapter: "08"
+num: "05"
+chapterTitle: "Concurrencia"
+difficulty: "advanced"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "context.Context es la forma estándar en Go de propagar cancelación, deadlines y valores a través de cadenas de llamadas y goroutines. Es la base de todo servicio Go bien hecho."
+pro: false
+---
+
+<Section id="que-es-context" title="¿Qué es un Context?">
+
+Un `context.Context` es un valor que viaja por toda la cadena de llamadas de una operación (una petición HTTP, una consulta a base de datos, un trabajo en cola). Lleva consigo:
+
+- una señal de **cancelación** (`Done()` se cierra cuando hay que parar)
+- una posible **deadline** (`Deadline()` indica tiempo límite absoluto)
+- un mapa de **valores** (`Value(key)` pasa metadatos como request-id)
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"context"
+	"fmt"
+)
+
+func main() {
+	// Punto de partida: contexto raíz, nunca se cancela
+	ctx := context.Background()
+
+	fmt.Println("Done:", ctx.Done()) // canal nil — nunca recibe
+	fmt.Println("Err:", ctx.Err())   // nil — no hay error
+
+	deadline, ok := ctx.Deadline()
+	fmt.Println("Deadline:", deadline, "ok:", ok) // sin deadline
+}`
+    }
+  ]}
+  output={"Done: <nil>\nErr: <nil>\nDeadline: 0001-01-01 00:00:00 +0000 UTC ok: false"}
+/>
+
+<Callout variant="info" title="Background vs TODO">
+`context.Background()` se usa en `main`, en tests y como raíz en servidores. `context.TODO()` se usa cuando no tienes claro qué contexto pasar todavía — es un marcador para refactorizar después. Ambos son contextos vacíos no cancelables.
+</Callout>
+
+</Section>
+
+<Section id="with-cancel" title="WithCancel: cancelación manual">
+
+`context.WithCancel(parent)` devuelve un contexto hijo y una función `cancel`. Llamar a `cancel()` cierra `ctx.Done()` — y el de todos sus descendientes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+func trabajador(ctx context.Context, id int) {
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Printf("worker %d: parando (%v)\\n", id, ctx.Err())
+			return
+		default:
+			fmt.Printf("worker %d: trabajando\\n", id)
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+}
+
+func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go trabajador(ctx, 1)
+	go trabajador(ctx, 2)
+
+	time.Sleep(120 * time.Millisecond)
+	cancel() // señal a TODOS los hijos del ctx
+
+	time.Sleep(50 * time.Millisecond)
+	fmt.Println("main termina")
+}`
+    }
+  ]}
+  output={"worker 1: trabajando\nworker 2: trabajando\nworker 1: trabajando\nworker 2: trabajando\nworker 1: trabajando\nworker 2: trabajando\nworker 2: parando (context canceled)\nworker 1: parando (context canceled)\nmain termina"}
+/>
+
+<Callout variant="warn" title="Siempre llama cancel()">
+La función `cancel` debe llamarse — normalmente con `defer cancel()` justo tras crear el contexto. Si no lo haces, los recursos asociados (timers, goroutines internas) no se liberan hasta que el padre se cancele.
+</Callout>
+
+</Section>
+
+<Section id="with-timeout-deadline" title="WithTimeout y WithDeadline">
+
+`WithTimeout(parent, d)` cancela el contexto pasados `d` nanosegundos. `WithDeadline(parent, t)` lo cancela en el instante absoluto `t`. Son atajos sobre `WithCancel`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+func consultaLenta(ctx context.Context) (string, error) {
+	select {
+	case <-time.After(500 * time.Millisecond):
+		return "datos", nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+func main() {
+	// Cancela automáticamente a los 200ms
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	res, err := consultaLenta(ctx)
+	if err != nil {
+		fmt.Println("error:", err) // context deadline exceeded
+		return
+	}
+	fmt.Println("resultado:", res)
+}`
+    }
+  ]}
+  output={"error: context deadline exceeded"}
+/>
+
+`ctx.Err()` devuelve `context.Canceled` si lo cancelaron manualmente, o `context.DeadlineExceeded` si venció el tiempo. Distinguir ambos casos es útil para logs y métricas.
+
+</Section>
+
+<Section id="primer-parametro" title="Convención: ctx siempre primero">
+
+La convención fuerte en Go es **pasar `ctx context.Context` como primer parámetro** de toda función que pueda bloquear, hacer I/O o lanzar goroutines. Nunca guardar el context en una struct ni pasarlo como segundo argumento.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// ✅ ctx es el primer parámetro
+func fetchUser(ctx context.Context, id int) (string, error) {
+	select {
+	case <-time.After(100 * time.Millisecond):
+		return fmt.Sprintf("user-%d", id), nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+func fetchOrders(ctx context.Context, userID int) ([]string, error) {
+	select {
+	case <-time.After(100 * time.Millisecond):
+		return []string{"o1", "o2"}, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func handler(ctx context.Context) error {
+	user, err := fetchUser(ctx, 1)
+	if err != nil {
+		return err
+	}
+	orders, err := fetchOrders(ctx, 1)
+	if err != nil {
+		return err
+	}
+	fmt.Println(user, "→", orders)
+	return nil
+}
+
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	if err := handler(ctx); err != nil {
+		fmt.Println("handler error:", err)
+	}
+}`
+    }
+  ]}
+  output={"user-1 → [o1 o2]"}
+/>
+
+Si la petición HTTP entrante se cancela (el cliente cierra la conexión), `r.Context()` del `*http.Request` ya está cancelado — y al propagarlo se cancelan todas las consultas downstream. Es el caso de uso central de `context`.
+
+</Section>
+
+<Section id="with-value" title="WithValue: pasar metadatos con cuidado">
+
+`context.WithValue(parent, key, val)` adjunta un valor recuperable con `ctx.Value(key)`. Está pensado para datos de tránsito de la petición (request-id, user-id autenticado, trace-id), **no** para pasar argumentos opcionales a funciones.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"context"
+	"fmt"
+)
+
+// Tipo propio para la clave: evita colisiones entre paquetes
+type ctxKey string
+
+const requestIDKey ctxKey = "requestID"
+
+func conRequestID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, requestIDKey, id)
+}
+
+func leerRequestID(ctx context.Context) string {
+	if v, ok := ctx.Value(requestIDKey).(string); ok {
+		return v
+	}
+	return "<sin id>"
+}
+
+func logear(ctx context.Context, msg string) {
+	fmt.Printf("[req=%s] %s\\n", leerRequestID(ctx), msg)
+}
+
+func main() {
+	ctx := conRequestID(context.Background(), "abc-123")
+	logear(ctx, "procesando petición")
+	logear(context.Background(), "sin contexto")
+}`
+    }
+  ]}
+  output={"[req=abc-123] procesando petición\n[req=<sin id>] sin contexto"}
+/>
+
+<Callout variant="warn" title="Reglas de WithValue">
+La clave **nunca** debe ser un tipo built-in como `string` o `int` directo — usa un tipo propio no exportado para evitar choques. Y **no** uses `context.Value` para pasar dependencias opcionales: eso se hace con parámetros explícitos o inyección. `Value` es solo para datos transversales de la operación.
+</Callout>
+
+</Section>

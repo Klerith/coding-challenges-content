@@ -1,0 +1,314 @@
+---
+title: "Valores vs punteros: &, * y cuándo usar cada uno"
+short: "Valores vs punteros"
+chapter: "04"
+num: "02"
+chapterTitle: "Funciones"
+difficulty: "intermediate"
+readingMinutes: 8
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go pasa todo por valor: cada llamada copia los argumentos. Los punteros te permiten compartir la misma dirección de memoria entre funciones, mutar estructuras y evitar copias caras. Entender cuándo usarlos es clave para escribir Go idiomático."
+pro: false
+---
+
+<Section id="pass-by-value" title="Pass-by-value por defecto">
+
+Cuando llamas a una función en Go, los argumentos se **copian**. La función trabaja sobre la copia, no sobre la variable original:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Recibe una copia de n. Modificarla no afecta al original.
+func tryToDouble(n int) {
+    n = n * 2
+    fmt.Println("Dentro:", n)
+}
+
+type User struct {
+    Name string
+    Age  int
+}
+
+// Recibe una copia del struct
+func tryToRename(u User) {
+    u.Name = "Modificado"
+    fmt.Println("Dentro:", u.Name)
+}
+
+func main() {
+    x := 10
+    tryToDouble(x)
+    fmt.Println("Fuera:", x)        // Fuera: 10 — intacto
+
+    u := User{Name: "Ada", Age: 36}
+    tryToRename(u)
+    fmt.Println("Fuera:", u.Name)   // Fuera: Ada — intacto
+}
+`
+    }
+  ]}
+  output={"Dentro: 20\nFuera: 10\nDentro: Modificado\nFuera: Ada"}
+/>
+
+<Callout variant="info" title="¿Y los slices y maps?">
+Slices, maps y channels son tipos *reference-like*: contienen internamente un puntero a sus datos. Aunque también se copian al pasarlos, la copia comparte el array subyacente, por lo que las modificaciones a sus elementos **sí** se ven fuera. No así si reasignas el slice completo.
+</Callout>
+
+</Section>
+
+<Section id="operadores-amp-star" title="Operadores & y *">
+
+Para trabajar con la dirección de memoria de una variable, Go usa dos operadores:
+
+- `&x` — toma la **dirección** de `x`. El resultado es de tipo `*T` donde `T` es el tipo de `x`.
+- `*p` — **dereferencia** el puntero `p`, accediendo al valor en esa dirección.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    x := 42
+
+    // p es de tipo *int — un puntero a int
+    var p *int = &x
+
+    fmt.Println(x)     // 42
+    fmt.Println(p)     // 0xc000... (la dirección)
+    fmt.Println(*p)    // 42 — el valor en esa dirección
+
+    // Modificar a través del puntero
+    *p = 100
+    fmt.Println(x)     // 100 — ¡cambió!
+
+    // Idiomático: declarar y tomar dirección en una línea
+    y := 7
+    q := &y
+    *q += 3
+    fmt.Println(y)     // 10
+}
+`
+    }
+  ]}
+  output={"42\n0xc000010090\n42\n100\n10"}
+/>
+
+</Section>
+
+<Section id="mutar-con-puntero" title="Mutar a través de un puntero">
+
+Si quieres que una función modifique el valor del llamante, debe recibir un puntero. Es el patrón clásico cuando una función necesita devolver datos *vía* su argumento:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type User struct {
+    Name string
+    Age  int
+}
+
+// Recibe puntero — puede mutar al original
+func birthday(u *User) {
+    u.Age++ // azúcar sintáctico para (*u).Age++
+}
+
+func rename(u *User, name string) {
+    u.Name = name
+}
+
+func main() {
+    u := User{Name: "Ada", Age: 36}
+
+    birthday(&u)              // pasamos la dirección
+    fmt.Println(u.Age)        // 37
+
+    rename(&u, "Ada Lovelace")
+    fmt.Println(u.Name)       // Ada Lovelace
+
+    // Sin puntero, los cambios no persistirían
+    fmt.Printf("%+v\n", u)    // {Name:Ada Lovelace Age:37}
+}
+`
+    }
+  ]}
+  output={"37\nAda Lovelace\n{Name:Ada Lovelace Age:37}"}
+/>
+
+<Callout variant="tip" title="Acceso a campos: u.X funciona con *User">
+Go permite escribir `u.Name` aunque `u` sea un `*User`. Internamente lo desreferencia por ti. Solo necesitas escribir `(*u).Name` en casos muy específicos — el atajo es lo idiomático.
+</Callout>
+
+</Section>
+
+<Section id="cuando-usar-puntero" title="¿Cuándo usar puntero?">
+
+Tres razones principales para preferir un puntero sobre un valor:
+
+**1. Mutación.** La función necesita modificar el argumento original.
+
+**2. Structs grandes.** Copiar una struct con muchos campos (o un array grande) tiene coste. Un puntero ocupa 8 bytes en sistemas de 64 bits — siempre lo mismo.
+
+**3. Distinguir "no presente" del valor cero.** Un `*int` puede ser `nil`, un `int` siempre vale algo. Útil en campos opcionales.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Config struct {
+    Host    string
+    Port    int
+    Retries int
+    Verbose bool
+    // ... imagina 20 campos más
+}
+
+// ✓ Puntero: evita copiar todo el struct en cada llamada
+func validate(c *Config) error {
+    if c.Host == "" {
+        return fmt.Errorf("host vacío")
+    }
+    return nil
+}
+
+// Opcional: *int distingue "no se dio valor" de "se dio 0"
+type SearchOptions struct {
+    Query string
+    Limit *int    // nil = sin límite
+}
+
+func search(opts SearchOptions) {
+    if opts.Limit == nil {
+        fmt.Println("Buscando", opts.Query, "sin límite")
+    } else {
+        fmt.Println("Buscando", opts.Query, "limit:", *opts.Limit)
+    }
+}
+
+func main() {
+    cfg := &Config{Host: "api.example.com", Port: 443}
+    fmt.Println(validate(cfg))     // <nil>
+
+    search(SearchOptions{Query: "go"})
+    limit := 10
+    search(SearchOptions{Query: "go", Limit: &limit})
+}
+`
+    }
+  ]}
+  output={"<nil>\nBuscando go sin límite\nBuscando go limit: 10"}
+/>
+
+</Section>
+
+<Section id="nil-pointer" title="Nil pointer y panic">
+
+El valor cero de un puntero es `nil`. Dereferenciar un puntero nil provoca un panic en tiempo de ejecución — el equivalente al `NullPointerException` de Java:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type User struct {
+    Name string
+}
+
+func printName(u *User) {
+    if u == nil {
+        fmt.Println("(sin usuario)")
+        return
+    }
+    fmt.Println(u.Name)
+}
+
+func main() {
+    var p *User           // p es nil
+    fmt.Println(p == nil) // true
+
+    printName(p)          // (sin usuario)
+    printName(&User{Name: "Ada"})
+
+    // Dereferenciar nil → panic
+    // fmt.Println(p.Name) // panic: runtime error: invalid memory address
+}
+`
+    }
+  ]}
+  output={"true\n(sin usuario)\nAda"}
+/>
+
+<Callout variant="warn" title="Comprueba antes de dereferenciar">
+Si una función puede recibir un puntero nil, valida con `if p == nil` antes de acceder a sus campos. Es la fuente más habitual de panics en Go.
+</Callout>
+
+</Section>
+
+<Section id="gc-y-escape" title="GC y escape analysis">
+
+Go tiene **garbage collector**: no liberas memoria manualmente. Cuando tomas la dirección de una variable local con `&x` y esa dirección "escapa" de la función (la devuelves, la guardas en una struct global, la pasas a una goroutine), el compilador detecta la fuga y mueve la variable al **heap** automáticamente. Si no escapa, vive en el **stack** y se libera al volver de la función.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type User struct {
+    Name string
+}
+
+// Devuelve un puntero a una variable local — totalmente seguro.
+// El compilador la coloca en el heap automáticamente.
+func newUser(name string) *User {
+    u := User{Name: name}
+    return &u
+}
+
+func main() {
+    u := newUser("Ada")
+    fmt.Println(u.Name)        // Ada
+    fmt.Printf("%p\n", u)      // dirección en el heap
+}
+`
+    }
+  ]}
+  output={"Ada\n0xc000010090"}
+/>
+
+<Callout variant="info" title="Análisis de escape en la práctica">
+Puedes ver qué variables escapan al heap con `go build -gcflags="-m"`. En general no es algo de lo que preocuparse: escribe código natural y deja que el compilador decida la ubicación óptima.
+</Callout>
+
+</Section>

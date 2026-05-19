@@ -1,0 +1,412 @@
+---
+title: "Buenas prácticas: zero values, accept interfaces, return structs"
+short: "Buenas prácticas"
+chapter: "10"
+num: "03"
+chapterTitle: "Patrones idiomáticos"
+difficulty: "advanced"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go no impone un estilo a través de macros o anotaciones — lo hace mediante convenciones que la comunidad respeta de forma estricta. Conocerlas marca la diferencia entre código que se siente Go y código que parece Java disfrazado."
+pro: false
+---
+
+<Section id="zero-values" title="Zero values útiles: diseñá para el cero">
+
+Toda variable en Go arranca con su *zero value*: `0`, `""`, `false`, `nil`, structs con campos a cero. Los tipos bien diseñados son *útiles desde su zero value* — sin necesidad de un constructor.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"bytes"
+	"fmt"
+	"sync"
+)
+
+// MAL: requiere un constructor para no panickear
+type BadCounter struct {
+	mu     *sync.Mutex
+	values []int
+}
+
+// Si haces 'var c BadCounter; c.Add(1)' → panic (mu == nil)
+
+// BIEN: zero value totalmente funcional
+type Counter struct {
+	mu     sync.Mutex // sync.Mutex zero value es un mutex desbloqueado
+	values []int      // slice nil acepta append sin problema
+}
+
+func (c *Counter) Add(v int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.values = append(c.values, v)
+}
+
+func (c *Counter) Len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.values)
+}
+
+func main() {
+	// Zero value funciona — sin constructor
+	var c Counter
+	c.Add(10)
+	c.Add(20)
+	fmt.Println(c.Len()) // 2
+
+	// bytes.Buffer también es útil desde zero value
+	var buf bytes.Buffer
+	buf.WriteString("hola ")
+	buf.WriteString("mundo")
+	fmt.Println(buf.String()) // hola mundo
+}`
+    }
+  ]}
+  output={"2\nhola mundo"}
+/>
+
+<Callout variant="info" title="Ejemplos en la librería estándar">
+`sync.Mutex`, `sync.WaitGroup`, `bytes.Buffer`, `strings.Builder` — todos diseñados para usarse sin `New*`. Cuando crees un tipo nuevo, preguntate: "¿funciona con `var x T`?". Si no, probablemente convenga rediseñarlo.
+</Callout>
+
+</Section>
+
+<Section id="accept-interfaces" title="Accept interfaces, return structs">
+
+Una de las frases más citadas del estilo Go: las funciones deberían *aceptar* interfaces (lo más pequeñas posible) y *retornar* tipos concretos (structs). Así el consumidor obtiene un objeto con todos los métodos disponibles, y la función no se acopla a una implementación concreta.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"io"
+	"strings"
+)
+
+// MAL: la función acepta un struct concreto
+// No se puede pasar otra fuente de datos sin tocar la firma
+func CountLinesBad(r *strings.Reader) int {
+	buf := make([]byte, 1024)
+	count := 0
+	for {
+		n, err := r.Read(buf)
+		for i := 0; i < n; i++ {
+			if buf[i] == '\\n' {
+				count++
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+	return count
+}
+
+// BIEN: acepta una interfaz mínima (io.Reader: un solo método)
+// Funciona con *os.File, *bytes.Buffer, *strings.Reader, net.Conn, etc.
+func CountLines(r io.Reader) int {
+	buf := make([]byte, 1024)
+	count := 0
+	for {
+		n, err := r.Read(buf)
+		for i := 0; i < n; i++ {
+			if buf[i] == '\\n' {
+				count++
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+	return count
+}
+
+// Retornar un struct concreto da más opciones al caller
+type Server struct {
+	host string
+	port int
+}
+
+func (s *Server) Addr() string { return fmt.Sprintf("%s:%d", s.host, s.port) }
+func (s *Server) Host() string { return s.host }
+
+// NewServer retorna *Server (struct), NO una interfaz
+// El caller puede usar todos los métodos sin downcasting
+func NewServer(host string, port int) *Server {
+	return &Server{host: host, port: port}
+}
+
+func main() {
+	text := "linea 1\\nlinea 2\\nlinea 3\\n"
+	fmt.Println(CountLines(strings.NewReader(text))) // 3
+
+	srv := NewServer("localhost", 8080)
+	fmt.Println(srv.Addr()) // localhost:8080
+}`
+    }
+  ]}
+  output={"3\nlocalhost:8080"}
+/>
+
+</Section>
+
+<Section id="small-interfaces" title="Interfaces pequeñas: cuanto menos, mejor">
+
+En Go las interfaces se descubren, no se diseñan por adelantado. La regla práctica: una interfaz idiomática suele tener 1, 2 o 3 métodos. Las "fat interfaces" con 10+ métodos son una señal de mal diseño.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"io"
+	"strings"
+)
+
+// La librería estándar es la mejor referencia:
+// io.Reader   — 1 método (Read)
+// io.Writer   — 1 método (Write)
+// io.Closer   — 1 método (Close)
+// fmt.Stringer — 1 método (String)
+// error       — 1 método (Error)
+//
+// Composición para casos compuestos:
+type ReadWriter interface {
+	io.Reader
+	io.Writer
+}
+
+type ReadWriteCloser interface {
+	io.Reader
+	io.Writer
+	io.Closer
+}
+
+// Función que usa la interfaz mínima necesaria
+func CopyTo(dst io.Writer, src io.Reader) (int64, error) {
+	return io.Copy(dst, src)
+}
+
+func main() {
+	var out strings.Builder
+	src := strings.NewReader("hola desde go")
+
+	n, _ := CopyTo(&out, src)
+	fmt.Printf("copiados %d bytes: %s\\n", n, out.String())
+}`
+    }
+  ]}
+  output={"copiados 13 bytes: hola desde go"}
+/>
+
+<Callout variant="tip" title="Define la interfaz donde la usás">
+En Go, las interfaces se declaran *en el paquete que las consume*, no en el que las implementa. Esto invierte la dependencia (Dependency Inversion) y evita que la librería que produce el tipo conozca a todos sus consumidores.
+</Callout>
+
+</Section>
+
+<Section id="errores-ultimo-return" title="Errores como último return; nunca panic en libs">
+
+La convención: si una función puede fallar, retorna `error` como *último* valor. El caller decide qué hacer. `panic` se reserva para fallos verdaderamente irrecuperables — nunca para errores de validación o de I/O.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+// MAL: panic en una librería = secuestra el control de tu caller
+func DivideBad(a, b int) int {
+	if b == 0 {
+		panic("división por cero") // nunca hagas esto en código de librería
+	}
+	return a / b
+}
+
+// BIEN: error como último return, mensaje en minúsculas y sin punto final
+func Divide(a, b int) (int, error) {
+	if b == 0 {
+		return 0, errors.New("división por cero")
+	}
+	return a / b, nil
+}
+
+// Wrap de errores con %w preserva la cadena para errors.Is/As
+type NotFoundError struct{ Key string }
+
+func (e *NotFoundError) Error() string { return fmt.Sprintf("key %q no encontrada", e.Key) }
+
+func Lookup(key string) (string, error) {
+	store := map[string]string{"go": "1.22"}
+	v, ok := store[key]
+	if !ok {
+		return "", fmt.Errorf("lookup: %w", &NotFoundError{Key: key})
+	}
+	return v, nil
+}
+
+func main() {
+	q, err := Divide(10, 2)
+	if err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	fmt.Println("resultado:", q)
+
+	_, err = Lookup("rust")
+	var nfe *NotFoundError
+	if errors.As(err, &nfe) {
+		fmt.Println("not found:", nfe.Key)
+	}
+}`
+    }
+  ]}
+  output={"resultado: 5\nnot found: rust"}
+/>
+
+</Section>
+
+<Section id="context-primero" title="context.Context como primer parámetro">
+
+Cualquier función que haga I/O, bloquee, o pueda cancelarse, debe aceptar un `context.Context` como *primer* parámetro. Es la convención universal en el ecosistema (net/http, database/sql, gRPC, etc.).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// ctx siempre primer parámetro, nombrado 'ctx'
+// Nunca guardar ctx en un struct: pasarlo explícito por la cadena de llamadas
+func fetchUser(ctx context.Context, id int) (string, error) {
+	select {
+	case <-time.After(50 * time.Millisecond):
+		return fmt.Sprintf("user-%d", id), nil
+	case <-ctx.Done():
+		return "", ctx.Err() // context.DeadlineExceeded o context.Canceled
+	}
+}
+
+func main() {
+	// Caso 1: tiempo suficiente
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	u, err := fetchUser(ctx, 1)
+	fmt.Println(u, err)
+
+	// Caso 2: timeout demasiado corto → la operación se cancela
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel2()
+	_, err = fetchUser(ctx2, 2)
+	fmt.Println("timeout:", err)
+}`
+    }
+  ]}
+  output={"user-1 <nil>\ntimeout: context deadline exceeded"}
+/>
+
+</Section>
+
+<Section id="shadowing" title="Evitar shadowing y otros tropiezos comunes">
+
+El *shadowing* (sombreado) ocurre cuando se redeclara una variable con `:=` en un scope interno, ocultando la externa. Es una de las causas más comunes de bugs sutiles en Go.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func compute() (int, error) { return 42, nil }
+func double(n int) int      { return n * 2 }
+
+func badShadowing() (int, error) {
+	result, err := compute()
+	if err != nil {
+		return 0, err
+	}
+
+	if result > 0 {
+		// PROBLEMA: ':=' redeclara 'err' en el scope del if
+		// El err externo NO se actualiza
+		result, err := double(result), errors.New("ignorado")
+		_ = err // err interno
+		return result, nil
+	}
+	return result, nil
+}
+
+func goodNoShadowing() (int, error) {
+	result, err := compute()
+	if err != nil {
+		return 0, err
+	}
+
+	if result > 0 {
+		// '=' (asignación, no declaración) usa la variable externa
+		result = double(result)
+	}
+	return result, nil
+}
+
+func main() {
+	a, _ := badShadowing()
+	b, _ := goodNoShadowing()
+	fmt.Println(a, b) // 84 84
+
+	// Truco: 'go vet -shadow' (o 'shadow' linter) detecta estos casos
+}`
+    }
+  ]}
+  output={"84 84"}
+/>
+
+<Callout variant="warning" title="Resumen final del estilo Go">
+- Diseñá tipos cuyo zero value sea útil.
+- Aceptá interfaces, retornaá structs.
+- Interfaces pequeñas (1-3 métodos), definidas donde se usan.
+- `error` como último valor de retorno; nunca `panic` en librerías.
+- `context.Context` primero, jamás guardado en un struct.
+- Cuidado con `:=` dentro de `if` y bucles.
+- Cuando dudes, leé la stdlib — es el manual de estilo definitivo.
+</Callout>
+
+</Section>

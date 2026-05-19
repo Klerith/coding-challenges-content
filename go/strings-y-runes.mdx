@@ -1,0 +1,242 @@
+---
+title: "Strings y runes: UTF-8, bytes y caracteres"
+short: "Strings y runes"
+chapter: "02"
+num: "03"
+chapterTitle: "Sintaxis y tipos básicos"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "En Go, un string es una secuencia inmutable de bytes UTF-8 — no de caracteres. Esta decisión de diseño es brillante para rendimiento pero confunde al principio: `len(s)` cuenta bytes, no letras."
+pro: false
+---
+
+<Section id="strings-inmutables" title="Strings: secuencias inmutables de bytes">
+
+Un `string` en Go es una secuencia inmutable de bytes, normalmente codificada en UTF-8. La inmutabilidad significa que no puedes modificar un carácter individual una vez creado el string.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Declaración de strings
+    name := "Fernando"
+    city := "Madrid"
+
+    // Strings con comillas dobles → admiten escapes (\n, \t, \\)
+    line := "first\nsecond"
+
+    // Strings raw con backticks → todo literal, sin escapes
+    path := \`C:\Users\Fernando\`
+
+    fmt.Println(name, city)
+    fmt.Println(line)
+    fmt.Println(path)
+
+    // ❌ Los strings son inmutables — esto NO compila:
+    // name[0] = 'X' // cannot assign to name[0] (value of type byte)
+
+    // ✅ Para "modificar", crea uno nuevo
+    upper := "F" + name[1:]
+    fmt.Println(upper)
+}
+`
+    }
+  ]}
+  output={"Fernando Madrid\nfirst\nsecond\nC:\\Users\\Fernando\nFernando"}
+/>
+
+<Callout variant="info" title="Backticks para raw strings">
+Los strings entre backticks (`` ` ``) son *raw strings*: ignoran escapes y permiten saltos de línea reales. Ideales para regex, SQL o rutas Windows sin tener que escapar nada.
+</Callout>
+
+</Section>
+
+<Section id="len-vs-runes" title="len() cuenta bytes, no caracteres">
+
+Esta es la fuente número uno de bugs con strings en Go. `len(s)` devuelve el número de **bytes**, no de caracteres Unicode. Para contar caracteres reales (runes) hay que usar `utf8.RuneCountInString` o convertir a `[]rune`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "unicode/utf8"
+)
+
+func main() {
+    ascii := "hello"
+    spanish := "olé"
+    emoji := "Hola 👋"
+
+    // len() cuenta bytes
+    fmt.Println(len(ascii))   // 5  — cada letra ASCII = 1 byte
+    fmt.Println(len(spanish)) // 4  — 'é' ocupa 2 bytes en UTF-8
+    fmt.Println(len(emoji))   // 9  — '👋' ocupa 4 bytes
+
+    // utf8.RuneCountInString cuenta caracteres reales
+    fmt.Println(utf8.RuneCountInString(spanish)) // 3
+    fmt.Println(utf8.RuneCountInString(emoji))   // 6
+
+    // Convertir a []rune también funciona
+    runes := []rune(emoji)
+    fmt.Println(len(runes)) // 6
+}
+`
+    }
+  ]}
+  output={"5\n4\n9\n3\n6\n6"}
+/>
+
+<Callout variant="warn" title="No indexes strings para obtener caracteres">
+`s[0]` devuelve el primer **byte**, no el primer carácter. Si tu string tiene caracteres no-ASCII, indexar puede partir un carácter UTF-8 a la mitad. Para acceder a caracteres reales, convierte primero a `[]rune`.
+</Callout>
+
+</Section>
+
+<Section id="bytes-y-runes" title="byte y rune: dos formas de ver un string">
+
+Go tiene dos alias clave para trabajar con strings: `byte` (alias de `uint8`) representa un byte crudo, y `rune` (alias de `int32`) representa un *code point* Unicode.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    s := "olé"
+
+    // Indexar devuelve byte (uint8)
+    fmt.Printf("%T %v\n", s[0], s[0]) // uint8 111  ('o')
+    fmt.Printf("%T %v\n", s[1], s[1]) // uint8 108  ('l')
+    fmt.Printf("%T %v\n", s[2], s[2]) // uint8 195  (primer byte de 'é')
+    fmt.Printf("%T %v\n", s[3], s[3]) // uint8 169  (segundo byte de 'é')
+
+    // Convertir a []rune da los caracteres Unicode reales
+    runes := []rune(s)
+    fmt.Printf("%T %v\n", runes[2], runes[2]) // int32 233 ('é')
+
+    // Literales: 'X' es un rune (int32), no un string de 1 carácter
+    var r rune = 'é'
+    fmt.Println(r)        // 233
+    fmt.Printf("%c\n", r) // é
+
+    // byte vs rune
+    var b byte = 'A'
+    fmt.Println(b)        // 65
+}
+`
+    }
+  ]}
+  output={"uint8 111\nuint8 108\nuint8 195\nuint8 169\nint32 233\n233\né\n65"}
+/>
+
+</Section>
+
+<Section id="iterar-strings" title="Recorrer un string carácter a carácter">
+
+Un `for ... range` sobre un string itera por **runes**, no por bytes. El índice que devuelve es la posición en bytes — útil cuando necesitas mapear posiciones del string original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    s := "olé"
+
+    // for range — itera por rune
+    for i, r := range s {
+        fmt.Printf("byte %d: %c (%d)\n", i, r, r)
+    }
+    // byte 0: o (111)
+    // byte 1: l (108)
+    // byte 2: é (233)   ← salta de 2 a 4 porque 'é' ocupa 2 bytes
+
+    fmt.Println("---")
+
+    // for clásico con índice — itera por bytes
+    for i := 0; i < len(s); i++ {
+        fmt.Printf("%d: %d\n", i, s[i])
+    }
+}
+`
+    }
+  ]}
+  output={"byte 0: o (111)\nbyte 1: l (108)\nbyte 2: é (233)\n---\n0: 111\n1: 108\n2: 195\n3: 169"}
+/>
+
+</Section>
+
+<Section id="operaciones-comunes" title="Operaciones comunes con strings">
+
+El paquete `strings` de la librería estándar contiene la mayoría de utilidades que necesitarás.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "strings"
+)
+
+func main() {
+    s := "Hola, Mundo"
+
+    // Mayúsculas / minúsculas
+    fmt.Println(strings.ToUpper(s))     // HOLA, MUNDO
+    fmt.Println(strings.ToLower(s))     // hola, mundo
+
+    // Contiene, prefijo, sufijo
+    fmt.Println(strings.Contains(s, "Mundo")) // true
+    fmt.Println(strings.HasPrefix(s, "Hola")) // true
+    fmt.Println(strings.HasSuffix(s, "do"))   // true
+
+    // Reemplazar y dividir
+    fmt.Println(strings.Replace(s, "Mundo", "Go", 1)) // Hola, Go
+    fmt.Println(strings.Split("a,b,c,d", ","))        // [a b c d]
+    fmt.Println(strings.Join([]string{"a", "b"}, "-")) // a-b
+
+    // Concatenación: + funciona, pero para muchos strings usa strings.Builder
+    var b strings.Builder
+    b.WriteString("Hola")
+    b.WriteString(", ")
+    b.WriteString("Mundo")
+    fmt.Println(b.String())
+}
+`
+    }
+  ]}
+  output={"HOLA, MUNDO\nhola, mundo\ntrue\ntrue\ntrue\nHola, Go\n[a b c d]\na-b\nHola, Mundo"}
+/>
+
+<Callout variant="tip" title="strings.Builder para concatenación intensiva">
+Cada `+` entre strings crea un string nuevo (los strings son inmutables). Para construir un string en un bucle, usa `strings.Builder`: es mucho más eficiente porque acumula en un buffer interno.
+</Callout>
+
+</Section>

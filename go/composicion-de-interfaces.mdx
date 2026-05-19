@@ -1,0 +1,217 @@
+---
+title: "Composición de interfaces: `io.Reader`, `io.Writer`"
+short: "Composición de interfaces"
+chapter: "06"
+num: "03"
+chapterTitle: "Interfaces"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "En Go no se hereda: se compone. Una interfaz puede embeber otras interfaces para formar contratos más grandes. El paquete `io` es el ejemplo canónico — Reader, Writer y Closer se combinan en docenas de interfaces de uso diario."
+pro: false
+---
+
+<Section id="embeber-interfaces" title="Embeber interfaces en otras interfaces">
+
+Una interfaz puede incluir el nombre de otra interfaz como si fuera un método. El resultado contiene **todos** los métodos de las interfaces embebidas. Es el equivalente al `extends` múltiple, pero a nivel de contratos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Reader interface {
+	Read(p []byte) (n int, err error)
+}
+
+type Writer interface {
+	Write(p []byte) (n int, err error)
+}
+
+// ReadWriter combina ambas: cualquier tipo con Read y Write la satisface
+type ReadWriter interface {
+	Reader
+	Writer
+}
+
+// Un buffer simple en memoria
+type Buffer struct{ data []byte }
+
+func (b *Buffer) Read(p []byte) (int, error) {
+	n := copy(p, b.data)
+	b.data = b.data[n:]
+	return n, nil
+}
+
+func (b *Buffer) Write(p []byte) (int, error) {
+	b.data = append(b.data, p...)
+	return len(p), nil
+}
+
+func main() {
+	var rw ReadWriter = &Buffer{}
+	rw.Write([]byte("hola"))
+
+	buf := make([]byte, 4)
+	rw.Read(buf)
+	fmt.Println(string(buf)) // hola
+}`
+    }
+  ]}
+  output={"hola"}
+/>
+
+</Section>
+
+<Section id="el-paquete-io" title="El paquete `io`: Reader, Writer, Closer">
+
+El paquete `io` define las interfaces más reutilizadas de la stdlib. Cada una tiene un solo método y se combinan por composición.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+// Definiciones reales (simplificadas) de la stdlib:
+
+type Reader interface {
+	Read(p []byte) (n int, err error)
+}
+
+type Writer interface {
+	Write(p []byte) (n int, err error)
+}
+
+type Closer interface {
+	Close() error
+}
+
+// Composiciones
+type ReadWriter interface {
+	Reader
+	Writer
+}
+
+type ReadCloser interface {
+	Reader
+	Closer
+}
+
+type WriteCloser interface {
+	Writer
+	Closer
+}
+
+type ReadWriteCloser interface {
+	Reader
+	Writer
+	Closer
+}
+
+func main() {}`
+    }
+  ]}
+  output={""}
+/>
+
+<Callout variant="info" title="Tipos que satisfacen estas interfaces">
+`*os.File` implementa `Read`, `Write` y `Close` — satisface `ReadWriteCloser`. `*bytes.Buffer` satisface `ReadWriter`. `http.Response.Body` satisface `ReadCloser`. Todo se conecta sin acoplamiento explícito.
+</Callout>
+
+</Section>
+
+<Section id="leer-de-cualquier-fuente" title="Leer de cualquier fuente con `io.Reader`">
+
+La belleza de `io.Reader` es que cualquier función que recibe uno puede consumir bytes de archivos, redes, strings o memoria sin saber la diferencia.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"io"
+	"strings"
+)
+
+// countBytes acepta cualquier io.Reader
+func countBytes(r io.Reader) (int, error) {
+	buf := make([]byte, 1024)
+	total := 0
+	for {
+		n, err := r.Read(buf)
+		total += n
+		if err == io.EOF {
+			return total, nil
+		}
+		if err != nil {
+			return total, err
+		}
+	}
+}
+
+func main() {
+	// strings.NewReader produce un io.Reader desde un string
+	r := strings.NewReader("Hola, Gophers!")
+	n, _ := countBytes(r)
+	fmt.Println("bytes leídos:", n)
+}`
+    }
+  ]}
+  output={"bytes leídos: 14"}
+/>
+
+</Section>
+
+<Section id="copiar-entre-cualquier-par" title="`io.Copy`: el patrón Reader+Writer en acción">
+
+`io.Copy(dst Writer, src Reader)` es el ejemplo perfecto de composición: aprovecha dos interfaces de un método para conectar **cualquier** fuente con **cualquier** destino.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strings"
+)
+
+func main() {
+	src := strings.NewReader("contenido a copiar\\n")
+	var dst bytes.Buffer // bytes.Buffer es io.Writer
+
+	// io.Copy funciona con cualquier Reader y cualquier Writer
+	n, err := io.Copy(&dst, src)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("copiados %d bytes\\n", n)
+	fmt.Print(dst.String())
+}`
+    }
+  ]}
+  output={"copiados 19 bytes\ncontenido a copiar"}
+/>
+
+<Callout variant="tip" title="Diseño en pequeñas piezas">
+Cada interfaz hace una sola cosa. Cuando necesitas algo más rico (leer y cerrar, escribir y cerrar), compones. No hay jerarquías profundas: solo combinaciones de bloques mínimos. Es la esencia del estilo Go.
+</Callout>
+
+</Section>

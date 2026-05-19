@@ -1,0 +1,235 @@
+---
+title: "Módulos: `go.mod`, `go get` y semver"
+short: "Módulos y dependencias"
+chapter: "09"
+num: "04"
+chapterTitle: "Stdlib y herramientas"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Desde Go 1.11, los módulos son la forma oficial de gestionar dependencias. Un `go.mod` por proyecto, versionado por semver y checksum verificado en `go.sum`."
+pro: false
+---
+
+<Section id="que-es-un-modulo" title="¿Qué es un módulo?">
+
+Un **módulo** es una colección de paquetes Go versionados como una unidad. Se identifica por una ruta (típicamente la URL del repositorio) y se declara en un archivo `go.mod` en la raíz del proyecto.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Inicializar un módulo nuevo
+// go mod init github.com/fherrera/mi-proyecto
+
+// Esto crea un go.mod con:
+// module github.com/fherrera/mi-proyecto
+//
+// go 1.23
+`
+    }
+  ]}
+  output={`go: creating new go.mod: module github.com/fherrera/mi-proyecto`}
+/>
+
+La ruta del módulo (`github.com/fherrera/mi-proyecto`) es importante:
+
+- Debe ser **única** y, si planeas publicarlo, tiene que coincidir con la URL real del repo.
+- Es el prefijo de los imports internos. Si tienes un paquete en `internal/db/`, lo importas como `github.com/fherrera/mi-proyecto/internal/db`.
+
+</Section>
+
+<Section id="anatomia-go-mod" title="Anatomía de `go.mod`">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "go.mod",
+      code: `module github.com/fherrera/mi-proyecto
+
+go 1.23
+
+require (
+    github.com/google/uuid v1.6.0
+    github.com/joho/godotenv v1.5.1
+)
+
+require (
+    golang.org/x/sys v0.20.0 // indirect
+)
+`
+    }
+  ]}
+/>
+
+Las directivas principales:
+
+- `module` — la ruta del módulo.
+- `go` — la versión mínima de Go requerida.
+- `require` — las dependencias directas y sus versiones.
+- `// indirect` — marca dependencias que no importas directamente pero que necesita una dep tuya.
+
+</Section>
+
+<Section id="agregar-deps" title="Añadir y actualizar dependencias">
+
+`go get` descarga y registra dependencias. Soporta sintaxis flexible para elegir versión.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Última versión estable
+// go get github.com/google/uuid
+
+// Versión específica
+// go get github.com/google/uuid@v1.6.0
+
+// Última versión del branch master
+// go get github.com/google/uuid@master
+
+// Commit específico (Go resuelve a una pseudo-versión)
+// go get github.com/google/uuid@a1b2c3d
+
+// Actualizar a la última versión menor/patch
+// go get -u github.com/google/uuid
+
+// Actualizar todas las dependencias
+// go get -u ./...
+
+// Quitar una dependencia (úsala y luego corre tidy)
+// go get github.com/google/uuid@none
+`
+    }
+  ]}
+/>
+
+<Callout variant="tip" title="`go mod tidy` es tu amigo">
+Tras editar imports en tu código, corre `go mod tidy`. Añade lo que falta, elimina lo que no se usa y mantiene `go.mod`/`go.sum` consistentes. Es prácticamente obligatorio antes de commitear.
+</Callout>
+
+</Section>
+
+<Section id="semver" title="Semver en Go">
+
+Go exige semver estricto: `vMAJOR.MINOR.PATCH` (con la `v` minúscula al inicio).
+
+| Componente | Cuándo sube | Compatibilidad |
+|---|---|---|
+| MAJOR (`v2.0.0`) | Cambios incompatibles | Rompe usuarios existentes |
+| MINOR (`v1.6.0`) | Funcionalidad nueva | Retrocompatible |
+| PATCH (`v1.6.3`) | Bug fixes | Retrocompatible |
+
+**La regla v2+:** desde la versión major 2 en adelante, el path del módulo cambia. Una librería en `v2.x.x` se importa como `github.com/foo/bar/v2`. Esto permite que `v1` y `v2` convivan en el mismo binario.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "v1_vs_v2.go",
+      code: `package main
+
+import (
+    barV1 "github.com/foo/bar"
+    barV2 "github.com/foo/bar/v2"
+)
+
+func main() {
+    _ = barV1.Hello()
+    _ = barV2.Hello()
+}
+`
+    }
+  ]}
+/>
+
+</Section>
+
+<Section id="go-sum-y-vendor" title="`go.sum`, proxy y vendor">
+
+**`go.sum`** registra los **checksums** criptográficos de cada versión descargada. Se genera automáticamente y debe **commitearse** al repo: garantiza que cualquier desarrollador descargue exactamente los mismos bytes.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "go.sum (extracto)",
+      code: `// github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+L4cM=
+// github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+`
+    }
+  ]}
+/>
+
+**Proxy:** `go` descarga módulos a través de `proxy.golang.org` por defecto. Eso acelera las descargas y proporciona inmutabilidad. Puedes desactivarlo con `GOPROXY=direct` o usar uno propio (Athens, Artifactory).
+
+**Vendor:** copiar todas las dependencias dentro de `vendor/` en el repo.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// Crear el directorio vendor con todas las dependencias
+// go mod vendor
+
+// A partir de ahora, los builds usan vendor/ en vez de descargar
+// go build  →  detecta vendor/ automáticamente
+
+// Forzar el uso (o no uso) de vendor
+// go build -mod=vendor
+// go build -mod=mod
+`
+    }
+  ]}
+/>
+
+<Callout variant="info" title="¿Cuándo usar vendor?">
+Para builds reproducibles sin acceso a internet (CI aislado, auditorías de seguridad, despliegues offline). En equipos pequeños con CI conectado, el caché de `proxy.golang.org` + `go.sum` ya cubre la mayoría de necesidades sin inflar el repo.
+</Callout>
+
+</Section>
+
+<Section id="flujo-tipico" title="Flujo típico de trabajo">
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Terminal",
+      code: `// 1. Inicializar el proyecto
+// mkdir mi-app && cd mi-app
+// go mod init github.com/fherrera/mi-app
+
+// 2. Escribir código que importa algo
+// echo 'package main
+// import (
+//   "fmt"
+//   "github.com/google/uuid"
+// )
+// func main() { fmt.Println(uuid.New()) }
+// ' > main.go
+
+// 3. Descargar y resolver dependencias
+// go mod tidy
+
+// 4. Compilar y ejecutar
+// go run .
+
+// 5. Construir el binario
+// go build -o mi-app
+`
+    }
+  ]}
+  output={`a1b2c3d4-e5f6-7890-abcd-ef1234567890`}
+/>
+
+Con esto tienes el ciclo completo: inicializar, añadir dependencias, mantener `go.mod`/`go.sum` limpios y compilar binarios reproducibles.
+
+</Section>

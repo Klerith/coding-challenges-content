@@ -1,0 +1,203 @@
+---
+title: "Interfaces pequeñas: por qué Go favorece interfaces de un método"
+short: "Interfaces pequeñas"
+chapter: "06"
+num: "04"
+chapterTitle: "Interfaces"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Rob Pike resumió el idiom así: \"The bigger the interface, the weaker the abstraction\". Las interfaces más útiles de Go tienen un solo método. Stringer, error, io.Reader, io.Writer — todas son mínimas a propósito."
+pro: false
+---
+
+<Section id="bigger-the-interface" title='"The bigger the interface, the weaker the abstraction"'>
+
+Cuanto más métodos tiene una interfaz, menos tipos pueden satisfacerla y menos reutilizable se vuelve. Las interfaces más potentes son las que exigen lo mínimo: un solo método. Eso permite que casi cualquier tipo las satisfaga y que el consumidor no dependa de detalles que no necesita.
+
+<Callout variant="info" title="Convención de nombres">
+Las interfaces de un método en Go se nombran con el nombre del método + `er`: `Reader`, `Writer`, `Closer`, `Stringer`, `Formatter`. Si tu interfaz no encaja con este patrón, probablemente tiene demasiados métodos.
+</Callout>
+
+</Section>
+
+<Section id="stringer" title="`fmt.Stringer`: cómo se imprimen tus tipos">
+
+`fmt.Stringer` es la interfaz que `fmt` usa para imprimir cualquier valor con `%s` o `Println`. Un solo método: `String() string`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Definición real en fmt:
+// type Stringer interface { String() string }
+
+type Color struct {
+	R, G, B uint8
+}
+
+// Al tener String(), Color satisface fmt.Stringer
+func (c Color) String() string {
+	return fmt.Sprintf("rgb(%d, %d, %d)", c.R, c.G, c.B)
+}
+
+func main() {
+	c := Color{R: 255, G: 128, B: 0}
+	fmt.Println(c)         // rgb(255, 128, 0)
+	fmt.Printf("%s\\n", c) // rgb(255, 128, 0)
+}`
+    }
+  ]}
+  output={"rgb(255, 128, 0)\nrgb(255, 128, 0)"}
+/>
+
+</Section>
+
+<Section id="error" title="`error`: la interfaz más pequeña de Go">
+
+El tipo `error` es una interfaz built-in con un único método. Cualquier valor con `Error() string` es un error válido — por eso puedes crear errores tipados sin importar nada.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Definición real built-in:
+// type error interface { Error() string }
+
+type NotFoundError struct {
+	Resource string
+	ID       int
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("%s con id %d no encontrado", e.Resource, e.ID)
+}
+
+func findUser(id int) error {
+	return &NotFoundError{Resource: "user", ID: id}
+}
+
+func main() {
+	if err := findUser(42); err != nil {
+		fmt.Println(err) // usa Error() automáticamente
+	}
+}`
+    }
+  ]}
+  output={"user con id 42 no encontrado"}
+/>
+
+</Section>
+
+<Section id="reader-writer-recordatorio" title="`io.Reader` e `io.Writer`: un método, mil usos">
+
+Las dos interfaces más reutilizadas de la stdlib son de un solo método. Archivos, sockets, buffers, strings, gzip, encriptación — todos las implementan porque solo tienen que aportar `Read` o `Write`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"io"
+	"strings"
+)
+
+// Una función que solo necesita leer no debería pedir más
+func firstLine(r io.Reader) (string, error) {
+	buf := make([]byte, 256)
+	n, err := r.Read(buf)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	s := string(buf[:n])
+	if idx := strings.IndexByte(s, '\\n'); idx >= 0 {
+		return s[:idx], nil
+	}
+	return s, nil
+}
+
+func main() {
+	line, _ := firstLine(strings.NewReader("primera\\nsegunda\\n"))
+	fmt.Println(line)
+}`
+    }
+  ]}
+  output={"primera"}
+/>
+
+<Callout variant="tip" title="Acepta interfaces, retorna tipos concretos">
+Otro idiom de Go: las funciones aceptan **interfaces** (lo mínimo que necesitan) y retornan **tipos concretos** (lo más útil para el caller). `firstLine(io.Reader) (string, error)` sigue exactamente ese patrón.
+</Callout>
+
+</Section>
+
+<Section id="evitar-interfaces-grandes" title="Cómo dividir una interfaz grande">
+
+Si te encuentras escribiendo una interfaz con cinco métodos, pregúntate si todos los consumidores necesitan los cinco. Casi nunca es así. Divide en interfaces pequeñas y compón cuando haga falta.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+// MAL: una interfaz monolítica obliga a implementar todo
+type FileSystem interface {
+	Read(path string) ([]byte, error)
+	Write(path string, data []byte) error
+	Delete(path string) error
+	List(path string) ([]string, error)
+	Stat(path string) (int64, error)
+}
+
+// BIEN: interfaces pequeñas, componibles
+type FileReader interface {
+	Read(path string) ([]byte, error)
+}
+
+type FileWriter interface {
+	Write(path string, data []byte) error
+}
+
+type FileLister interface {
+	List(path string) ([]string, error)
+}
+
+// Las funciones declaran solo lo que necesitan
+func cat(fr FileReader, path string) ([]byte, error) {
+	return fr.Read(path)
+}
+
+func ls(fl FileLister, path string) ([]string, error) {
+	return fl.List(path)
+}
+
+func main() {}`
+    }
+  ]}
+  output={""}
+/>
+
+<Callout variant="info" title="Regla práctica">
+Si dudas, empieza con una interfaz de un método. Solo agranda cuando varios consumidores la necesiten igual de grande. En Go la interfaz crece desde el uso, no desde el diseño anticipado.
+</Callout>
+
+</Section>

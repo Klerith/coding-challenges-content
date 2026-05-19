@@ -1,0 +1,248 @@
+---
+title: "Métodos y receivers (valor vs puntero)"
+short: "Métodos y receivers"
+chapter: "05"
+num: "04"
+chapterTitle: "Composición de datos"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Un método en Go es una función con un receiver: el tipo al que pertenece. La decisión entre receiver por valor o por puntero cambia si las mutaciones persisten y si se copia memoria. Aquí va la guía práctica."
+pro: false
+---
+
+<Section id="metodo-basico" title="Definir un método con receiver">
+
+Un método se declara como una función normal, pero con un parámetro extra entre `func` y el nombre: el **receiver**. Ese receiver determina el tipo al que pertenece el método.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "math"
+)
+
+type Point struct {
+    X, Y float64
+}
+
+// Método con receiver por valor — recibe una COPIA de Point
+func (p Point) Distance() float64 {
+    return math.Sqrt(p.X*p.X + p.Y*p.Y)
+}
+
+// Otro método sobre Point
+func (p Point) Quadrant() int {
+    switch {
+    case p.X >= 0 && p.Y >= 0:
+        return 1
+    case p.X < 0 && p.Y >= 0:
+        return 2
+    case p.X < 0 && p.Y < 0:
+        return 3
+    default:
+        return 4
+    }
+}
+
+func main() {
+    p := Point{3, 4}
+    fmt.Println(p.Distance()) // 5
+    fmt.Println(p.Quadrant()) // 1
+
+    q := Point{-1, -2}
+    fmt.Println(q.Quadrant()) // 3
+}`
+    }
+  ]}
+  output={"5\n3"}
+/>
+
+<Callout variant="info" title="No hay clases, solo tipos con métodos">
+En Go, cualquier tipo definido en tu paquete puede tener métodos — no solo structs. También puedes asociar métodos a alias de tipos básicos, como `type Celsius float64`.
+</Callout>
+
+</Section>
+
+<Section id="receiver-por-valor-vs-puntero" title="Receiver por valor vs por puntero">
+
+- **Por valor** (`func (p Point) ...`): el método recibe una copia. Las mutaciones no se ven fuera.
+- **Por puntero** (`func (p *Point) ...`): el método recibe la dirección. Puede mutar el original.
+
+Usa puntero cuando quieras **mutar** el receiver o cuando el struct sea **grande** (evita copias).
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Counter struct {
+    Value int
+}
+
+// Receiver por VALOR: recibe copia — las mutaciones NO persisten
+func (c Counter) IncByValue() {
+    c.Value++
+}
+
+// Receiver por PUNTERO: recibe la dirección — las mutaciones SÍ persisten
+func (c *Counter) IncByPointer() {
+    c.Value++
+}
+
+// Move muta el Point original — necesita puntero
+type Point struct{ X, Y int }
+
+func (p *Point) Move(dx, dy int) {
+    p.X += dx
+    p.Y += dy
+}
+
+func main() {
+    c := Counter{Value: 0}
+    c.IncByValue()
+    c.IncByValue()
+    fmt.Println(c.Value) // 0  — la copia se descartó
+
+    c.IncByPointer()
+    c.IncByPointer()
+    fmt.Println(c.Value) // 2  — mutación real
+
+    // Auto-address: aunque p no es puntero, Go inserta & automáticamente
+    p := Point{1, 1}
+    p.Move(10, 20) // equivalente a (&p).Move(10, 20)
+    fmt.Println(p) // {11 21}
+}`
+    }
+  ]}
+  output={"0\n2\n{11 21}"}
+/>
+
+</Section>
+
+<Section id="consistencia-en-receivers" title="Consistencia: no mezcles receivers">
+
+Para un mismo tipo, **no mezcles** receivers por valor y por puntero. Si algún método necesita puntero, ponlos todos por puntero. La razón es predictibilidad y compatibilidad con interfaces.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+type Account struct {
+    Owner   string
+    Balance float64
+}
+
+// Todos los métodos por PUNTERO — coherencia
+func (a *Account) Deposit(amount float64) {
+    a.Balance += amount
+}
+
+func (a *Account) Withdraw(amount float64) bool {
+    if amount > a.Balance {
+        return false
+    }
+    a.Balance -= amount
+    return true
+}
+
+func (a *Account) Summary() string {
+    return fmt.Sprintf("%s: %.2f€", a.Owner, a.Balance)
+}
+
+func main() {
+    acc := &Account{Owner: "Ana", Balance: 100}
+    acc.Deposit(50)
+    fmt.Println(acc.Summary()) // Ana: 150.00€
+
+    ok := acc.Withdraw(200)
+    fmt.Println(ok)            // false — saldo insuficiente
+    fmt.Println(acc.Summary()) // Ana: 150.00€
+
+    acc.Withdraw(75)
+    fmt.Println(acc.Summary()) // Ana: 75.00€
+}`
+    }
+  ]}
+  output={"Ana: 150.00€\nfalse\nAna: 150.00€\nAna: 75.00€"}
+/>
+
+<Callout variant="tip" title="Reglas prácticas para elegir receiver">
+- ¿El método muta el receiver? → puntero.
+- ¿El struct es grande (varios campos, slices, maps)? → puntero.
+- ¿El tipo es pequeño e inmutable (`Point`, `time.Time`)? → valor está bien.
+- En la duda, **puntero**. Y siempre consistente para un mismo tipo.
+</Callout>
+
+</Section>
+
+<Section id="metodos-en-tipos-propios" title="Métodos en tipos derivados (no solo structs)">
+
+Puedes definir métodos en cualquier tipo declarado en tu paquete. Es muy común envolver tipos primitivos para añadir semántica.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Tipo derivado de float64 con semántica de "grados Celsius"
+type Celsius float64
+
+func (c Celsius) ToFahrenheit() float64 {
+    return float64(c)*9/5 + 32
+}
+
+func (c Celsius) IsFreezing() bool {
+    return c <= 0
+}
+
+// Tipo derivado sobre slice
+type IntList []int
+
+func (l IntList) Sum() int {
+    total := 0
+    for _, n := range l {
+        total += n
+    }
+    return total
+}
+
+func main() {
+    t := Celsius(25)
+    fmt.Println(t.ToFahrenheit()) // 77
+    fmt.Println(t.IsFreezing())   // false
+
+    nums := IntList{1, 2, 3, 4}
+    fmt.Println(nums.Sum()) // 10
+}`
+    }
+  ]}
+  output={"77\nfalse\n10"}
+/>
+
+<Callout variant="warn" title="Sin herencia, sin override">
+Go no tiene `extends` ni `super`. La forma de reutilizar comportamiento es **embebido** (los métodos del tipo embebido se promueven) e **interfaces** (polimorfismo sin jerarquías).
+</Callout>
+
+</Section>

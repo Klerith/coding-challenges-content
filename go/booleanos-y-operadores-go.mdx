@@ -1,0 +1,192 @@
+---
+title: "Booleanos y operadores lógicos"
+short: "Booleanos y operadores"
+chapter: "02"
+num: "04"
+chapterTitle: "Sintaxis y tipos básicos"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go tiene un tipo `bool` puro con dos valores: `true` y `false`. A diferencia de C, no es un alias de entero — y a diferencia de Python o JavaScript, no existe el concepto de valor *truthy* o *falsy*."
+pro: false
+---
+
+<Section id="tipo-bool" title="El tipo bool">
+
+`bool` es un tipo dedicado en Go. Solo acepta `true` o `false`, y no se puede convertir desde ni hacia números. Su zero value es `false`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    var active bool = true
+    var ready bool             // false (zero value)
+    found := false             // tipo inferido como bool
+
+    fmt.Println(active, ready, found)
+
+    // ❌ Go NO admite truthy/falsy
+    // if 1 { ... }        // error: non-bool 1 used as if condition
+    // if "" { ... }       // error: non-bool "" used as if condition
+    // if nil { ... }      // error: cannot convert nil to bool
+
+    // ❌ No se puede convertir int ↔ bool
+    // var x int = bool(true) // error
+    // var b bool = int(1)    // error
+}
+`
+    }
+  ]}
+  output={"true false false"}
+/>
+
+<Callout variant="info" title="Sin truthy ni falsy">
+En Go, una condición `if` **debe** ser un `bool`. No puedes escribir `if x` cuando `x` es un número o un string. Esta restricción evita una clase entera de bugs sutiles que sí ocurren en Python, Ruby o JavaScript.
+</Callout>
+
+</Section>
+
+<Section id="operadores-logicos" title="Operadores lógicos: &&, || y !">
+
+Go usa los operadores clásicos de C/Java/JavaScript: `&&` (AND), `||` (OR) y `!` (NOT). No existen las palabras `and`, `or`, `not` como en Python.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    age := 25
+    hasLicense := true
+    hasCar := false
+
+    // AND lógico — ambos true
+    canDrive := age >= 18 && hasLicense
+    fmt.Println("canDrive:", canDrive)         // true
+
+    // OR lógico — al menos uno true
+    canMove := hasCar || hasLicense
+    fmt.Println("canMove:", canMove)           // true
+
+    // NOT lógico — invierte
+    minor := !(age >= 18)
+    fmt.Println("minor:", minor)               // false
+
+    // Combinaciones — usar paréntesis para claridad
+    eligible := (age >= 18 && age <= 65) && hasLicense
+    fmt.Println("eligible:", eligible)         // true
+}
+`
+    }
+  ]}
+  output={"canDrive: true\ncanMove: true\nminor: false\neligible: true"}
+/>
+
+</Section>
+
+<Section id="short-circuit" title="Evaluación cortocircuitada">
+
+Igual que en la mayoría de lenguajes, `&&` y `||` cortocircuitan: si el primer operando determina el resultado, el segundo **no se evalúa**. Esto importa cuando el segundo tiene efectos secundarios o puede lanzar panic.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func expensiveCheck() bool {
+    fmt.Println("expensiveCheck ejecutado")
+    return true
+}
+
+func main() {
+    // && — si el primero es false, no evalúa el segundo
+    if false && expensiveCheck() {
+        fmt.Println("nunca")
+    }
+    // (no se imprime "expensiveCheck ejecutado")
+
+    // || — si el primero es true, no evalúa el segundo
+    if true || expensiveCheck() {
+        fmt.Println("entrado sin evaluar el segundo")
+    }
+
+    // Útil para chequeos seguros de nil
+    var nums []int
+    if len(nums) > 0 && nums[0] == 1 {
+        // si len es 0, no llega a evaluar nums[0]
+        fmt.Println("primer elemento es 1")
+    }
+}
+`
+    }
+  ]}
+  output={"entrado sin evaluar el segundo"}
+/>
+
+<Callout variant="tip" title="Guard idiomático con &&">
+El patrón `if x != nil && x.Field == "value"` es muy común en Go: el `&&` cortocircuita y evita un nil pointer dereference si `x` es nil. Útil sobre todo con punteros, slices y maps.
+</Callout>
+
+</Section>
+
+<Section id="comparaciones" title="Operadores de comparación">
+
+Los operadores de comparación devuelven siempre un `bool`. Go es estricto: ambos operandos deben ser del **mismo tipo** o ser comparables entre sí.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    a, b := 10, 20
+
+    fmt.Println(a == b)  // false — igualdad
+    fmt.Println(a != b)  // true  — distinto
+    fmt.Println(a < b)   // true
+    fmt.Println(a <= 10) // true
+    fmt.Println(a > b)   // false
+    fmt.Println(a >= 10) // true
+
+    // Strings se comparan lexicográficamente byte a byte
+    fmt.Println("apple" < "banana")  // true
+    fmt.Println("Go" == "Go")        // true
+
+    // ❌ Tipos distintos NO se pueden comparar directamente
+    var i int = 10
+    var f float64 = 10.0
+    // fmt.Println(i == f) // error: invalid operation (mismatched types)
+    fmt.Println(float64(i) == f) // true (con conversión explícita)
+}
+`
+    }
+  ]}
+  output={"false\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue"}
+/>
+
+<Callout variant="warn" title="Slices, maps y funciones NO son comparables">
+Solo puedes comparar slices, maps y funciones contra `nil`. Para comparar dos slices elemento a elemento usa `slices.Equal` (Go 1.21+) o `reflect.DeepEqual`.
+</Callout>
+
+</Section>

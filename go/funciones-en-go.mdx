@@ -1,0 +1,272 @@
+---
+title: "Funciones: parámetros, retorno múltiple y named returns"
+short: "Funciones"
+chapter: "04"
+num: "01"
+chapterTitle: "Funciones"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Las funciones son la unidad fundamental de reutilización en Go. La palabra clave func las define, los tipos son explícitos y — a diferencia de muchos lenguajes — puedes devolver múltiples valores de forma nativa."
+pro: false
+---
+
+<Section id="sintaxis-func" title="Sintaxis de func">
+
+Una función se define con `func`, seguido del nombre, los parámetros con su tipo y el tipo de retorno. El cuerpo va entre llaves:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Función sin parámetros ni retorno
+func greet() {
+    fmt.Println("¡Hola, mundo!")
+}
+
+// Parámetros con tipo, retorno único
+func add(a int, b int) int {
+    return a + b
+}
+
+// Cuando varios parámetros comparten tipo, puedes abreviar
+func multiply(a, b int) int {
+    return a * b
+}
+
+// Función que recibe un string y retorna string
+func greetUser(name string) string {
+    return "Hola, " + name
+}
+
+func main() {
+    greet()
+    fmt.Println(add(3, 4))           // 7
+    fmt.Println(multiply(3, 4))      // 12
+    fmt.Println(greetUser("Ada"))    // Hola, Ada
+}
+`
+    }
+  ]}
+  output={"¡Hola, mundo!\n7\n12\nHola, Ada"}
+/>
+
+<Callout variant="info" title="Sin paréntesis = sin retorno">
+Si la función no devuelve nada, omite el tipo de retorno completamente. No existe `void` en Go — simplemente no se declara nada después de los paréntesis.
+</Callout>
+
+</Section>
+
+<Section id="retorno-multiple" title="Retorno múltiple">
+
+Una de las características más distintivas de Go: una función puede devolver varios valores a la vez. El patrón canónico es `(resultado, error)`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+// Retorna dos valores: el resultado y un posible error
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, errors.New("división por cero")
+    }
+    return a / b, nil
+}
+
+// Múltiples valores del mismo tipo
+func minMax(nums []int) (int, int) {
+    min, max := nums[0], nums[0]
+    for _, n := range nums {
+        if n < min {
+            min = n
+        }
+        if n > max {
+            max = n
+        }
+    }
+    return min, max
+}
+
+func main() {
+    result, err := divide(10, 2)
+    if err != nil {
+        fmt.Println("Error:", err)
+    } else {
+        fmt.Println("Resultado:", result)   // Resultado: 5
+    }
+
+    _, err = divide(10, 0)
+    fmt.Println(err)                         // división por cero
+
+    lo, hi := minMax([]int{3, 1, 4, 1, 5, 9, 2, 6})
+    fmt.Println("Min:", lo, "Max:", hi)      // Min: 1 Max: 9
+}
+`
+    }
+  ]}
+  output={"Resultado: 5\ndivisión por cero\nMin: 1 Max: 9"}
+/>
+
+</Section>
+
+<Section id="named-returns" title="Named returns y return desnudo">
+
+Go permite nombrar los valores de retorno en la firma. Esos nombres se comportan como variables inicializadas a su valor cero, y `return` sin argumentos las devuelve automáticamente:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+// 'result' y 'err' son variables locales preinicializadas
+func safeDivide(a, b float64) (result float64, err error) {
+    if b == 0 {
+        err = errors.New("división por cero")
+        return // ← naked return: retorna result=0 y err="..."
+    }
+    result = a / b
+    return // ← retorna result calculado y err=nil
+}
+
+// Documentan la intención sin necesidad de comentarios extra
+func splitName(full string) (first, last string) {
+    for i := 0; i < len(full); i++ {
+        if full[i] == ' ' {
+            first = full[:i]
+            last = full[i+1:]
+            return
+        }
+    }
+    first = full
+    return
+}
+
+func main() {
+    r, err := safeDivide(20, 4)
+    fmt.Println(r, err)                  // 5 <nil>
+
+    _, err = safeDivide(1, 0)
+    fmt.Println(err)                     // división por cero
+
+    f, l := splitName("Ada Lovelace")
+    fmt.Println(f, "|", l)               // Ada | Lovelace
+}
+`
+    }
+  ]}
+  output={"5 <nil>\ndivisión por cero\nAda | Lovelace"}
+/>
+
+<Callout variant="warn" title="Usa naked returns con moderación">
+Los `return` desnudos pueden mejorar la legibilidad en funciones cortas, pero en funciones largas dificultan seguir qué se devuelve. La convención en la comunidad Go es: nombres en la firma cuando documentan; `return` explícito en funciones de más de 10-15 líneas.
+</Callout>
+
+</Section>
+
+<Section id="blank-identifier" title="El blank identifier _">
+
+Cuando una función retorna varios valores pero solo necesitas algunos, usa `_` para descartar los demás. Es obligatorio: Go no permite variables declaradas pero sin usar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    // strconv.Atoi retorna (int, error). Si confías en la entrada:
+    n, _ := strconv.Atoi("42")
+    fmt.Println(n)              // 42
+
+    // Solo nos interesa el error
+    _, err := strconv.Atoi("no soy un número")
+    if err != nil {
+        fmt.Println("Error de parseo:", err)
+    }
+
+    // En range, descartar el índice o el valor
+    nums := []int{10, 20, 30}
+    for _, v := range nums {     // ignoramos el índice
+        fmt.Println(v)
+    }
+}
+`
+    }
+  ]}
+  output={"42\nError de parseo: strconv.Atoi: parsing \"no soy un número\": invalid syntax\n10\n20\n30"}
+/>
+
+</Section>
+
+<Section id="funciones-first-class" title="Funciones como valores">
+
+En Go las funciones son ciudadanos de primera clase: puedes asignarlas a variables, pasarlas como argumentos y devolverlas desde otras funciones. El tipo de una función incluye sus parámetros y retorno:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func double(n int) int { return n * 2 }
+func triple(n int) int { return n * 3 }
+
+// Recibe una función como parámetro
+func apply(op func(int) int, value int) int {
+    return op(value)
+}
+
+func main() {
+    // Asignar función a variable
+    var op func(int) int = double
+    fmt.Println(op(5))               // 10
+
+    op = triple
+    fmt.Println(op(5))               // 15
+
+    // Pasar función como argumento
+    fmt.Println(apply(double, 7))    // 14
+    fmt.Println(apply(triple, 7))    // 21
+
+    // Función anónima en línea
+    fmt.Println(apply(func(n int) int { return n + 100 }, 5)) // 105
+}
+`
+    }
+  ]}
+  output={"10\n15\n14\n21\n105"}
+/>
+
+</Section>

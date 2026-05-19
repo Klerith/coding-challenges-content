@@ -1,0 +1,224 @@
+---
+title: "Tu primer programa: \"Hola, mundo\" en Go"
+short: "Tu primer programa"
+chapter: "01"
+num: "03"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 5
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Todo programador empieza haciendo que la máquina diga «Hola, mundo». En Go, ese primer programa ya te enseña la estructura básica del lenguaje: package, import y func main."
+pro: false
+---
+
+<Section id="hola-mundo" title="Hola, mundo">
+
+Este es el programa más pequeño que puedes escribir en Go que haga algo útil:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("¡Hola, mundo!")
+}
+`
+    }
+  ]}
+  output={"¡Hola, mundo!"}
+/>
+
+Tres elementos obligatorios que verás en todo programa Go:
+
+- **`package main`** — declara que este archivo pertenece al paquete `main`. Solo los paquetes llamados `main` producen un ejecutable.
+- **`import "fmt"`** — importa la librería estándar para formatear texto e imprimir en consola.
+- **`func main()`** — la función que se ejecuta cuando arranca el programa. Sin `main`, no hay punto de entrada.
+
+</Section>
+
+<Section id="fmt-println" title="fmt.Println y fmt.Printf">
+
+`fmt` es el paquete estrella de Go para entrada y salida formateada. Las dos funciones que más usarás son `Println` y `Printf`:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Println: imprime y añade salto de línea
+    fmt.Println("Hola,", "mundo!")
+    fmt.Println("Uno", "dos", "tres")
+
+    // Print: imprime sin salto de línea
+    fmt.Print("Sin salto")
+    fmt.Print(" de línea\\n")
+
+    // Printf: imprime con formato (verbos como %s, %d, %v)
+    name := "Ana"
+    age := 28
+    fmt.Printf("%s tiene %d años\\n", name, age)
+
+    // %v es el "valor por defecto" — funciona con cualquier tipo
+    fmt.Printf("Datos: %v, %v\\n", name, age)
+}
+`
+    }
+  ]}
+  output={"Hola, mundo!\nUno dos tres\nSin salto de línea\nAna tiene 28 años\nDatos: Ana, 28"}
+/>
+
+<Callout variant="tip" title="Los verbos de formato más usados">
+`%s` cadena, `%d` entero, `%f` flotante, `%t` booleano, `%v` valor por defecto, `%+v` valor con nombres de campo (útil para structs), `%T` el tipo del valor. `\\n` añade salto de línea manual.
+</Callout>
+
+</Section>
+
+<Section id="comentarios" title="Comentarios">
+
+Los comentarios documentan el código sin afectar a la ejecución. Go acepta dos estilos:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Comentario de una sola línea: empieza con //
+
+/*
+   Comentario de bloque:
+   puede ocupar varias líneas
+   y suele usarse para documentación al inicio de un fichero.
+*/
+
+// greet devuelve un saludo personalizado.
+// Los comentarios que empiezan con el nombre de la función
+// son tratados como documentación por godoc.
+func greet(name string) string {
+    return "Hola, " + name // comentario al final de línea
+}
+
+func main() {
+    fmt.Println(greet("mundo"))
+}
+`
+    }
+  ]}
+  output={"Hola, mundo"}
+/>
+
+<Callout variant="info" title="Comentarios y godoc">
+Go tiene una herramienta integrada (`go doc`) que extrae documentación de los comentarios. La convención es empezar el comentario con el nombre del símbolo que documenta: `// User representa un usuario del sistema.`
+</Callout>
+
+</Section>
+
+<Section id="tipos-basicos" title="Tipos básicos">
+
+Go es de tipado estático, pero la inferencia hace que casi nunca tengas que escribir el tipo explícitamente. Estos son los tipos primitivos que necesitas conocer al empezar:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // int — entero (tamaño depende de la plataforma, 64 bits en sistemas modernos)
+    age := 25
+    population := 8_000_000_000 // los guiones bajos ayudan a leer
+
+    // float64 — número con decimales (la opción por defecto)
+    height := 1.75
+    pi := 3.14159
+
+    // string — texto inmutable, siempre con comillas dobles
+    name := "Fernando"
+
+    // bool — verdadero o falso
+    isAdult := true
+    isActive := false
+
+    // Imprimir tipo con %T
+    fmt.Printf("%T = %v\\n", age, age)
+    fmt.Printf("%T = %v\\n", population, population)
+    fmt.Printf("%T = %v\\n", height, height)
+    fmt.Printf("%T = %v\\n", pi, pi)
+    fmt.Printf("%T = %v\\n", name, name)
+    fmt.Printf("%T = %v\\n", isAdult, isAdult)
+    fmt.Printf("%T = %v\\n", isActive, isActive)
+}
+`
+    }
+  ]}
+  output={"int = 25\nint = 8000000000\nfloat64 = 1.75\nfloat64 = 3.14159\nstring = Fernando\nbool = true\nbool = false"}
+/>
+
+<Callout variant="warn" title="Comillas simples no son strings">
+En Go, `'A'` no es un string sino un *rune* (un carácter Unicode). Los strings siempre se escriben con comillas dobles: `"hola"`. Si usas comillas simples para texto, el compilador te dará error.
+</Callout>
+
+</Section>
+
+<Section id="operaciones" title="Operaciones básicas">
+
+Las operaciones aritméticas y de cadena en Go son las que esperarías:
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+    // Aritmética básica
+    fmt.Println(10 + 3) // 13
+    fmt.Println(10 - 3) // 7
+    fmt.Println(10 * 3) // 30
+    fmt.Println(10 / 3) // 3   ¡División entera entre enteros!
+    fmt.Println(10 % 3) // 1   módulo
+
+    // Para obtener decimales, al menos uno debe ser float
+    fmt.Println(10.0 / 3.0) // 3.3333333333333335
+
+    // Concatenar strings con +
+    greeting := "Hola" + ", " + "mundo" + "!"
+    fmt.Println(greeting)
+
+    // Comparaciones devuelven bool
+    fmt.Println(10 > 3)  // true
+    fmt.Println(10 == 3) // false
+}
+`
+    }
+  ]}
+  output={"13\n7\n30\n3\n1\n3.3333333333333335\nHola, mundo!\ntrue\nfalse"}
+/>
+
+<Callout variant="warn" title="No hay conversión implícita de tipos">
+Sumar `int + float64` da error de compilación. Tienes que convertir explícitamente: `float64(myInt) + myFloat`. Esto evita errores de precisión silenciosos que sí ocurren en JavaScript o Python.
+</Callout>
+
+</Section>

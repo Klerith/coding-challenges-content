@@ -1,0 +1,222 @@
+---
+title: "Por qué aprender Go: casos de uso reales"
+short: "Por qué aprender Go"
+chapter: "01"
+num: "02"
+chapterTitle: "Empezar"
+difficulty: "beginner"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Hay muchos lenguajes y poco tiempo. Estas son las razones concretas por las que Go merece un lugar en tu caja de herramientas — y en qué tipo de proyectos te dará ventaja real."
+pro: false
+---
+
+<Section id="rendimiento" title="Rendimiento sin complicarte la vida">
+
+Go compila a código máquina nativo. No hay máquina virtual entre tu programa y el procesador. El binario arranca en milisegundos y usa poca memoria.
+
+Esto importa cuando lo comparas con alternativas comunes para backends y CLIs:
+
+| Lenguaje | Tiempo de arranque | Memoria base | Compilación |
+|---|---|---|---|
+| Go | ~5 ms | ~5 MB | A binario nativo |
+| Java | ~500 ms | ~80 MB | A bytecode JVM |
+| Node.js | ~80 ms | ~30 MB | Interpretado/JIT |
+| Python | ~50 ms | ~15 MB | Interpretado |
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "time"
+)
+
+func main() {
+    start := time.Now()
+
+    sum := 0
+    for i := 0; i < 100_000_000; i++ {
+        sum += i
+    }
+
+    fmt.Println("Suma:", sum)
+    fmt.Println("Tiempo:", time.Since(start))
+}
+`
+    }
+  ]}
+  output={"Suma: 4999999950000000\nTiempo: 35ms"}
+/>
+
+<Callout variant="info" title="No es el más rápido, pero sí el más equilibrado">
+Rust o C son más rápidos en microbenchmarks. Pero Go gana en relación rendimiento / sencillez / tiempo de desarrollo. Es la opción pragmática para sistemas que necesitan ser rápidos sin volver locos al equipo.
+</Callout>
+
+</Section>
+
+<Section id="concurrencia" title="Concurrencia que no duele">
+
+La mayoría de lenguajes hacen concurrencia con hilos del sistema operativo: caros, complicados y propensos a deadlocks. Go inventó las *goroutines*: hilos ligeros gestionados por el runtime que pesan apenas 2 KB cada uno.
+
+Una aplicación Go puede lanzar **cientos de miles de goroutines** sin problema.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func worker(id int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    fmt.Printf("Worker %d procesando\\n", id)
+}
+
+func main() {
+    var wg sync.WaitGroup
+
+    // Lanzamos 5 workers concurrentes
+    for i := 1; i <= 5; i++ {
+        wg.Add(1)
+        go worker(i, &wg)
+    }
+
+    wg.Wait()
+    fmt.Println("Todos terminaron")
+}
+`
+    }
+  ]}
+/>
+
+Y los *channels* convierten la comunicación entre goroutines en algo seguro y declarativo, sin tener que gestionar mutexes manualmente para el 90% de los casos.
+
+</Section>
+
+<Section id="industria" title="Qué empresas usan Go y para qué">
+
+Go no es un lenguaje académico ni una promesa de futuro. Está en producción en empresas de primera línea desde hace más de una década.
+
+**Google** — el creador. Lo usa para indexación, sistemas de descarga y muchos servicios internos.
+
+**Cloudflare** — su proxy edge y gran parte de la red de CDN están en Go. Procesa millones de peticiones por segundo.
+
+**Uber** — migró servicios críticos de Python a Go para reducir latencia y costes de servidor.
+
+**Twitch** — el sistema de chat (que aguanta picos de millones de mensajes por minuto) está en Go.
+
+**Dropbox** — migró componentes core de Python a Go por ahorro de memoria.
+
+**Monzo** — banco digital construido con cientos de microservicios en Go.
+
+**SoundCloud, Netflix, American Express, PayPal** — todos tienen Go en producción para infraestructura crítica.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type User struct {
+    Name  string ` + "`json:\"name\"`" + `
+    Email string ` + "`json:\"email\"`" + `
+    Age   int    ` + "`json:\"age\"`" + `
+}
+
+func main() {
+    // Serializar a JSON — un patrón típico de microservicios
+    user := User{Name: "Ana", Email: "ana@example.com", Age: 28}
+    data, _ := json.Marshal(user)
+
+    fmt.Println(string(data))
+}
+`
+    }
+  ]}
+  output={`{"name":"Ana","email":"ana@example.com","age":28}`}
+/>
+
+</Section>
+
+<Section id="cuando-elegir-go" title="¿Cuándo elegir Go?">
+
+Go brilla en escenarios concretos. Estos son los casos donde es casi siempre la opción correcta:
+
+**APIs y microservicios HTTP**
+Tiempo de arranque rápido, bajo consumo de memoria por instancia y excelente soporte HTTP en la stdlib. Ideal para serverless y contenedores.
+
+**CLIs y herramientas de desarrollo**
+Compilas un binario y lo distribuyes. Sin runtime que instalar, sin dependencias. Funciona igual en macOS, Linux y Windows.
+
+**Workers y procesos de larga vida**
+Goroutines, channels y un GC eficiente hacen que Go sea perfecto para colas, schedulers y procesos batch.
+
+**Infraestructura y networking**
+Proxies, balanceadores, agentes de monitoreo. La librería `net` de la stdlib es de las más completas.
+
+<Callout variant="warn" title="Cuándo NO elegir Go">
+Go no es la mejor opción para todo. Para ciencia de datos o machine learning, Python tiene un ecosistema imbatible. Para apps móviles nativas, Swift o Kotlin son mejores. Para frontends, JavaScript / TypeScript. Y para sistemas de tiempo real estricto o sin GC, Rust o C son superiores.
+</Callout>
+
+</Section>
+
+<Section id="curva-aprendizaje" title="La curva de aprendizaje más amable que existe">
+
+Go tiene **25 palabras clave**. Java tiene más de 50, C++ más de 80. La especificación completa del lenguaje cabe en menos de 100 páginas y se lee en una tarde.
+
+Esto se nota al aprender: en una semana puedes escribir programas reales. En un mes, código de producción.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+// Todo Go que necesitas para empezar:
+// - variables con :=
+// - funciones con func
+// - if/for sin paréntesis
+// - structs y slices
+// - imports explícitos
+
+func greet(name string) string {
+    return fmt.Sprintf("Hola, %s!", name)
+}
+
+func main() {
+    message := greet("Mundo")
+    fmt.Println(message)
+}
+`
+    }
+  ]}
+  output={"Hola, Mundo!"}
+/>
+
+<Callout variant="tip" title="Aprender Go te ayuda en otros lenguajes">
+Las ideas de Go (interfaces implícitas, manejo explícito de errores, concurrencia con channels) influyen en lenguajes modernos. Aprender Go te hace mejor programador, aunque luego trabajes en otro lenguaje.
+</Callout>
+
+</Section>

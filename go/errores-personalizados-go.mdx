@@ -1,0 +1,246 @@
+---
+title: "Errores personalizados y sentinel errors"
+short: "Errores personalizados"
+chapter: "07"
+num: "03"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 6
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Cuando los errores necesitan datos (un ID, un campo, un código HTTP), defines un struct que implemente la interfaz `error`. Cuando solo necesitas distinguir “qué falló”, basta con un sentinel."
+pro: false
+---
+
+<Section id="sentinel-errors" title="Sentinel errors: valores únicos comparables">
+
+Un *sentinel error* es una variable de paquete declarada con `errors.New`. Se compara con `errors.Is`. Sirve cuando lo único que el caller necesita saber es **qué clase de error ocurrió**, sin datos extra.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+// Sentinel errors: variables exportadas del paquete.
+// Convención: prefijo "Err" y mensaje en minúsculas, sin punto final.
+var (
+    ErrNotFound     = errors.New("not found")
+    ErrUnauthorized = errors.New("unauthorized")
+    ErrConflict     = errors.New("conflict")
+)
+
+func deleteUser(id int) error {
+    switch id {
+    case 0:
+        return ErrUnauthorized
+    case 99:
+        return ErrNotFound
+    case 7:
+        return ErrConflict
+    }
+    return nil
+}
+
+func main() {
+    for _, id := range []int{0, 99, 7, 1} {
+        err := deleteUser(id)
+        switch {
+        case errors.Is(err, ErrNotFound):
+            fmt.Printf("id=%d → 404\n", id)
+        case errors.Is(err, ErrUnauthorized):
+            fmt.Printf("id=%d → 401\n", id)
+        case errors.Is(err, ErrConflict):
+            fmt.Printf("id=%d → 409\n", id)
+        case err == nil:
+            fmt.Printf("id=%d → OK\n", id)
+        }
+    }
+}`
+    }
+  ]}
+  output={"id=0 → 401\nid=99 → 404\nid=7 → 409\nid=1 → OK"}
+/>
+
+</Section>
+
+<Section id="struct-como-error" title="Struct con `Error() string`">
+
+Cuando el caller necesita datos del error (un ID, un campo, un código), un sentinel no alcanza. Defines un struct con los campos y le agregas el método `Error() string` para que satisfaga la interfaz `error`. Convención: usa pointer receiver (`*T`) — así `errors.As` distingue ese tipo concreto y evitas comparaciones por valor.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+type NotFoundError struct {
+    Resource string
+    ID       string
+}
+
+func (e *NotFoundError) Error() string {
+    return fmt.Sprintf("%s con id=%s no encontrado", e.Resource, e.ID)
+}
+
+func findProduct(id string) error {
+    return &NotFoundError{Resource: "Product", ID: id}
+}
+
+func main() {
+    err := findProduct("SKU-42")
+    fmt.Println(err)
+
+    // Extraemos el tipo concreto para usar sus campos
+    var nfe *NotFoundError
+    if errors.As(err, &nfe) {
+        fmt.Println("recurso:", nfe.Resource)
+        fmt.Println("id:", nfe.ID)
+    }
+}`
+    }
+  ]}
+  output={"Product con id=SKU-42 no encontrado\nrecurso: Product\nid: SKU-42"}
+/>
+
+</Section>
+
+<Section id="con-datos-ricos" title="Errores con datos ricos (validación)">
+
+Un struct de error puede llevar tantos campos como necesites. El método `Error()` produce un mensaje legible; los campos quedan disponibles para el caller que quiera tomar decisiones programáticas.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+type ValidationError struct {
+    Field   string
+    Value   any
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("[%s=%v] %s", e.Field, e.Value, e.Message)
+}
+
+type User struct {
+    Name string
+    Age  int
+}
+
+func validate(u User) error {
+    if u.Name == "" {
+        return &ValidationError{Field: "name", Value: u.Name, Message: "no puede estar vacío"}
+    }
+    if u.Age < 0 {
+        return &ValidationError{Field: "age", Value: u.Age, Message: "no puede ser negativa"}
+    }
+    return nil
+}
+
+func main() {
+    err := validate(User{Name: "Ana", Age: -3})
+
+    var ve *ValidationError
+    if errors.As(err, &ve) {
+        fmt.Println("error:", ve)
+        fmt.Println("campo:", ve.Field)
+        fmt.Println("valor:", ve.Value)
+    }
+}`
+    }
+  ]}
+  output={"error: [age=-3] no puede ser negativa\ncampo: age\nvalor: -3"}
+/>
+
+</Section>
+
+<Section id="implementar-is" title="Implementar `Is` para tu tipo">
+
+Por defecto `errors.Is` compara por igualdad. Si quieres que dos errores de tu tipo se consideren equivalentes según un criterio propio (mismo código, misma categoría), implementa `Is(target error) bool` en tu struct.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+type HTTPError struct {
+    Code    int
+    Message string
+}
+
+func (e *HTTPError) Error() string {
+    return fmt.Sprintf("HTTP %d: %s", e.Code, e.Message)
+}
+
+// Dos HTTPError son "iguales" para errors.Is si comparten Code.
+func (e *HTTPError) Is(target error) bool {
+    other, ok := target.(*HTTPError)
+    if !ok {
+        return false
+    }
+    return e.Code == other.Code
+}
+
+var ErrNotFoundHTTP = &HTTPError{Code: 404, Message: "not found"}
+
+func fetch(url string) error {
+    return &HTTPError{Code: 404, Message: "GET " + url + " devolvió 404"}
+}
+
+func main() {
+    err := fetch("/users/99")
+    fmt.Println(err)
+
+    // Coincide aunque el mensaje sea distinto: solo importa el Code
+    if errors.Is(err, ErrNotFoundHTTP) {
+        fmt.Println("→ tratamos como 404 genérico")
+    }
+}`
+    }
+  ]}
+  output={"HTTP 404: GET /users/99 devolvió 404\n→ tratamos como 404 genérico"}
+/>
+
+</Section>
+
+<Section id="cuando-cual" title="Cuándo usar cada uno">
+
+<Callout variant="tip" title="Regla práctica">
+- **Sentinel** (`var ErrFoo = errors.New(...)`) — cuando el caller solo necesita saber **qué** falló. Comparas con `errors.Is`.
+- **Struct con `Error()`** — cuando el caller necesita **datos** del error (campo, ID, código, URL). Extraes con `errors.As`.
+- **Struct + método `Is`** — cuando quieres agrupar varios errores de tu tipo bajo una identidad común (ej. mismo código HTTP, misma categoría).
+</Callout>
+
+Una librería bien diseñada normalmente expone **ambos**: sentinels para los casos comunes y structs para los que llevan información. El consumidor elige cómo manejarlos.
+
+</Section>

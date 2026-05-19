@@ -1,0 +1,291 @@
+---
+title: "`defer`, `panic` y `recover`"
+short: "defer, panic, recover"
+chapter: "03"
+num: "03"
+chapterTitle: "Control de flujo"
+difficulty: "beginner"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Go no tiene `try/catch`. En su lugar tienes `defer` para limpieza garantizada y, en casos excepcionales, `panic` + `recover` para abortar y reanudar."
+pro: false
+---
+
+<Section id="defer-basico" title="defer: ejecuta al salir de la función">
+
+`defer fn()` pospone la ejecución de `fn()` hasta que la función que lo contiene retorne — sea por `return`, por llegar al final o por un `panic`. Es la forma idiomática de garantizar limpieza.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("inicio")
+	defer fmt.Println("limpieza al final")
+	fmt.Println("trabajo")
+	// "limpieza al final" se imprime justo antes de salir de main
+}
+`
+    }
+  ]}
+  output={"inicio\ntrabajo\nlimpieza al final"}
+/>
+
+</Section>
+
+<Section id="defer-lifo" title="Orden LIFO: varios defer">
+
+Los `defer` se apilan: el último en declararse es el primero en ejecutarse. Piensa en una pila de funciones que se desapilan al retornar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	defer fmt.Println("1: primero declarado")
+	defer fmt.Println("2: segundo declarado")
+	defer fmt.Println("3: tercero declarado")
+
+	fmt.Println("cuerpo de main")
+}
+`
+    }
+  ]}
+  output={"cuerpo de main\n3: tercero declarado\n2: segundo declarado\n1: primero declarado"}
+/>
+
+</Section>
+
+<Section id="defer-casos-uso" title="Casos de uso típicos: archivos y locks">
+
+`defer` brilla emparejado con cualquier recurso que debe liberarse: archivos, mutexes, conexiones, transacciones. Pones la apertura y el `defer` de cierre juntos — imposible olvidar cerrar.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"fmt"
+	"os"
+	"sync"
+)
+
+var mu sync.Mutex
+var counter int
+
+func increment() {
+	mu.Lock()
+	defer mu.Unlock() // se libera SÍ o SÍ al retornar
+	counter++
+}
+
+func readConfig(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close() // siempre cierra, incluso si más abajo hay un return
+
+	// ...leer el archivo, parsear, etc...
+	_ = f
+	return nil
+}
+
+func main() {
+	increment()
+	increment()
+	increment()
+	fmt.Println("counter:", counter)
+
+	if err := readConfig("nope.conf"); err != nil {
+		fmt.Println("config error:", err)
+	}
+}
+`
+    }
+  ]}
+  output={"counter: 3\nconfig error: open nope.conf: no such file or directory"}
+/>
+
+</Section>
+
+<Section id="defer-args" title="Los argumentos se evalúan al declarar el defer">
+
+Cuando escribes `defer fn(x)`, el valor de `x` se **captura en ese instante** — no en el momento de ejecución. Esto es una fuente común de confusión.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func main() {
+	x := 10
+
+	// El valor 10 se captura ya
+	defer fmt.Println("defer con valor capturado:", x)
+
+	x = 99
+
+	// Si quieres ver el valor final, usa una closure
+	defer func() {
+		fmt.Println("defer con closure:", x)
+	}()
+
+	x = 777
+	fmt.Println("antes de retornar, x =", x)
+}
+`
+    }
+  ]}
+  output={"antes de retornar, x = 777\ndefer con closure: 777\ndefer con valor capturado: 10"}
+/>
+
+<Callout variant="tip" title="Argumentos vs closures">
+Si pasas el valor como argumento al `defer`, se congela. Si lo lees dentro de una closure (`defer func() { ... }()`), verás el valor que tenga al ejecutarse.
+</Callout>
+
+</Section>
+
+<Section id="panic" title="panic: aborto controlado">
+
+`panic` detiene el flujo normal: la función actual deja de ejecutar su cuerpo, pero **sus `defer` sí corren**, y el panic se propaga hacia arriba por la pila de llamadas hasta hacer crashear el programa.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func divide(a, b int) int {
+	if b == 0 {
+		panic("división por cero")
+	}
+	return a / b
+}
+
+func main() {
+	defer fmt.Println("este defer sí se ejecuta")
+
+	fmt.Println(divide(10, 2)) // 5
+	fmt.Println(divide(10, 0)) // panic aquí
+	fmt.Println("nunca llega")
+}
+`
+    }
+  ]}
+  output={"5\neste defer sí se ejecuta\npanic: división por cero"}
+/>
+
+</Section>
+
+<Section id="recover" title="recover: capturar un panic dentro de un defer">
+
+`recover()` solo funciona **dentro de un `defer`**. Si hay un panic activo, lo captura, detiene su propagación y devuelve el valor con el que se llamó al `panic`. Si no hay panic, devuelve `nil`.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import "fmt"
+
+func safeDivide(a, b int) (result int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			// convertimos el panic en un error
+			err = fmt.Errorf("recovered: %v", r)
+		}
+	}()
+	return a / b, nil
+}
+
+func main() {
+	r, err := safeDivide(10, 2)
+	fmt.Println(r, err) // 5 <nil>
+
+	r, err = safeDivide(10, 0)
+	fmt.Println(r, err) // 0 recovered: runtime error: integer divide by zero
+
+	fmt.Println("el programa sigue vivo")
+}
+`
+    }
+  ]}
+  output={"5 <nil>\n0 recovered: runtime error: integer divide by zero\nel programa sigue vivo"}
+/>
+
+</Section>
+
+<Section id="cuando-no-panic" title="Cuándo NO usar panic">
+
+El idiomático de Go es **devolver `error`**, no entrar en pánico. `panic` se reserva para situaciones realmente excepcionales: estado interno corrupto, invariantes rotas, errores de programación.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+// ❌ Mal: panic por una entrada inválida normal
+func parseAgeBad(s string) int {
+	if s == "" {
+		panic("empty string") // no es excepcional, es input del usuario
+	}
+	return 0
+}
+
+// ✅ Bien: devuelve un error
+func parseAgeGood(s string) (int, error) {
+	if s == "" {
+		return 0, errors.New("empty string")
+	}
+	return 0, nil
+}
+
+func main() {
+	if _, err := parseAgeGood(""); err != nil {
+		fmt.Println("error esperado:", err)
+	}
+}
+`
+    }
+  ]}
+  output={"error esperado: empty string"}
+/>
+
+<Callout variant="warn" title="Regla práctica">
+Si el llamador podría manejar el problema, devuelve `error`. Reserva `panic` para fallos que indican un bug en tu código (slice fuera de rango, invariante violada, mapa nil al escribir). Y usa `recover` solo en fronteras claras — un servidor HTTP, un worker en goroutine — no como `try/catch` general.
+</Callout>
+
+</Section>

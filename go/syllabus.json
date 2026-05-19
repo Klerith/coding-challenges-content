@@ -1,0 +1,519 @@
+{
+  "language": "go",
+  "label": "Go",
+  "hubDescription": "Compilado, simple, rapidísimo. El lenguaje que eligen Docker, Kubernetes y media internet para servicios concurrentes.",
+  "baseHref": "/learn/go",
+  "chapters": [
+    {
+      "num": "01",
+      "title": "Empezar",
+      "lessons": [
+        {
+          "slug": "introduccion-a-go",
+          "title": "Introducción a Go: el lenguaje que prioriza la simplicidad",
+          "short": "Introducción a Go",
+          "chapter": "01",
+          "num": "01",
+          "difficulty": "beginner",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "por-que-aprender-go",
+          "title": "Por qué aprender Go: casos de uso reales",
+          "short": "Por qué aprender Go",
+          "chapter": "01",
+          "num": "02",
+          "difficulty": "beginner",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "tu-primer-programa-go",
+          "title": "Tu primer programa: \"Hola, mundo\" en Go",
+          "short": "Tu primer programa",
+          "chapter": "01",
+          "num": "03",
+          "difficulty": "beginner",
+          "readingMinutes": 5,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "configurar-el-entorno-go",
+          "title": "Configurar el entorno: toolchain, gopls y editor",
+          "short": "Configurar el entorno",
+          "chapter": "01",
+          "num": "04",
+          "difficulty": "beginner",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "estructura-de-un-proyecto-go",
+          "title": "Estructura de un proyecto: módulos y packages",
+          "short": "Estructura de un proyecto",
+          "chapter": "01",
+          "num": "05",
+          "difficulty": "beginner",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "02",
+      "title": "Sintaxis y tipos básicos",
+      "lessons": [
+        {
+          "slug": "variables-y-constantes-go",
+          "title": "Variables y constantes: `var`, `:=`, `const` y `iota`",
+          "short": "Variables y constantes",
+          "chapter": "02",
+          "num": "01",
+          "difficulty": "beginner",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "tipos-numericos-go",
+          "title": "Tipos numéricos: enteros, flotantes y conversión explícita",
+          "short": "Tipos numéricos",
+          "chapter": "02",
+          "num": "02",
+          "difficulty": "beginner",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "strings-y-runes",
+          "title": "Strings y runes: UTF-8, bytes y caracteres",
+          "short": "Strings y runes",
+          "chapter": "02",
+          "num": "03",
+          "difficulty": "beginner",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "booleanos-y-operadores-go",
+          "title": "Booleanos y operadores lógicos",
+          "short": "Booleanos y operadores",
+          "chapter": "02",
+          "num": "04",
+          "difficulty": "beginner",
+          "readingMinutes": 5,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "comentarios-y-formato-go",
+          "title": "Comentarios, `gofmt` y `godoc`",
+          "short": "Comentarios y formato",
+          "chapter": "02",
+          "num": "05",
+          "difficulty": "beginner",
+          "readingMinutes": 5,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "03",
+      "title": "Control de flujo",
+      "lessons": [
+        {
+          "slug": "if-y-switch-go",
+          "title": "`if`, `switch` y `type switch`",
+          "short": "if y switch",
+          "chapter": "03",
+          "num": "01",
+          "difficulty": "beginner",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "bucles-for-go",
+          "title": "Bucles `for`: clásico, `while`-style y `range`",
+          "short": "Bucles for",
+          "chapter": "03",
+          "num": "02",
+          "difficulty": "beginner",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "defer-panic-recover",
+          "title": "`defer`, `panic` y `recover`",
+          "short": "defer, panic, recover",
+          "chapter": "03",
+          "num": "03",
+          "difficulty": "beginner",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "04",
+      "title": "Funciones",
+      "lessons": [
+        {
+          "slug": "funciones-en-go",
+          "title": "Funciones: parámetros, retorno múltiple y named returns",
+          "short": "Funciones",
+          "chapter": "04",
+          "num": "01",
+          "difficulty": "beginner",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "valores-vs-punteros-go",
+          "title": "Valores vs punteros: `&`, `*` y cuándo usar cada uno",
+          "short": "Valores vs punteros",
+          "chapter": "04",
+          "num": "02",
+          "difficulty": "intermediate",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "closures-y-funciones-anonimas-go",
+          "title": "Closures y funciones anónimas",
+          "short": "Closures",
+          "chapter": "04",
+          "num": "03",
+          "difficulty": "intermediate",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "funciones-variadicas",
+          "title": "Funciones variádicas y `...args`",
+          "short": "Funciones variádicas",
+          "chapter": "04",
+          "num": "04",
+          "difficulty": "intermediate",
+          "readingMinutes": 5,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "05",
+      "title": "Composición de datos",
+      "lessons": [
+        {
+          "slug": "arrays-y-slices",
+          "title": "Arrays y slices: capacidad, longitud y `append`",
+          "short": "Arrays y slices",
+          "chapter": "05",
+          "num": "01",
+          "difficulty": "intermediate",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "maps-en-go",
+          "title": "Maps: declaración, idiom `ok` y eliminación",
+          "short": "Maps",
+          "chapter": "05",
+          "num": "02",
+          "difficulty": "intermediate",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "structs-en-go",
+          "title": "Structs: campos, literales y embebido",
+          "short": "Structs",
+          "chapter": "05",
+          "num": "03",
+          "difficulty": "intermediate",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "metodos-y-receivers",
+          "title": "Métodos y receivers (valor vs puntero)",
+          "short": "Métodos y receivers",
+          "chapter": "05",
+          "num": "04",
+          "difficulty": "intermediate",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "copias-y-referencias-go",
+          "title": "Copias vs referencias: cómo viaja la memoria en Go",
+          "short": "Copias vs referencias",
+          "chapter": "05",
+          "num": "05",
+          "difficulty": "intermediate",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "06",
+      "title": "Interfaces",
+      "lessons": [
+        {
+          "slug": "interfaces-en-go",
+          "title": "Interfaces: implementación implícita y polimorfismo",
+          "short": "Interfaces",
+          "chapter": "06",
+          "num": "01",
+          "difficulty": "intermediate",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "any-y-type-assertions",
+          "title": "`any`, type assertions y `type switch`",
+          "short": "any y type assertions",
+          "chapter": "06",
+          "num": "02",
+          "difficulty": "intermediate",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "composicion-de-interfaces",
+          "title": "Composición de interfaces: `io.Reader`, `io.Writer`",
+          "short": "Composición de interfaces",
+          "chapter": "06",
+          "num": "03",
+          "difficulty": "intermediate",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "interfaces-pequenas-go",
+          "title": "Interfaces pequeñas: por qué Go favorece interfaces de un método",
+          "short": "Interfaces pequeñas",
+          "chapter": "06",
+          "num": "04",
+          "difficulty": "intermediate",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "07",
+      "title": "Manejo de errores",
+      "lessons": [
+        {
+          "slug": "error-como-valor",
+          "title": "Errores como valor: el patrón `return err`",
+          "short": "Error como valor",
+          "chapter": "07",
+          "num": "01",
+          "difficulty": "intermediate",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "wrapping-de-errores",
+          "title": "`errors.Is`, `errors.As` y wrapping con `%w`",
+          "short": "Wrapping de errores",
+          "chapter": "07",
+          "num": "02",
+          "difficulty": "intermediate",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "errores-personalizados-go",
+          "title": "Errores personalizados y sentinel errors",
+          "short": "Errores personalizados",
+          "chapter": "07",
+          "num": "03",
+          "difficulty": "intermediate",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "08",
+      "title": "Concurrencia",
+      "lessons": [
+        {
+          "slug": "goroutines",
+          "title": "Goroutines: el modelo M:N de Go",
+          "short": "Goroutines",
+          "chapter": "08",
+          "num": "01",
+          "difficulty": "advanced",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "channels",
+          "title": "Channels: unbuffered, buffered y dirección",
+          "short": "Channels",
+          "chapter": "08",
+          "num": "02",
+          "difficulty": "advanced",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "select-en-go",
+          "title": "`select`: multiplexar canales, `default` y timeouts",
+          "short": "select",
+          "chapter": "08",
+          "num": "03",
+          "difficulty": "advanced",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "sync-mutex-waitgroup",
+          "title": "`sync.Mutex`, `sync.WaitGroup` y `sync.Once`",
+          "short": "sync.Mutex y WaitGroup",
+          "chapter": "08",
+          "num": "04",
+          "difficulty": "advanced",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "context-en-go",
+          "title": "`context`: cancelación, deadlines y propagación",
+          "short": "context",
+          "chapter": "08",
+          "num": "05",
+          "difficulty": "advanced",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "09",
+      "title": "Stdlib y herramientas",
+      "lessons": [
+        {
+          "slug": "testing-en-go",
+          "title": "Testing: `go test`, table-driven tests y `t.Run`",
+          "short": "Testing",
+          "chapter": "09",
+          "num": "01",
+          "difficulty": "intermediate",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "json-encoding-go",
+          "title": "`encoding/json`: struct tags, `Marshal` y `Unmarshal`",
+          "short": "encoding/json",
+          "chapter": "09",
+          "num": "02",
+          "difficulty": "intermediate",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "http-server-basico-go",
+          "title": "Servidor HTTP básico con `net/http`",
+          "short": "Servidor HTTP",
+          "chapter": "09",
+          "num": "03",
+          "difficulty": "intermediate",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "modulos-y-dependencias-go",
+          "title": "Módulos: `go.mod`, `go get` y semver",
+          "short": "Módulos y dependencias",
+          "chapter": "09",
+          "num": "04",
+          "difficulty": "intermediate",
+          "readingMinutes": 6,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    },
+    {
+      "num": "10",
+      "title": "Patrones idiomáticos",
+      "lessons": [
+        {
+          "slug": "generics-en-go",
+          "title": "Generics: type parameters y constraints",
+          "short": "Generics",
+          "chapter": "10",
+          "num": "01",
+          "difficulty": "advanced",
+          "readingMinutes": 8,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "patrones-concurrentes-go",
+          "title": "Patrones concurrentes: worker pools, fan-in/fan-out",
+          "short": "Patrones concurrentes",
+          "chapter": "10",
+          "num": "02",
+          "difficulty": "advanced",
+          "readingMinutes": 9,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        },
+        {
+          "slug": "buenas-practicas-go",
+          "title": "Buenas prácticas: zero values, accept interfaces, return structs",
+          "short": "Buenas prácticas",
+          "chapter": "10",
+          "num": "03",
+          "difficulty": "advanced",
+          "readingMinutes": 7,
+          "exercises": 0,
+          "appliesTo": ["go"]
+        }
+      ]
+    }
+  ]
+}

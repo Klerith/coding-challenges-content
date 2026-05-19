@@ -1,0 +1,268 @@
+---
+title: "`errors.Is`, `errors.As` y wrapping con `%w`"
+short: "Wrapping de errores"
+chapter: "07"
+num: "02"
+chapterTitle: "Manejo de errores"
+difficulty: "intermediate"
+readingMinutes: 7
+appliesTo: ["go"]
+exercises: 0
+updatedAt: "2026-05-19"
+author: "Fernando Herrera"
+lede: "Wrappear un error es añadirle contexto sin perder el original. Go 1.13 introdujo `%w`, `errors.Is` y `errors.As` para construir cadenas de errores que después puedes inspeccionar."
+pro: false
+---
+
+<Section id="wrap-con-w" title="Wrappear con `%w`">
+
+`fmt.Errorf` con el verbo `%w` crea un error nuevo que envuelve al original. El error externo añade contexto; el interno queda accesible para inspección posterior. Es diferente de `%s` y `%v`, que solo concatenan el texto y pierden el error original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+var ErrNotFound = errors.New("not found")
+
+func fetchUser(id int) error {
+    // El error original
+    return ErrNotFound
+}
+
+func loadProfile(id int) error {
+    if err := fetchUser(id); err != nil {
+        // %w preserva el error original dentro del wrap
+        return fmt.Errorf("loadProfile(%d): %w", id, err)
+    }
+    return nil
+}
+
+func main() {
+    err := loadProfile(42)
+    fmt.Println(err)
+    // loadProfile(42): not found
+
+    // Diferencia con %v: el texto se ve igual,
+    // pero el error original NO se puede recuperar.
+    badWrap := fmt.Errorf("loadProfile(%d): %v", 42, ErrNotFound)
+    fmt.Println(badWrap)
+    fmt.Println("recuperable con %w?:", errors.Is(err, ErrNotFound))
+    fmt.Println("recuperable con %v?:", errors.Is(badWrap, ErrNotFound))
+}`
+    }
+  ]}
+  output={"loadProfile(42): not found\nloadProfile(42): not found\nrecuperable con %w?: true\nrecuperable con %v?: false"}
+/>
+
+</Section>
+
+<Section id="errors-is" title="`errors.Is` — comparar contra un valor sentinel">
+
+`errors.Is(err, target)` recorre la cadena de wraps y devuelve `true` si en algún nivel encuentra `target`. Sirve para comparar contra **valores de error** (sentinel errors), no contra tipos.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+var (
+    ErrNotFound     = errors.New("not found")
+    ErrUnauthorized = errors.New("unauthorized")
+)
+
+func readConfig(name string) error {
+    return fmt.Errorf("readConfig(%q): %w", name, ErrNotFound)
+}
+
+func startServer() error {
+    if err := readConfig("server.yaml"); err != nil {
+        return fmt.Errorf("startServer: %w", err)
+    }
+    return nil
+}
+
+func main() {
+    err := startServer()
+    fmt.Println("err:", err)
+    // err: startServer: readConfig("server.yaml"): not found
+
+    // errors.Is busca a través de toda la cadena de wraps
+    if errors.Is(err, ErrNotFound) {
+        fmt.Println("→ es un error de no encontrado, lo manejamos")
+    }
+    if errors.Is(err, ErrUnauthorized) {
+        fmt.Println("→ NO se imprime, no es de autorización")
+    }
+}`
+    }
+  ]}
+  output={"err: startServer: readConfig(\"server.yaml\"): not found\n→ es un error de no encontrado, lo manejamos"}
+/>
+
+</Section>
+
+<Section id="errors-as" title="`errors.As` — extraer un tipo concreto">
+
+`errors.As(err, &target)` recorre la cadena buscando un error que **coincida con el tipo** del puntero que le pases. Si lo encuentra, asigna ese error a `target` y retorna `true`. Sirve para acceder a campos del error original.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+// Error con datos estructurados
+type ValidationError struct {
+    Field   string
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("validation: %s: %s", e.Field, e.Message)
+}
+
+func validateAge(age int) error {
+    if age < 0 {
+        return &ValidationError{Field: "age", Message: "no puede ser negativa"}
+    }
+    return nil
+}
+
+func saveUser(age int) error {
+    if err := validateAge(age); err != nil {
+        return fmt.Errorf("saveUser: %w", err)
+    }
+    return nil
+}
+
+func main() {
+    err := saveUser(-1)
+    fmt.Println("err:", err)
+
+    var ve *ValidationError
+    if errors.As(err, &ve) {
+        // Accedemos a los campos del error original
+        fmt.Println("campo inválido:", ve.Field)
+        fmt.Println("mensaje:", ve.Message)
+    }
+}`
+    }
+  ]}
+  output={"err: saveUser: validation: age: no puede ser negativa\ncampo inválido: age\nmensaje: no puede ser negativa"}
+/>
+
+<Callout variant="tip" title="`Is` vs `As`">
+`errors.Is` compara contra un **valor** (un sentinel concreto). `errors.As` extrae un **tipo** y te lo asigna para que accedas a sus campos. Usa `Is` para “¿es este error?” y `As` para “dame el error como `*MyError`”.
+</Callout>
+
+</Section>
+
+<Section id="cadena-wraps" title="Cadenas de wrapping">
+
+Cada capa de la aplicación puede añadir contexto. El error final cuenta una pequeña historia desde el origen hasta el punto donde se reportó. `errors.Is` y `errors.As` siguen funcionando a cualquier profundidad.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+var ErrDBClosed = errors.New("db: connection closed")
+
+func queryDB() error {
+    return ErrDBClosed
+}
+
+func getUser(id int) error {
+    if err := queryDB(); err != nil {
+        return fmt.Errorf("getUser(%d): %w", id, err)
+    }
+    return nil
+}
+
+func handleRequest() error {
+    if err := getUser(7); err != nil {
+        return fmt.Errorf("handleRequest: %w", err)
+    }
+    return nil
+}
+
+func main() {
+    err := handleRequest()
+    fmt.Println(err)
+    // handleRequest: getUser(7): db: connection closed
+
+    // errors.Is sigue toda la cadena
+    fmt.Println("es ErrDBClosed?", errors.Is(err, ErrDBClosed))
+}`
+    }
+  ]}
+  output={"handleRequest: getUser(7): db: connection closed\nes ErrDBClosed? true"}
+/>
+
+</Section>
+
+<Section id="errors-unwrap" title="`errors.Unwrap` — pelar una capa">
+
+`errors.Unwrap(err)` retorna el error envuelto inmediatamente debajo. Normalmente no lo necesitas en código de aplicación (usa `Is`/`As`); es útil cuando implementas un tipo de error custom o quieres recorrer la cadena manualmente.
+
+<CodeBlock
+  tabs={[
+    {
+      lang: "go",
+      label: "Go",
+      code: `package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+var ErrBase = errors.New("base error")
+
+func main() {
+    wrapped := fmt.Errorf("nivel 1: %w", ErrBase)
+    deeper := fmt.Errorf("nivel 2: %w", wrapped)
+
+    fmt.Println("error completo:", deeper)
+    fmt.Println("unwrap 1:", errors.Unwrap(deeper))
+    fmt.Println("unwrap 2:", errors.Unwrap(errors.Unwrap(deeper)))
+    fmt.Println("unwrap 3:", errors.Unwrap(errors.Unwrap(errors.Unwrap(deeper))))
+}`
+    }
+  ]}
+  output={"error completo: nivel 2: nivel 1: base error\nunwrap 1: nivel 1: base error\nunwrap 2: base error\nunwrap 3: <nil>"}
+/>
+
+<Callout variant="warn" title="No wrappees todo">
+Wrappear es para añadir contexto útil. Si el caller ya tiene toda la información (por ejemplo dentro de un loop con un índice obvio), un wrap más solo añade ruido. Y si el error es interno de un paquete, a veces conviene **no** propagarlo (devuelve un error tuyo y oculta el detalle).
+</Callout>
+
+</Section>
